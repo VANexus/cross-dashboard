@@ -2,50 +2,72 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #0f172a;
+  --foreground: #09090b;
   --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card-foreground: #09090b;
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #6366f1;
+  --popover-foreground: #09090b;
+  --primary: #d97706;
   --primary-foreground: #ffffff;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  --accent: #f1f5f9;
-  --accent-foreground: #0f172a;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --accent: #f4f4f5;
+  --accent-foreground: #18181b;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #6366f1;
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #d97706;
   --radius: 0.5rem;
   --sidebar-width: 260px;
   --sidebar-width-collapsed: 72px;
-  --topbar-height: 64px;
+  --topbar-height: 56px;
+
+  --success: #10b981;
+  --warning: #f97316;
+  --info: #6366f1;
+
+  --wf-product: #3b82f6;
+  --wf-imaging: #a855f7;
+  --wf-ad: #f97316;
+  --wf-listing: #10b981;
+  --wf-inventory: #06b6d4;
+  --wf-competitor: #ec4899;
 }
 
 .dark {
-  --background: #0a0f1e;
-  --foreground: #e2e8f0;
+  --background: #09090b;
+  --foreground: #e4e4e7;
   --card: #111827;
-  --card-foreground: #e2e8f0;
+  --card-foreground: #e4e4e7;
   --popover: #111827;
-  --popover-foreground: #e2e8f0;
-  --primary: #818cf8;
-  --primary-foreground: #0f172a;
+  --popover-foreground: #e4e4e7;
+  --primary: #f59e0b;
+  --primary-foreground: #09090b;
   --secondary: #1e293b;
-  --secondary-foreground: #e2e8f0;
+  --secondary-foreground: #e4e4e7;
   --muted: #1e293b;
   --muted-foreground: #94a3b8;
   --accent: #1e293b;
-  --accent-foreground: #e2e8f0;
+  --accent-foreground: #e4e4e7;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
   --border: #1e293b;
   --input: #1e293b;
-  --ring: #818cf8;
+  --ring: #f59e0b;
+
+  --success: #10b981;
+  --warning: #f97316;
+  --info: #6366f1;
+
+  --wf-product: #60a5fa;
+  --wf-imaging: #c084fc;
+  --wf-ad: #fb923c;
+  --wf-listing: #34d399;
+  --wf-inventory: #22d3ee;
+  --wf-competitor: #f472b6;
 }
 
 @theme inline {
@@ -68,6 +90,15 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-wf-product: var(--wf-product);
+  --color-wf-imaging: var(--wf-imaging);
+  --color-wf-ad: var(--wf-ad);
+  --color-wf-listing: var(--wf-listing);
+  --color-wf-inventory: var(--wf-inventory);
+  --color-wf-competitor: var(--wf-competitor);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --radius-sm: calc(var(--radius) - 4px);
@@ -96,6 +127,100 @@ body {
     background: oklch(0.15 0.01 280 / 0.6);
     border-color: oklch(1 0 0 / 0.06);
   }
+
+  .glass-panel {
+    background: color-mix(in srgb, var(--card) 80%, transparent);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--border);
+  }
+
+  .data-grid {
+    display: grid;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .data-grid > * {
+    background: var(--card);
+    padding: 0.75rem 1rem;
+  }
+
+  .metric-value {
+    font-family: var(--font-mono), monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+
+  .status-glow-success {
+    box-shadow: 0 0 8px oklch(0.7 0.17 162 / 0.4);
+  }
+
+  .status-glow-warning {
+    box-shadow: 0 0 8px oklch(0.7 0.17 70 / 0.4);
+  }
+
+  .status-glow-danger {
+    box-shadow: 0 0 8px oklch(0.63 0.25 27 / 0.4);
+  }
+
+  .workflow-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--card);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .workflow-card:hover {
+    border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 20%, transparent);
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 4px currentColor;
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 12px currentColor;
+    opacity: 0.8;
+  }
+}
+
+@keyframes flow-line {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 
 @keyframes pulse-slow {
@@ -106,6 +231,23 @@ body {
 @keyframes slide-in {
   from { transform: translateX(-100%); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.3s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
 }
 
 .animate-pulse-slow {
@@ -132,4 +274,39 @@ body {
 .scrollbar-thin::-webkit-scrollbar-thumb {
   background-color: var(--border);
   border-radius: 3px;
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--muted);
+  border-radius: var(--radius);
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.04), transparent);
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes flow-progress {
+  0% { background-position: -100% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-flow-progress {
+  background-image: linear-gradient(90deg, transparent 0%, rgba(245, 158, 11, 0.3) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: flow-progress 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+  0%, 100% { border-color: var(--border); }
+  50% { border-color: var(--amber); }
+}
+
+.animate-pulse-border {
+  animation: pulse-border 2s ease-in-out infinite;
 }

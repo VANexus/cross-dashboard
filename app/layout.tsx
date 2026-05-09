@@ -4,6 +4,7 @@ import "./globals.css";
 import { Sidebar } from "@/components/layout/sidebar";
 import { TopBar } from "@/components/layout/topbar";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "@/components/providers/theme-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,37 +29,23 @@ export default function RootLayout({
   return (
     <html
       lang="zh-CN"
-      className={`${geistSans.variable} ${geistMono.variable} dark`}
+      className={`${geistSans.variable} ${geistMono.variable}`}
       suppressHydrationWarning
     >
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                var theme = localStorage.getItem('theme') || 'dark';
-                if (theme === 'dark') {
-                  document.documentElement.classList.add('dark');
-                } else {
-                  document.documentElement.classList.remove('dark');
-                }
-              })();
-            `,
-          }}
-        />
-      </head>
       <body className="min-h-screen bg-background font-sans antialiased">
-        <TooltipProvider>
-          <div className="flex min-h-screen">
-            <Sidebar />
-            <div className="flex flex-1 flex-col ml-[260px] transition-all duration-300">
-              <TopBar />
-              <main className="flex-1 p-6">
-                {children}
-              </main>
+        <ThemeProvider>
+          <TooltipProvider>
+            <div className="flex min-h-screen">
+              <Sidebar />
+              <div className="flex flex-1 flex-col ml-[260px] transition-all duration-300">
+                <TopBar />
+                <main className="flex-1 p-6">
+                  {children}
+                </main>
+              </div>
             </div>
-          </div>
-        </TooltipProvider>
+          </TooltipProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
