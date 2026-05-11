@@ -1,9 +1,6 @@
-import { Suspense } from "react";
-import { notFound } from "next/navigation";
-import { TaskDetailClient } from "./task-detail-client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
-function TaskDetailSkeleton() {
+export default function Loading() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -42,31 +39,5 @@ function TaskDetailSkeleton() {
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-async function TaskDetailData({ id }: { id: string }) {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-  const [taskRes, agentsRes] = await Promise.all([
-    fetch(`${baseUrl}/api/tasks/${id}`, { cache: "no-store" }),
-    fetch(`${baseUrl}/api/agents`, { cache: "no-store" }),
-  ]);
-  const taskJson = await taskRes.json();
-  const agentsJson = await agentsRes.json();
-  if (!taskJson.data) notFound();
-  const agent = (agentsJson.data || []).find((a: { id: string }) => a.id === taskJson.data.assignedAgents?.[0]);
-  return <TaskDetailClient task={taskJson.data} agent={agent} />;
-}
-
-export default async function TaskDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  return (
-    <Suspense fallback={<TaskDetailSkeleton />}>
-      <TaskDetailData id={id} />
-    </Suspense>
   );
 }

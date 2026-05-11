@@ -1,8 +1,6 @@
-import { Suspense } from "react";
-import { EvolutionClient } from "./evolution-client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
-function EvolutionSkeleton() {
+export default function Loading() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -42,21 +40,5 @@ function EvolutionSkeleton() {
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-async function EvolutionData() {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-  const res = await fetch(`${baseUrl}/api/evolution`, { cache: "no-store" });
-  const json = await res.json();
-  if (!json.success) throw new Error(json.error?.message || "Failed to fetch evolution records");
-  return <EvolutionClient initialData={json.data || []} />;
-}
-
-export default function EvolutionPage() {
-  return (
-    <Suspense fallback={<EvolutionSkeleton />}>
-      <EvolutionData />
-    </Suspense>
   );
 }

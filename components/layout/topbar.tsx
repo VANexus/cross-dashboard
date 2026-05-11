@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CommandPalette } from "@/components/ui/command-palette";
-import { NotificationPanel } from "@/components/ui/notification-panel";
 import {
   Search,
   Bell,
@@ -26,6 +25,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+const CommandPalette = dynamic(
+  () => import("@/components/ui/command-palette").then((m) => ({ default: m.CommandPalette })),
+  { ssr: false }
+);
+
+const NotificationPanel = dynamic(
+  () => import("@/components/ui/notification-panel").then((m) => ({ default: m.NotificationPanel })),
+  { ssr: false }
+);
 
 export function TopBar() {
   const { theme, setTheme } = useTheme();

@@ -1,8 +1,6 @@
-import { Suspense } from "react";
-import { RiskClient } from "./risk-client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
-function RiskSkeleton() {
+export default function Loading() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -62,22 +60,18 @@ function RiskSkeleton() {
           </CardContent>
         </Card>
       </div>
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="h-4 w-28 skeleton rounded" />
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-10 skeleton rounded-lg" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
-  );
-}
-
-async function RiskData() {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-  const res = await fetch(`${baseUrl}/api/risk/events`, { cache: "no-store" });
-  const json = await res.json();
-  if (!json.success) throw new Error(json.error?.message || "Failed to fetch risk events");
-  return <RiskClient initialEvents={json.data || []} />;
-}
-
-export default function RiskPage() {
-  return (
-    <Suspense fallback={<RiskSkeleton />}>
-      <RiskData />
-    </Suspense>
   );
 }

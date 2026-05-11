@@ -1,8 +1,6 @@
-import { Suspense } from "react";
-import { TasksClient } from "./tasks-client";
 import { Card, CardContent } from "@/components/ui/card";
 
-function TasksSkeleton() {
+export default function Loading() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -35,25 +33,5 @@ function TasksSkeleton() {
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-async function TasksData() {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-  const [tasksRes, agentsRes] = await Promise.all([
-    fetch(`${baseUrl}/api/tasks`, { cache: "no-store" }),
-    fetch(`${baseUrl}/api/agents`, { cache: "no-store" }),
-  ]);
-  const tasksJson = await tasksRes.json();
-  const agentsJson = await agentsRes.json();
-  if (!tasksJson.success) throw new Error(tasksJson.error?.message || "Failed to fetch tasks");
-  return <TasksClient initialTasks={tasksJson.data} agents={agentsJson.data || []} />;
-}
-
-export default function TasksPage() {
-  return (
-    <Suspense fallback={<TasksSkeleton />}>
-      <TasksData />
-    </Suspense>
   );
 }

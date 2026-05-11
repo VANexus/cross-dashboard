@@ -1,8 +1,6 @@
-import { Suspense } from "react";
-import { DashboardClient } from "./dashboard-client";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
-function DashboardSkeleton() {
+export default function Loading() {
   return (
     <div className="space-y-6">
       <div className="data-grid grid-cols-2 md:grid-cols-4">
@@ -13,8 +11,12 @@ function DashboardSkeleton() {
           </div>
         ))}
       </div>
+
       <div className="grid gap-6 lg:grid-cols-5">
         <Card className="lg:col-span-3">
+          <CardHeader className="pb-3">
+            <div className="h-4 w-28 skeleton rounded" />
+          </CardHeader>
           <CardContent className="p-0">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="flex items-center gap-3 px-4 py-2.5 border-b border-border/50">
@@ -27,7 +29,10 @@ function DashboardSkeleton() {
           </CardContent>
         </Card>
         <Card className="lg:col-span-2">
-          <CardContent className="space-y-3 p-4">
+          <CardHeader className="pb-3">
+            <div className="h-4 w-24 skeleton rounded" />
+          </CardHeader>
+          <CardContent className="space-y-3">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="flex items-center gap-3">
                 <div className="h-2 w-2 skeleton rounded-full" />
@@ -38,7 +43,11 @@ function DashboardSkeleton() {
           </CardContent>
         </Card>
       </div>
+
       <Card>
+        <CardHeader className="pb-3">
+          <div className="h-4 w-24 skeleton rounded" />
+        </CardHeader>
         <CardContent className="p-0">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="flex items-center gap-3 px-4 py-2.5 border-b border-border/50">
@@ -49,33 +58,20 @@ function DashboardSkeleton() {
           ))}
         </CardContent>
       </Card>
+
       <div className="grid gap-6 md:grid-cols-3">
         {Array.from({ length: 3 }).map((_, i) => (
           <Card key={i}>
-            <CardContent className="p-4">
-              <div className="h-3 w-24 skeleton rounded mb-3" />
+            <CardHeader className="pb-2">
+              <div className="h-3 w-24 skeleton rounded" />
+            </CardHeader>
+            <CardContent>
               <div className="h-7 w-20 skeleton rounded mb-2" />
-              <div className="h-4 w-28 skeleton rounded" />
+              <div className="h-3 w-28 skeleton rounded" />
             </CardContent>
           </Card>
         ))}
       </div>
     </div>
-  );
-}
-
-async function DashboardData() {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-  const res = await fetch(`${baseUrl}/api/dashboard`, { cache: "no-store" });
-  const json = await res.json();
-  if (!json.success) throw new Error(json.error?.message || "Failed to fetch dashboard data");
-  return <DashboardClient initialData={json.data} />;
-}
-
-export default function DashboardPage() {
-  return (
-    <Suspense fallback={<DashboardSkeleton />}>
-      <DashboardData />
-    </Suspense>
   );
 }

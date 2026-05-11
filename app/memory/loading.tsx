@@ -1,8 +1,6 @@
-import { Suspense } from "react";
-import { MemoryClient } from "./memory-client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
-function MemorySkeleton() {
+export default function Loading() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -52,21 +50,5 @@ function MemorySkeleton() {
         </Card>
       </div>
     </div>
-  );
-}
-
-async function MemoryData() {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-  const res = await fetch(`${baseUrl}/api/memory`, { cache: "no-store" });
-  const json = await res.json();
-  if (!json.success) throw new Error(json.error?.message || "Failed to fetch memories");
-  return <MemoryClient initialData={json.data || []} />;
-}
-
-export default function MemoryPage() {
-  return (
-    <Suspense fallback={<MemorySkeleton />}>
-      <MemoryData />
-    </Suspense>
   );
 }

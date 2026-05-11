@@ -1,15 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { PageTransition } from "@/components/ui/page-transition";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { AnimatedNumber } from "@/components/ui/animated-number";
-import { StatusDot } from "@/components/ui/status-dot";
-import { Sparkline } from "@/components/ui/sparkline";
 import { cn } from "@/lib/utils";
 import {
   Radar,
@@ -34,6 +32,9 @@ import {
   Eye,
   ExternalLink,
 } from "lucide-react";
+
+const AnimatedNumber = dynamic(() => import("@/components/ui/animated-number").then((m) => ({ default: m.AnimatedNumber })), { ssr: false });
+const Sparkline = dynamic(() => import("@/components/ui/sparkline").then((m) => ({ default: m.Sparkline })), { ssr: false });
 
 const steps = [
   { id: "collect", label: "数据采集", desc: "配置9大平台数据源" },
