@@ -1,11 +1,14 @@
-import { success, methodNotAllowed } from "@/lib/api-response";
-import { getDashboardData } from "@/lib/mock-data-store";
+import { NextResponse } from "next/server";
+import { backendGet } from "@/lib/backend-client";
 
 export async function GET() {
-  const data = getDashboardData();
-  return success(data);
+  const data = await backendGet("/api/dashboard");
+  return NextResponse.json(data);
 }
 
 export async function POST() {
-  return methodNotAllowed();
+  return NextResponse.json(
+    { success: false, error: "Method not allowed", code: 405 },
+    { status: 405 }
+  );
 }

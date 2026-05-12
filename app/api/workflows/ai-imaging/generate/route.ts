@@ -1,21 +1,15 @@
-import { NextRequest } from "next/server";
-import { success, badRequest, methodNotAllowed } from "@/lib/api-response";
-import { generateImageSchema } from "@/lib/api-validation";
-import { createTask } from "@/lib/mock-data-store";
+import { NextRequest, NextResponse } from "next/server";
+import { backendPost } from "@/lib/backend-client";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const parsed = generateImageSchema.safeParse(body);
-  if (!parsed.success) return badRequest("Invalid image params", parsed.error.flatten());
-  const task = createTask({
-    title: `AI 作图 — ${parsed.data.type}`,
-    description: `Prompt: ${parsed.data.prompt}, Model: ${parsed.data.model}`,
-    priority: "medium",
-    assignedAgents: ["marketing-001"],
-  });
-  return success(task);
+  const data = await backendPost("/api/workflows/ai-imaging/generate", body);
+  return NextResponse.json(data);
 }
 
 export async function GET() {
-  return methodNotAllowed();
+  return NextResponse.json(
+    { success: false, error: "Method not allowed", code: 405 },
+    { status: 405 }
+  );
 }

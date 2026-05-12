@@ -1,62 +1,41 @@
 import { Suspense } from "react";
-import { AgentsClient } from "./agents-client";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { AgentsIsland } from "./islands/agents-island";
 
 function AgentsSkeleton() {
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <div className="h-7 w-32 skeleton rounded" />
-          <div className="h-4 w-48 skeleton rounded" />
-        </div>
-        <div className="flex gap-2">
-          <div className="h-8 w-24 skeleton rounded-md" />
-          <div className="h-8 w-28 skeleton rounded-md" />
-        </div>
+      <div>
+        <div className="skeleton h-7 w-32" />
+        <div className="skeleton h-4 w-48 mt-2" />
       </div>
-      <div className="grid gap-4 grid-cols-2">
+      <div className="flex items-center gap-4">
+        <div className="skeleton h-9 w-48" />
+        <div className="skeleton h-8 w-16" />
+        <div className="skeleton h-8 w-16" />
+      </div>
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => (
-          <Card key={i}>
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 skeleton rounded-lg" />
-                  <div className="space-y-1">
-                    <div className="h-4 w-24 skeleton rounded" />
-                    <div className="h-3 w-16 skeleton rounded" />
-                  </div>
-                </div>
-                <div className="h-5 w-12 skeleton rounded" />
+          <div key={i} className="rounded-xl border p-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="skeleton h-10 w-10 rounded-full" />
+              <div className="space-y-1">
+                <div className="skeleton h-4 w-24" />
+                <div className="skeleton h-3 w-16" />
               </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="h-3 w-full skeleton rounded" />
-              <div className="h-3 w-3/4 skeleton rounded" />
-              <div className="flex gap-1">
-                <div className="h-4 w-16 skeleton rounded" />
-                <div className="h-4 w-20 skeleton rounded" />
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="skeleton h-3 w-full" />
+            <div className="skeleton h-3 w-3/4" />
+          </div>
         ))}
       </div>
     </div>
   );
 }
 
-async function AgentsData() {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-  const res = await fetch(`${baseUrl}/api/agents`, { cache: "no-store" });
-  const json = await res.json();
-  if (!json.success) throw new Error(json.error?.message || "Failed to fetch agents");
-  return <AgentsClient initialData={json.data} />;
-}
-
 export default function AgentsPage() {
   return (
     <Suspense fallback={<AgentsSkeleton />}>
-      <AgentsData />
+      <AgentsIsland />
     </Suspense>
   );
 }

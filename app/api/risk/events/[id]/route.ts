@@ -1,7 +1,5 @@
-import { NextRequest } from "next/server";
-import { success, notFound, badRequest, methodNotAllowed } from "@/lib/api-response";
-import { updateRiskEventSchema } from "@/lib/api-validation";
-import { updateRiskEvent } from "@/lib/mock-data-store";
+import { NextRequest, NextResponse } from "next/server";
+import { backendPatch } from "@/lib/backend-client";
 
 export async function PATCH(
   request: NextRequest,
@@ -9,13 +7,16 @@ export async function PATCH(
 ) {
   const { id } = await params;
   const body = await request.json();
-  const parsed = updateRiskEventSchema.safeParse(body);
-  if (!parsed.success) return badRequest("Invalid update data", parsed.error.flatten());
-  const event = updateRiskEvent(id, parsed.data);
-  if (!event) return notFound("Risk event");
-  return success(event);
+  const data = await backendPatch(`/api/risk/events/${id}`, body);
+  if (!data.success) {
+    return NextResponse.json(data, { status: 404 });
+  }
+  return NextResponse.json(data);
 }
 
 export async function GET() {
-  return methodNotAllowed();
+  return NextResponse.json(
+    { success: false, error: "Method not allowed", code: 405 },
+    { status: 405 }
+  );
 }

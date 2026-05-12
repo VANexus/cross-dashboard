@@ -1,59 +1,40 @@
 import { Suspense } from "react";
-import { TasksClient } from "./tasks-client";
-import { Card, CardContent } from "@/components/ui/card";
+import { TasksIsland } from "./islands/tasks-island";
 
 function TasksSkeleton() {
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <div className="h-7 w-32 skeleton rounded" />
-          <div className="h-4 w-48 skeleton rounded" />
-        </div>
+      <div>
+        <div className="skeleton h-7 w-32" />
+        <div className="skeleton h-4 w-64 mt-2" />
       </div>
       <div className="flex items-center gap-4">
-        <div className="h-9 w-64 skeleton rounded-md" />
-        <div className="flex gap-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-8 w-20 skeleton rounded-md" />
-          ))}
-        </div>
+        <div className="skeleton h-9 w-48" />
+        <div className="skeleton h-8 w-16" />
+        <div className="skeleton h-8 w-16" />
+        <div className="skeleton h-8 w-16" />
       </div>
-      <Card>
-        <CardContent className="p-0">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-4 px-4 py-3 border-b border-border/50">
-              <div className="h-2 w-2 skeleton rounded-full" />
-              <div className="flex-1 space-y-1">
-                <div className="h-4 w-48 skeleton rounded" />
-                <div className="h-3 w-64 skeleton rounded" />
-              </div>
-              <div className="h-5 w-12 skeleton rounded" />
-              <div className="h-5 w-16 skeleton rounded" />
+      <div className="rounded-xl border">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-4 px-4 py-3 border-b last:border-0">
+            <div className="skeleton h-2 w-2 rounded-full shrink-0" />
+            <div className="flex-1 space-y-1">
+              <div className="skeleton h-4 w-48" />
+              <div className="skeleton h-3 w-72" />
             </div>
-          ))}
-        </CardContent>
-      </Card>
+            <div className="skeleton h-5 w-10" />
+            <div className="skeleton h-5 w-16" />
+          </div>
+        ))}
+      </div>
     </div>
   );
-}
-
-async function TasksData() {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-  const [tasksRes, agentsRes] = await Promise.all([
-    fetch(`${baseUrl}/api/tasks`, { cache: "no-store" }),
-    fetch(`${baseUrl}/api/agents`, { cache: "no-store" }),
-  ]);
-  const tasksJson = await tasksRes.json();
-  const agentsJson = await agentsRes.json();
-  if (!tasksJson.success) throw new Error(tasksJson.error?.message || "Failed to fetch tasks");
-  return <TasksClient initialTasks={tasksJson.data} agents={agentsJson.data || []} />;
 }
 
 export default function TasksPage() {
   return (
     <Suspense fallback={<TasksSkeleton />}>
-      <TasksData />
+      <TasksIsland />
     </Suspense>
   );
 }

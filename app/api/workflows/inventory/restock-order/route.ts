@@ -1,22 +1,15 @@
-import { NextRequest } from "next/server";
-import { success, badRequest, methodNotAllowed } from "@/lib/api-response";
-import { createRestockOrderSchema } from "@/lib/api-validation";
-import { createTask } from "@/lib/mock-data-store";
+import { NextRequest, NextResponse } from "next/server";
+import { backendPost } from "@/lib/backend-client";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const parsed = createRestockOrderSchema.safeParse(body);
-  if (!parsed.success) return badRequest("Invalid restock order", parsed.error.flatten());
-  const skus = parsed.data.items.map((i) => i.sku).join(", ");
-  const task = createTask({
-    title: `补货单 — ${parsed.data.items.length} 个 SKU`,
-    description: `SKU: ${skus}`,
-    priority: "high",
-    assignedAgents: ["ops-001"],
-  });
-  return success(task);
+  const data = await backendPost("/api/workflows/inventory/restock-order", body);
+  return NextResponse.json(data);
 }
 
 export async function GET() {
-  return methodNotAllowed();
+  return NextResponse.json(
+    { success: false, error: "Method not allowed", code: 405 },
+    { status: 405 }
+  );
 }

@@ -1,21 +1,20 @@
-import { NextRequest } from "next/server";
-import { success, badRequest, methodNotAllowed } from "@/lib/api-response";
-import { updateIsolationSchema } from "@/lib/api-validation";
-import { getIsolationItems, updateIsolationItem } from "@/lib/mock-data-store";
+import { NextRequest, NextResponse } from "next/server";
+import { backendGet, backendPatch } from "@/lib/backend-client";
 
 export async function GET() {
-  const items = getIsolationItems();
-  return success({ items });
+  const data = await backendGet("/api/risk/isolation");
+  return NextResponse.json(data);
 }
 
 export async function PATCH(request: NextRequest) {
   const body = await request.json();
-  const parsed = updateIsolationSchema.safeParse(body);
-  if (!parsed.success) return badRequest("Invalid isolation data", parsed.error.flatten());
-  const items = updateIsolationItem(parsed.data.index, parsed.data.checked);
-  return success({ items });
+  const data = await backendPatch("/api/risk/isolation", body);
+  return NextResponse.json(data);
 }
 
 export async function POST() {
-  return methodNotAllowed();
+  return NextResponse.json(
+    { success: false, error: "Method not allowed", code: 405 },
+    { status: 405 }
+  );
 }

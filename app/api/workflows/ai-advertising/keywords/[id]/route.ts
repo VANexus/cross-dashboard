@@ -1,7 +1,5 @@
-import { NextRequest } from "next/server";
-import { success, notFound, badRequest, methodNotAllowed } from "@/lib/api-response";
-import { updateAdKeywordSchema } from "@/lib/api-validation";
-import { updateAdKeyword } from "@/lib/workflow-data-store";
+import { NextRequest, NextResponse } from "next/server";
+import { backendPatch } from "@/lib/backend-client";
 
 export async function PATCH(
   request: NextRequest,
@@ -9,13 +7,16 @@ export async function PATCH(
 ) {
   const { id } = await params;
   const body = await request.json();
-  const parsed = updateAdKeywordSchema.safeParse(body);
-  if (!parsed.success) return badRequest("Invalid update data", parsed.error.flatten());
-  const kw = updateAdKeyword(id, parsed.data);
-  if (!kw) return notFound("Ad keyword");
-  return success(kw);
+  const data = await backendPatch(`/api/workflows/ai-advertising/keywords/${id}`, body);
+  if (!data.success) {
+    return NextResponse.json(data, { status: 404 });
+  }
+  return NextResponse.json(data);
 }
 
 export async function GET() {
-  return methodNotAllowed();
+  return NextResponse.json(
+    { success: false, error: "Method not allowed", code: 405 },
+    { status: 405 }
+  );
 }

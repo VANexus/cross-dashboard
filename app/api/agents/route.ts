@@ -1,15 +1,15 @@
-import { NextRequest } from "next/server";
-import { success, methodNotAllowed } from "@/lib/api-response";
-import { getAgents } from "@/lib/mock-data-store";
+import { NextRequest, NextResponse } from "next/server";
+import { backendGet } from "@/lib/backend-client";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const status = searchParams.get("status") || undefined;
-  const type = searchParams.get("type") || undefined;
-  const data = getAgents({ status, type });
-  return success(data);
+  const data = await backendGet("/api/agents", Object.fromEntries(searchParams));
+  return NextResponse.json(data);
 }
 
 export async function POST() {
-  return methodNotAllowed();
+  return NextResponse.json(
+    { success: false, error: "Method not allowed", code: 405 },
+    { status: 405 }
+  );
 }

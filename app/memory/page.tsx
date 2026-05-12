@@ -1,72 +1,38 @@
 import { Suspense } from "react";
-import { MemoryClient } from "./memory-client";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { MemoryIsland } from "./islands/memory-island";
 
 function MemorySkeleton() {
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <div className="h-7 w-24 skeleton rounded" />
-          <div className="h-4 w-48 skeleton rounded" />
-        </div>
-        <div className="h-8 w-24 skeleton rounded-md" />
-      </div>
-      <div className="grid gap-6 grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i}>
-            <CardHeader className="pb-2">
-              <div className="h-3 w-16 skeleton rounded" />
-            </CardHeader>
-            <CardContent>
-              <div className="h-7 w-12 skeleton rounded" />
-            </CardContent>
-          </Card>
-        ))}
+      <div>
+        <div className="skeleton h-7 w-32" />
+        <div className="skeleton h-4 w-48 mt-2" />
       </div>
       <div className="flex items-center gap-4">
-        <div className="h-9 w-64 skeleton rounded-md" />
-        <div className="flex gap-2">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-8 w-16 skeleton rounded-md" />
-          ))}
-        </div>
+        <div className="skeleton h-9 w-48" />
+        <div className="skeleton h-8 w-16" />
+        <div className="skeleton h-8 w-16" />
       </div>
-      <div className="grid gap-6 grid-cols-[1fr_320px]">
-        <Card>
-          <CardContent className="p-0">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-16 w-full skeleton" />
-            ))}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="h-4 w-20 skeleton rounded" />
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-10 w-full skeleton rounded" />
-            ))}
-          </CardContent>
-        </Card>
+      <div className="grid gap-4">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="rounded-xl border p-4 space-y-2">
+            <div className="skeleton h-4 w-48" />
+            <div className="skeleton h-3 w-72" />
+            <div className="flex gap-2">
+              <div className="skeleton h-5 w-12" />
+              <div className="skeleton h-5 w-16" />
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
-async function MemoryData() {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-  const res = await fetch(`${baseUrl}/api/memory`, { cache: "no-store" });
-  const json = await res.json();
-  if (!json.success) throw new Error(json.error?.message || "Failed to fetch memories");
-  return <MemoryClient initialData={json.data || []} />;
-}
-
 export default function MemoryPage() {
   return (
     <Suspense fallback={<MemorySkeleton />}>
-      <MemoryData />
+      <MemoryIsland />
     </Suspense>
   );
 }

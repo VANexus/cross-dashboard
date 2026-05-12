@@ -1,14 +1,15 @@
-import { NextRequest } from "next/server";
-import { success, badRequest, methodNotAllowed } from "@/lib/api-response";
-import { publishListingSchema } from "@/lib/api-validation";
+import { NextRequest, NextResponse } from "next/server";
+import { backendPost } from "@/lib/backend-client";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const parsed = publishListingSchema.safeParse(body);
-  if (!parsed.success) return badRequest("Invalid publish data", parsed.error.flatten());
-  return success({ success: true, listingId: `listing-${Date.now()}` });
+  const data = await backendPost("/api/workflows/ai-listing/publish", body);
+  return NextResponse.json(data);
 }
 
 export async function GET() {
-  return methodNotAllowed();
+  return NextResponse.json(
+    { success: false, error: "Method not allowed", code: 405 },
+    { status: 405 }
+  );
 }

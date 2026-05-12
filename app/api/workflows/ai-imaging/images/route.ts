@@ -1,12 +1,15 @@
-import { NextRequest } from "next/server";
-import { success, methodNotAllowed } from "@/lib/api-response";
-import { getImages } from "@/lib/workflow-data-store";
+import { NextRequest, NextResponse } from "next/server";
+import { backendGet } from "@/lib/backend-client";
 
 export async function GET(request: NextRequest) {
-  const type = new URL(request.url).searchParams.get("type") || undefined;
-  return success(getImages(type));
+  const { searchParams } = new URL(request.url);
+  const data = await backendGet("/api/workflows/ai-imaging/images", Object.fromEntries(searchParams));
+  return NextResponse.json(data);
 }
 
 export async function POST() {
-  return methodNotAllowed();
+  return NextResponse.json(
+    { success: false, error: "Method not allowed", code: 405 },
+    { status: 405 }
+  );
 }

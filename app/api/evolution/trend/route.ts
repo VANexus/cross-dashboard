@@ -1,14 +1,15 @@
-import { NextRequest } from "next/server";
-import { success, methodNotAllowed } from "@/lib/api-response";
-import { getEvolutionTrend } from "@/lib/mock-data-store";
+import { NextRequest, NextResponse } from "next/server";
+import { backendGet } from "@/lib/backend-client";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const months = searchParams.get("months") ? Number(searchParams.get("months")) : 6;
-  const data = getEvolutionTrend(months);
-  return success(data);
+  const data = await backendGet("/api/evolution/trend", Object.fromEntries(searchParams));
+  return NextResponse.json(data);
 }
 
 export async function POST() {
-  return methodNotAllowed();
+  return NextResponse.json(
+    { success: false, error: "Method not allowed", code: 405 },
+    { status: 405 }
+  );
 }

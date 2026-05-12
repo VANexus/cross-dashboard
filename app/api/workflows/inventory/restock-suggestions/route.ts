@@ -1,10 +1,14 @@
-import { success, methodNotAllowed } from "@/lib/api-response";
-import { getRestockSuggestions } from "@/lib/workflow-data-store";
+import { NextResponse } from "next/server";
+import { backendGet } from "@/lib/backend-client";
 
 export async function GET() {
-  return success(getRestockSuggestions());
+  const data = await backendGet("/api/workflows/inventory/restock-suggestions");
+  return NextResponse.json(data);
 }
 
 export async function POST() {
-  return methodNotAllowed();
+  return NextResponse.json(
+    { success: false, error: "Method not allowed", code: 405 },
+    { status: 405 }
+  );
 }

@@ -1,7 +1,5 @@
-import { NextRequest } from "next/server";
-import { success, notFound, badRequest, methodNotAllowed } from "@/lib/api-response";
-import { updateStepSchema } from "@/lib/api-validation";
-import { updateTaskStep } from "@/lib/mock-data-store";
+import { NextRequest, NextResponse } from "next/server";
+import { backendPatch } from "@/lib/backend-client";
 
 export async function PATCH(
   request: NextRequest,
@@ -9,13 +7,16 @@ export async function PATCH(
 ) {
   const { id, stepId } = await params;
   const body = await request.json();
-  const parsed = updateStepSchema.safeParse(body);
-  if (!parsed.success) return badRequest("Invalid step data", parsed.error.flatten());
-  const step = updateTaskStep(id, stepId, parsed.data);
-  if (!step) return notFound("Task step");
-  return success(step);
+  const data = await backendPatch(`/api/tasks/${id}/steps/${stepId}`, body);
+  if (!data.success) {
+    return NextResponse.json(data, { status: 404 });
+  }
+  return NextResponse.json(data);
 }
 
 export async function GET() {
-  return methodNotAllowed();
+  return NextResponse.json(
+    { success: false, error: "Method not allowed", code: 405 },
+    { status: 405 }
+  );
 }

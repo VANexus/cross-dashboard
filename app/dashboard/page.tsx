@@ -1,81 +1,96 @@
 import { Suspense } from "react";
-import { DashboardClient } from "./dashboard-client";
-import { Card, CardContent } from "@/components/ui/card";
+import { StatsIsland } from "./islands/stats-island";
+import { WorkflowsIsland } from "./islands/workflows-island";
+import { HeartbeatIsland } from "./islands/heartbeat-island";
+import { AlertsIsland } from "./islands/alerts-island";
+import { TrendsIsland } from "./islands/trends-island";
 
-function DashboardSkeleton() {
+function StatsSkeleton() {
   return (
-    <div className="space-y-6">
-      <div className="data-grid grid-cols-2 md:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="flex flex-col gap-1 p-4">
-            <div className="h-3 w-20 skeleton rounded" />
-            <div className="h-7 w-16 skeleton rounded mt-1" />
-          </div>
-        ))}
-      </div>
-      <div className="grid gap-6 lg:grid-cols-5">
-        <Card className="lg:col-span-3">
-          <CardContent className="p-0">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-3 px-4 py-2.5 border-b border-border/50">
-                <div className="h-2 w-2 skeleton rounded-full" />
-                <div className="h-4 w-4 skeleton rounded" />
-                <div className="h-4 w-24 skeleton rounded flex-1" />
-                <div className="h-3 w-16 skeleton rounded" />
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-        <Card className="lg:col-span-2">
-          <CardContent className="space-y-3 p-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className="h-2 w-2 skeleton rounded-full" />
-                <div className="h-4 w-16 skeleton rounded flex-1" />
-                <div className="h-4 w-12 skeleton rounded" />
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
-      <Card>
-        <CardContent className="p-0">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-3 px-4 py-2.5 border-b border-border/50">
-              <div className="h-2 w-2 skeleton rounded-full" />
-              <div className="h-4 flex-1 skeleton rounded" />
-              <div className="h-3 w-16 skeleton rounded" />
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-      <div className="grid gap-6 md:grid-cols-3">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Card key={i}>
-            <CardContent className="p-4">
-              <div className="h-3 w-24 skeleton rounded mb-3" />
-              <div className="h-7 w-20 skeleton rounded mb-2" />
-              <div className="h-4 w-28 skeleton rounded" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+    <div className="data-grid grid-cols-2 md:grid-cols-4">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="flex flex-col gap-1 p-4">
+          <div className="skeleton h-3 w-16" />
+          <div className="skeleton h-7 w-20 mt-1" />
+          <div className="skeleton h-2 w-12" />
+        </div>
+      ))}
     </div>
   );
 }
 
-async function DashboardData() {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-  const res = await fetch(`${baseUrl}/api/dashboard`, { cache: "no-store" });
-  const json = await res.json();
-  if (!json.success) throw new Error(json.error?.message || "Failed to fetch dashboard data");
-  return <DashboardClient initialData={json.data} />;
+function WorkflowsSkeleton() {
+  return (
+    <div className="lg:col-span-3 rounded-xl border p-4 space-y-3">
+      <div className="skeleton h-4 w-32" />
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="skeleton h-10 w-full" />
+      ))}
+    </div>
+  );
+}
+
+function HeartbeatSkeleton() {
+  return (
+    <div className="lg:col-span-2 rounded-xl border p-4 space-y-3">
+      <div className="skeleton h-4 w-24" />
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="skeleton h-8 w-full" />
+      ))}
+    </div>
+  );
+}
+
+function AlertsSkeleton() {
+  return (
+    <div className="rounded-xl border p-4 space-y-3">
+      <div className="skeleton h-4 w-20" />
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="skeleton h-10 w-full" />
+      ))}
+    </div>
+  );
+}
+
+function TrendsSkeleton() {
+  return (
+    <div className="grid gap-6 md:grid-cols-3">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="rounded-xl border p-4 space-y-2">
+          <div className="skeleton h-3 w-20" />
+          <div className="skeleton h-7 w-24" />
+          <div className="skeleton h-8 w-full" />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function DashboardPage() {
   return (
-    <Suspense fallback={<DashboardSkeleton />}>
-      <DashboardData />
-    </Suspense>
+    <div className="space-y-6">
+      <Suspense fallback={<StatsSkeleton />}>
+        <StatsIsland />
+      </Suspense>
+
+      <div className="grid gap-6 lg:grid-cols-5">
+        <Suspense fallback={<WorkflowsSkeleton />}>
+          <WorkflowsIsland />
+        </Suspense>
+        <Suspense fallback={<HeartbeatSkeleton />}>
+          <HeartbeatIsland />
+        </Suspense>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <Suspense fallback={<AlertsSkeleton />}>
+          <AlertsIsland />
+        </Suspense>
+      </div>
+
+      <Suspense fallback={<TrendsSkeleton />}>
+        <TrendsIsland />
+      </Suspense>
+    </div>
   );
 }
