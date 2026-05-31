@@ -1,19 +1,26 @@
-import { backendGet } from "@/lib/backend-client";
 import { CompetitorAdsClient } from "../competitor-ads-client";
+import { WorkflowService } from "@/lib/services";
+import { getDbAsync } from "@/lib/db";
+import { getRecentCompetitorAnalyses } from "@/lib/repositories/workflow.repository";
 
 export async function CompetitorAdsIsland() {
-  const [keywordsRes, competitorsRes, positionsRes] = await Promise.all([
-    backendGet("/api/workflows/competitor-ads/keywords"),
-    backendGet("/api/workflows/competitor-ads/competitors"),
-    backendGet("/api/workflows/competitor-ads/positions"),
-  ]);
+  await getDbAsync();
+  const service = new WorkflowService();
+  const allKeywords = service.getCompetitorKeywords();
+  const keywords = {
+    core: allKeywords.filter((k) => k.type === "core"),
+    longtail: allKeywords.filter((k) => k.type === "longtail"),
+    competitor: allKeywords.filter((k) => k.type === "competitor"),
+  };
+  const recentAnalyses = getRecentCompetitorAnalyses(5);
 
   return (
     <CompetitorAdsClient
-      keywords={keywordsRes.data ?? { core: [], longtail: [], competitor: [] }}
-      competitors={competitorsRes.data ?? []}
-      adPositions={positionsRes.data ?? []}
+      keywords={keywords}
+      competitors={service.getCompetitors()}
+      adPositions={service.getAdPositions()}
       targetingData={[]}
+      recentAnalyses={recentAnalyses}
     />
   );
 }

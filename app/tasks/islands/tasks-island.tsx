@@ -1,13 +1,13 @@
-import { backendGet } from "@/lib/backend-client";
 import { TasksClient } from "../tasks-client";
+import { TaskService, AgentService } from "@/lib/services";
+import { getDbAsync } from "@/lib/db";
 import type { Task, Agent } from "@/lib/types";
 
 export async function TasksIsland() {
-  const [tasksRes, agentsRes] = await Promise.all([
-    backendGet("/api/tasks"),
-    backendGet("/api/agents"),
-  ]);
-  const tasks: Task[] = tasksRes.data ?? [];
-  const agents: Agent[] = agentsRes.data ?? [];
+  await getDbAsync();
+  const taskService = new TaskService();
+  const agentService = new AgentService();
+  const tasks: Task[] = taskService.list().items;
+  const agents: Agent[] = agentService.list();
   return <TasksClient initialTasks={tasks} agents={agents} />;
 }

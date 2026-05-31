@@ -1,15 +1,20 @@
-import { NextRequest, NextResponse } from "next/server";
-import { backendGet } from "@/lib/backend-client";
+import type { NextRequest } from "next/server";
+import { withDb } from "@/lib/api-helpers";
+import { success, badRequest, methodNotAllowed } from "@/lib/api-response";
+import { paginationSchema } from "@/lib/api-validation";
+import { WorkflowService } from "@/lib/services";
 
-export async function GET(request: NextRequest) {
+const service = new WorkflowService();
+
+export const GET = withDb(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
-  const data = await backendGet("/api/workflows/inventory", Object.fromEntries(searchParams));
-  return NextResponse.json(data);
-}
+  const pagination = paginationSchema.safeParse({ page: searchParams.get("page"), pageSize: searchParams.get("pageSize") });
+  if (!pagination.success) return badRequest("Invalid pagination parameters");
+  const result = service.getInventoryItems({
+    status: searchParams.get("status") ?? undefined,
+    ...pagination.data,
+  });
+  return success(result.items, result.pagination);
+});
 
-export async function POST() {
-  return NextResponse.json(
-    { success: false, error: "Method not allowed", code: 405 },
-    { status: 405 }
-  );
-}
+export { methodNotAllowed as POST };

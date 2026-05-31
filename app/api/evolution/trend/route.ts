@@ -1,15 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
-import { backendGet } from "@/lib/backend-client";
+import type { NextRequest } from "next/server";
+import { withDb } from "@/lib/api-helpers";
+import { success, methodNotAllowed } from "@/lib/api-response";
+import { EvolutionService } from "@/lib/services";
 
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const data = await backendGet("/api/evolution/trend", Object.fromEntries(searchParams));
-  return NextResponse.json(data);
-}
+const service = new EvolutionService();
 
-export async function POST() {
-  return NextResponse.json(
-    { success: false, error: "Method not allowed", code: 405 },
-    { status: 405 }
-  );
-}
+export const GET = withDb(async (_request: NextRequest) => {
+  const data = service.getTrend();
+  return success(data);
+});
+
+export { methodNotAllowed as POST };

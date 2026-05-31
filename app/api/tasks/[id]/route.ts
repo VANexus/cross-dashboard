@@ -1,46 +1,35 @@
-import { NextRequest, NextResponse } from "next/server";
-import { backendGet, backendPatch, backendDelete } from "@/lib/backend-client";
+import type { NextRequest } from "next/server";
+import { withDb } from "@/lib/api-helpers";
+import { success, badRequest, notFound, methodNotAllowed } from "@/lib/api-response";
+import { parseBody, updateTaskSchema } from "@/lib/api-validation";
+import { TaskService } from "@/lib/services";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+const service = new TaskService();
+
+export const GET = withDb(async (_request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
-  const data = await backendGet(`/api/tasks/${id}`);
-  if (!data.success) {
-    return NextResponse.json(data, { status: 404 });
-  }
-  return NextResponse.json(data);
-}
+  const task = service.getById(id);
+  if (!task) return notFound("Task");
+  return success(task);
+});
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const PATCH = withDb(async (request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
-  const body = await request.json();
-  const data = await backendPatch(`/api/tasks/${id}`, body);
-  if (!data.success) {
-    return NextResponse.json(data, { status: 404 });
-  }
-  return NextResponse.json(data);
-}
+  const parsed = parseBody(updateTaskSchema, await request.json());
+  if (!parsed.success) return badRequest(parsed.error);
+  const task = service.update(id, parsed.data);
+  if (!task) return notFound("Task");
+  return success(task);
+});
 
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const DELETE = withDb(async (_request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
-  const data = await backendDelete(`/api/tasks/${id}`);
-  if (!data.success) {
-    return NextResponse.json(data, { status: 404 });
-  }
-  return NextResponse.json(data);
-}
+  const ok = service.delete(id);
+  if (!ok) return notFound("Task");
+  return success({ deleted: true });
+});
 
-export async function POST() {
-  return NextResponse.json(
-    { success: false, error: "Method not allowed", code: 405 },
-    { status: 405 }
-  );
-}
+export { methodNotAllowed as POST };

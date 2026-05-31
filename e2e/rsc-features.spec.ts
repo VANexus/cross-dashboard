@@ -51,7 +51,7 @@ test.describe("RSC Features", () => {
     await expect(page.locator(".metric-value, [data-testid]").first()).toBeVisible({ timeout: 5000 }).catch(() => {});
   });
 
-  test("full chain: page → API route → backend-client → Python backend", async ({ page }) => {
+  test("full chain: page → API route → data store", async ({ page }) => {
     await page.goto("/dashboard");
     await expect(page.locator("text=工作流").first()).toBeVisible({ timeout: 15000 });
     await expect(page.locator("text=Agent").first()).toBeVisible();

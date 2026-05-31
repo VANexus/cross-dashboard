@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,9 +8,76 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { Settings, Server, Bell, Key, Database, Shield } from "lucide-react";
+import { Settings, Server, Bell, Key, Shield, Brain, Save, Check } from "lucide-react";
+
+interface AIConfig {
+  provider: string;
+  model: string;
+  baseUrl: string;
+  maxTokens: number;
+  temperature: number;
+  demoMode: boolean;
+}
+
+const PROVIDERS = [
+  { value: "openai", label: "OpenAI 兼容" },
+  { value: "claude", label: "Claude 兼容" },
+  { value: "mock", label: "Mock (测试)" },
+];
 
 export default function SettingsPage() {
+  const [config, setConfig] = useState<AIConfig | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+  const [showKey, setShowKey] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/ai/config")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          setConfig(d.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    if (!config) return;
+    setSaving(true);
+    setSaved(false);
+    try {
+      const body: Record<string, string> = {
+        provider: config.provider,
+        model: config.model,
+        base_url: config.baseUrl,
+        max_tokens: String(config.maxTokens),
+        temperature: String(config.temperature),
+        demo_mode: String(config.demoMode),
+      };
+      if (apiKey) body.api_key = apiKey;
+      const res = await fetch("/api/ai/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setConfig(data.data);
+        setApiKey("");
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      }
+    } finally {
+      setSaving(false);
+    }
+  }, [config, apiKey]);
+
+  const update = <K extends keyof AIConfig>(key: K, value: AIConfig[K]) => {
+    setConfig((prev) => prev ? { ...prev, [key]: value } : prev);
+  };
+
   return (
     <div className="space-y-6 max-w-4xl">
       <div>
@@ -17,6 +85,114 @@ export default function SettingsPage() {
         <p className="text-sm text-muted-foreground">配置 FlowMind 系统参数</p>
       </div>
 
+      {/* AI 配置 */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Brain className="h-5 w-5 text-primary" />
+            <CardTitle className="text-sm">AI 模型配置</CardTitle>
+          </div>
+          <CardDescription>配置 AI 服务商和模型参数</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {config ? (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>服务商</Label>
+                  <select
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    value={config.provider}
+                    onChange={(e) => update("provider", e.target.value)}
+                  >
+                    {PROVIDERS.map((p) => (
+                      <option key={p.value} value={p.value}>{p.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label>模型</Label>
+                  <Input
+                    value={config.model}
+                    onChange={(e) => update("model", e.target.value)}
+                    placeholder="mimo-v2.5-pro"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>API Base URL</Label>
+                <Input
+                  value={config.baseUrl}
+                  onChange={(e) => update("baseUrl", e.target.value)}
+                  placeholder="https://api.openai.com"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>API Key</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type={showKey ? "text" : "password"}
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="留空则不更新"
+                  />
+                  <Button variant="outline" size="sm" onClick={() => setShowKey(!showKey)} className="shrink-0">
+                    {showKey ? "隐藏" : "显示"}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Max Tokens</Label>
+                  <Input
+                    type="number"
+                    value={config.maxTokens}
+                    onChange={(e) => update("maxTokens", Number(e.target.value))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Temperature</Label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="2"
+                    value={config.temperature}
+                    onChange={(e) => update("temperature", Number(e.target.value))}
+                  />
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm font-medium">演示模式</span>
+                  <p className="text-xs text-muted-foreground">使用模拟数据，不调用真实 AI 接口</p>
+                </div>
+                <Switch
+                  checked={config.demoMode}
+                  onCheckedChange={(v) => update("demoMode", v)}
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <Button variant="outline" onClick={() => { setApiKey(""); window.location.reload(); }}>重置</Button>
+                <Button onClick={handleSave} disabled={saving}>
+                  {saving ? "保存中..." : saved ? <><Check className="h-4 w-4 mr-1" />已保存</> : <><Save className="h-4 w-4 mr-1" />保存配置</>}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="text-sm text-muted-foreground">加载中...</div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 服务器配置 */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -47,35 +223,7 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Key className="h-5 w-5 text-primary" />
-            <CardTitle className="text-sm">API 密钥</CardTitle>
-          </div>
-          <CardDescription>管理外部服务 API 密钥</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {[
-            { name: "Claude API Key", value: "sk-ant-***...***", status: "active" },
-            { name: "GPT-4o API Key", value: "sk-***...***", status: "active" },
-            { name: "Feishu App ID", value: "cli_***...***", status: "active" },
-            { name: "n8n Webhook URL", value: "https://n8n.example.com/...", status: "active" },
-          ].map((key) => (
-            <div key={key.name} className="flex items-center justify-between rounded-lg border p-3">
-              <div>
-                <span className="text-sm font-medium">{key.name}</span>
-                <div className="text-xs text-muted-foreground font-mono mt-0.5">{key.value}</div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="success" className="text-[10px]">已配置</Badge>
-                <Button variant="ghost" size="sm" className="h-7 text-xs">编辑</Button>
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
+      {/* 通知设置 */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -103,6 +251,7 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* 安全设置 */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -128,11 +277,6 @@ export default function SettingsPage() {
           ))}
         </CardContent>
       </Card>
-
-      <div className="flex justify-end gap-3">
-        <Button variant="outline">重置</Button>
-        <Button>保存设置</Button>
-      </div>
     </div>
   );
 }

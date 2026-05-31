@@ -1,21 +1,43 @@
-import { NextRequest, NextResponse } from "next/server";
-import { backendGet } from "@/lib/backend-client";
+import type { NextRequest } from "next/server";
+import { withDb } from "@/lib/api-helpers";
+import { success, notFound, badRequest, methodNotAllowed } from "@/lib/api-response";
+import { AgentService } from "@/lib/services";
+import * as agentRepo from "@/lib/repositories/agent.repository";
+import type { AgentConfig } from "@/lib/types";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+const service = new AgentService();
+
+export const GET = withDb(async (_request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
-  const data = await backendGet(`/api/agents/${id}`);
-  if (!data.success) {
-    return NextResponse.json(data, { status: 404 });
-  }
-  return NextResponse.json(data);
-}
+  const agent = service.getById(id);
+  if (!agent) return notFound("Agent");
+  return success(agent);
+});
 
-export async function POST() {
-  return NextResponse.json(
-    { success: false, error: "Method not allowed", code: 405 },
-    { status: 405 }
-  );
-}
+export const PATCH = withDb(async (request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }) => {
+  const { id } = await params;
+  const agent = agentRepo.getAgentById(id);
+  if (!agent) return notFound("Agent");
+
+  try {
+    const body = await request.json() as Partial<AgentConfig>;
+    const current = agent.config;
+    if (!current) return badRequest("Agent has no config");
+
+    const updated: AgentConfig = {
+      persona: { ...current.persona, ...body.persona },
+      goals: body.goals ?? current.goals,
+      mood: body.mood ?? current.mood,
+      cycleConfig: { ...current.cycleConfig, ...body.cycleConfig },
+    };
+
+    agentRepo.updateAgentConfig(id, updated);
+    return success(updated);
+  } catch {
+    return badRequest("Invalid request body");
+  }
+});
+
+export { methodNotAllowed as POST };

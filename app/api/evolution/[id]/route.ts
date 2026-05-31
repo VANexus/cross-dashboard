@@ -1,34 +1,27 @@
-import { NextRequest, NextResponse } from "next/server";
-import { backendGet, backendPatch } from "@/lib/backend-client";
+import type { NextRequest } from "next/server";
+import { withDb } from "@/lib/api-helpers";
+import { success, badRequest, notFound, methodNotAllowed } from "@/lib/api-response";
+import { parseBody, updateEvolutionSchema } from "@/lib/api-validation";
+import { EvolutionService } from "@/lib/services";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+const service = new EvolutionService();
+
+export const GET = withDb(async (_request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
-  const data = await backendGet(`/api/evolution/${id}`);
-  if (!data.success) {
-    return NextResponse.json(data, { status: 404 });
-  }
-  return NextResponse.json(data);
-}
+  const record = service.getById(id);
+  if (!record) return notFound("Evolution record");
+  return success(record);
+});
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const PATCH = withDb(async (request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
-  const body = await request.json();
-  const data = await backendPatch(`/api/evolution/${id}`, body);
-  if (!data.success) {
-    return NextResponse.json(data, { status: 404 });
-  }
-  return NextResponse.json(data);
-}
+  const parsed = parseBody(updateEvolutionSchema, await request.json());
+  if (!parsed.success) return badRequest(parsed.error);
+  const record = service.update(id, parsed.data);
+  if (!record) return notFound("Evolution record");
+  return success(record);
+});
 
-export async function POST() {
-  return NextResponse.json(
-    { success: false, error: "Method not allowed", code: 405 },
-    { status: 405 }
-  );
-}
+export { methodNotAllowed as POST };

@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { PageTransition } from "@/components/ui/page-transition";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,23 +8,24 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
   ArrowLeft,
-  Clock,
   Activity,
-  Settings,
-  Zap,
   CheckCircle2,
-  AlertTriangle,
   Bot,
-  BarChart3,
   ListTodo,
 } from "lucide-react";
 import Link from "next/link";
-import type { Agent, Task } from "@/lib/types";
-
-const AnimatedNumber = dynamic(
-  () => import("@/components/ui/animated-number").then((m) => ({ default: m.AnimatedNumber })),
-  { ssr: false }
-);
+import type { Agent, Task, JournalEntry } from "@/lib/types";
+import { AgentPersonaCard } from "@/components/agents/agent-persona-card";
+import { AgentGoalsPanel } from "@/components/agents/agent-goals-panel";
+import { AgentMoodIndicator } from "@/components/agents/agent-mood-indicator";
+import { AgentJournalTimeline } from "@/components/agents/agent-journal-timeline";
+import { AgentActivityFeed } from "@/components/agents/agent-activity-feed";
+import { AgentMemoryGallery } from "@/components/agents/agent-memory-gallery";
+import { AgentHeartbeatViz } from "@/components/agents/agent-heartbeat-viz";
+import { useAgentStream } from "@/hooks/use-agent-stream";
+import { useAgentJournal } from "@/hooks/use-agent-journal";
+import { useFetch } from "@/hooks/use-fetch";
+import type { MemoryEntry } from "@/lib/types";
 
 const statusConfig: Record<import("@/lib/types").AgentStatus, { label: string; color: string; bg: string; dot: "success" | "idle" | "warning" | "danger" }> = {
   online: { label: "在线", color: "text-emerald-500", bg: "bg-emerald-500/10", dot: "success" },
@@ -37,30 +37,98 @@ const statusConfig: Record<import("@/lib/types").AgentStatus, { label: string; c
 interface AgentDetailClientProps {
   agent: Agent;
   tasks: Task[];
+  journal: JournalEntry[];
 }
 
-export function AgentDetailClient({ agent, tasks }: AgentDetailClientProps) {
+export function AgentDetailClient({ agent, tasks, journal }: AgentDetailClientProps) {
   const config = statusConfig[agent.status];
+  const agentConfig = agent.config;
+
+  // Real-time SSE stream
+  const { events, connected, latestMood } = useAgentStream(agent.id);
+
+  // Journal data (client-side refresh)
+  const { data: liveJournal } = useAgentJournal(agent.id, 100);
+
+  // Agent memories
+  const { data: memories } = useFetch<MemoryEntry[]>(
+    `/api/memory?agentId=${agent.id}&limit=6`
+  );
+
+  const displayJournal = liveJournal ?? journal;
+  const displayMood = agentConfig?.mood ?? { state: "focused" as const, energy: 0.5, lastUpdated: new Date().toISOString() };
+  const hasValidConfig = agentConfig?.persona && agentConfig?.goals;
 
   return (
     <PageTransition className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/agents">
-          <Button variant="ghost" size="sm">
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            返回
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            {agent.name}
-            <StatusDot status={config.dot} pulse={agent.status === "online"} />
-          </h1>
-          <p className="text-muted-foreground text-sm">{agent.type}</p>
+      {/* Top bar */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link href="/agents">
+            <Button variant="ghost" size="sm">
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              返回
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              {agent.name}
+              <StatusDot status={config.dot} pulse={agent.status === "online"} />
+            </h1>
+            <p className="text-muted-foreground text-sm">{agent.type}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <AgentHeartbeatViz
+            mood={displayMood.state}
+            energy={displayMood.energy}
+            online={agent.status !== "offline"}
+          />
+          <Badge variant="outline" className={`${config.color} ${config.bg} border-0`}>
+            {config.label}
+          </Badge>
         </div>
       </div>
 
-      <div className="grid gap-6 grid-cols-3">
+      {/* Row 1: Persona + Mood + Goals */}
+      <div className="grid gap-4 grid-cols-3">
+        {hasValidConfig ? (
+          <AgentPersonaCard config={agentConfig!} />
+        ) : (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Bot className="h-4 w-4 text-primary" />
+                Agent 信息
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">{agent.description}</p>
+              <div className="mt-2 flex gap-2">
+                <Badge variant="secondary">L{agent.reflexLevel}</Badge>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <AgentMoodIndicator mood={displayMood} />
+
+        {hasValidConfig ? (
+          <AgentGoalsPanel goals={agentConfig!.goals} />
+        ) : (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">目标进度</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">暂无设定目标</p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Row 2: Stats */}
+      <div className="grid gap-4 grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -69,11 +137,11 @@ export function AgentDetailClient({ agent, tasks }: AgentDetailClientProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Badge variant="outline" className={`${config.color} ${config.bg} border-0`}>
-              {config.label}
-            </Badge>
-            <p className="text-xs text-muted-foreground mt-2">
+            <p className="text-xs text-muted-foreground mt-1">
               最后活跃: {agent.lastHeartbeat}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              任务完成: {agent.taskCount} | 成功率: {agent.successRate}%
             </p>
           </CardContent>
         </Card>
@@ -82,13 +150,11 @@ export function AgentDetailClient({ agent, tasks }: AgentDetailClientProps) {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <ListTodo className="h-4 w-4 text-primary" />
-              任务统计
+              关联任务
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              <AnimatedNumber value={tasks.length} />
-            </div>
+            <div className="text-2xl font-bold">{tasks.length}</div>
             <p className="text-xs text-muted-foreground mt-1">
               {tasks.filter((t) => t.status === "running").length} 运行中
             </p>
@@ -116,36 +182,21 @@ export function AgentDetailClient({ agent, tasks }: AgentDetailClientProps) {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Bot className="h-4 w-4 text-primary" />
-            Agent 详情
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1">描述</p>
-            <p className="text-sm">{agent.description}</p>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-1">类型</p>
-              <Badge variant="secondary">{agent.type}</Badge>
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-1">反馈权限</p>
-              <Badge variant="secondary">L{agent.reflexLevel}</Badge>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Row 3: Real-time Activity Feed (SSE) */}
+      <AgentActivityFeed events={events} connected={connected} />
 
+      {/* Row 4: Journal Timeline */}
+      <AgentJournalTimeline entries={displayJournal} />
+
+      {/* Row 5: Memory Gallery */}
+      <AgentMemoryGallery memories={memories ?? []} />
+
+      {/* Row 6: Task list */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <ListTodo className="h-4 w-4 text-primary" />
-            关联任务
+            任务列表
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">

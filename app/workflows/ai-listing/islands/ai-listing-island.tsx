@@ -1,18 +1,18 @@
-import { backendGet } from "@/lib/backend-client";
 import { AiListingClient } from "../ai-listing-client";
+import { WorkflowService } from "@/lib/services";
+import { getDbAsync } from "@/lib/db";
+import { getRecentListingResults } from "@/lib/repositories/workflow.repository";
 
 export async function AiListingIsland() {
-  const [infringementRes, categoriesRes, bulletsRes] = await Promise.all([
-    backendGet("/api/workflows/ai-listing/infringement"),
-    backendGet("/api/workflows/ai-listing/categories"),
-    backendGet("/api/workflows/ai-listing/bullets"),
-  ]);
-
+  await getDbAsync();
+  const service = new WorkflowService();
+  const recentResults = getRecentListingResults(5);
   return (
     <AiListingClient
-      infringementWords={infringementRes.data ?? []}
-      categoryRecs={categoriesRes.data ?? []}
-      bulletPoints={bulletsRes.data ?? []}
+      infringementWords={service.getInfringementWords()}
+      categoryRecs={service.getCategoryRecs()}
+      bulletPoints={service.getBulletPoints()}
+      recentResults={recentResults}
     />
   );
 }

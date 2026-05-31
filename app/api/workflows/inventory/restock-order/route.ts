@@ -1,15 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
-import { backendPost } from "@/lib/backend-client";
+import type { NextRequest } from "next/server";
+import { withDb } from "@/lib/api-helpers";
+import { success, badRequest, methodNotAllowed } from "@/lib/api-response";
+import { parseBody, createRestockOrderSchema } from "@/lib/api-validation";
+import { WorkflowService } from "@/lib/services";
 
-export async function POST(request: NextRequest) {
-  const body = await request.json();
-  const data = await backendPost("/api/workflows/inventory/restock-order", body);
-  return NextResponse.json(data);
-}
+const service = new WorkflowService();
 
-export async function GET() {
-  return NextResponse.json(
-    { success: false, error: "Method not allowed", code: 405 },
-    { status: 405 }
-  );
-}
+export const POST = withDb(async (request: NextRequest) => {
+  const parsed = parseBody(createRestockOrderSchema, await request.json());
+  if (!parsed.success) return badRequest(parsed.error);
+  const result = service.createRestockOrder(parsed.data.items);
+  return success(result);
+});
+
+export { methodNotAllowed as GET };

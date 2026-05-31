@@ -1,16 +1,19 @@
-import { backendGet } from "@/lib/backend-client";
 import { InventoryClient } from "../inventory-client";
+import { WorkflowService } from "@/lib/services";
+import { getDbAsync } from "@/lib/db";
 
 export async function InventoryIsland() {
-  const [inventoryRes, restockRes] = await Promise.all([
-    backendGet("/api/workflows/inventory"),
-    backendGet("/api/workflows/inventory/restock-suggestions"),
-  ]);
+  await getDbAsync();
+  const service = new WorkflowService();
+  const inventoryItems = service.getInventoryItems().items;
+  const restockSuggestions = service.getRestockSuggestions();
+  const recentOrders = service.getRecentRestockOrders(5);
 
   return (
     <InventoryClient
-      inventoryItems={inventoryRes.data ?? []}
-      restockSuggestions={restockRes.data ?? []}
+      inventoryItems={inventoryItems}
+      restockSuggestions={restockSuggestions}
+      recentOrders={recentOrders}
     />
   );
 }

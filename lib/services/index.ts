@@ -1,0 +1,12 @@
+/**
+ * FlowMind RAK — Service barrel export
+ * All services are singletons — import the class and instantiate
+ */
+export { AgentService } from "./agent.service";
+export { TaskService } from "./task.service";
+export { RiskService } from "./risk.service";
+export { MemoryService } from "./memory.service";
+export { EvolutionService } from "./evolution.service";
+export { DashboardService } from "./dashboard.service";
+export { WorkflowService } from "./workflow.service";
+export { CrawlerService } from "./crawler.service";

@@ -1,22 +1,21 @@
-import { NextRequest, NextResponse } from "next/server";
-import { backendPatch } from "@/lib/backend-client";
+import type { NextRequest } from "next/server";
+import { withDb } from "@/lib/api-helpers";
+import { success, badRequest, notFound, methodNotAllowed } from "@/lib/api-response";
+import { parseBody, updateRiskEventSchema } from "@/lib/api-validation";
+import { RiskService } from "@/lib/services";
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+const service = new RiskService();
+
+export const PATCH = withDb(async (request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
-  const body = await request.json();
-  const data = await backendPatch(`/api/risk/events/${id}`, body);
-  if (!data.success) {
-    return NextResponse.json(data, { status: 404 });
-  }
-  return NextResponse.json(data);
-}
+  const parsed = parseBody(updateRiskEventSchema, await request.json());
+  if (!parsed.success) return badRequest(parsed.error);
+  const event = service.resolveEvent(id, parsed.data.resolvedAt);
+  if (!event) return notFound("Risk event");
+  return success(event);
+});
 
-export async function GET() {
-  return NextResponse.json(
-    { success: false, error: "Method not allowed", code: 405 },
-    { status: 405 }
-  );
-}
+export { methodNotAllowed as GET };
+export { methodNotAllowed as POST };
+export { methodNotAllowed as DELETE };

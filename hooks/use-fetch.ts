@@ -31,8 +31,8 @@ export function useFetch<T>(url: string | null, options: FetchOptions = {}) {
       return json.data as T;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
-      setState({ data: null, loading: false, error: message });
-      throw err;
+      setState((prev) => ({ ...prev, loading: false, error: message }));
+      return null;
     }
   }, [url]);
 

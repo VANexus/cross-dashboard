@@ -1,21 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
-import { backendGet } from "@/lib/backend-client";
+import type { NextRequest } from "next/server";
+import { withDb } from "@/lib/api-helpers";
+import { success, notFound, methodNotAllowed } from "@/lib/api-response";
+import { MemoryService } from "@/lib/services";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+const service = new MemoryService();
+
+export const GET = withDb(async (_request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
-  const data = await backendGet(`/api/memory/${id}/usage`);
-  if (!data.success) {
-    return NextResponse.json(data, { status: 404 });
-  }
-  return NextResponse.json(data);
-}
+  const usage = service.getUsage(id);
+  if (!usage) return notFound("Memory entry");
+  return success(usage);
+});
 
-export async function POST() {
-  return NextResponse.json(
-    { success: false, error: "Method not allowed", code: 405 },
-    { status: 405 }
-  );
-}
+export { methodNotAllowed as POST };

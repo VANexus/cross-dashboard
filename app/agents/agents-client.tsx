@@ -5,6 +5,7 @@ import { PageTransition } from "@/components/ui/page-transition";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import {
   Bot,
@@ -17,7 +18,7 @@ import {
   Settings,
 } from "lucide-react";
 import Link from "next/link";
-import type { Agent, AgentStatus } from "@/lib/types";
+import type { Agent, AgentStatus, MoodState } from "@/lib/types";
 
 const AnimatedNumber = dynamic(
   () => import("@/components/ui/animated-number").then((m) => ({ default: m.AnimatedNumber })),
@@ -49,6 +50,15 @@ const statusConfig: Record<AgentStatus, { label: string; color: string; bg: stri
   offline: { label: "离线", color: "text-muted-foreground", bg: "bg-muted", dot: "idle" },
 };
 
+const moodEmojis: Record<MoodState, string> = {
+  focused: "\u{1F3AF}",
+  alert: "\u{1F441}\u{FE0F}",
+  tired: "\u{1F634}",
+  stressed: "\u{1F625}",
+  curious: "\u{1F913}",
+  satisfied: "\u{1F60A}",
+};
+
 interface AgentsClientProps {
   initialData: Agent[];
 }
@@ -78,6 +88,11 @@ export function AgentsClient({ initialData }: AgentsClientProps) {
       <div className="grid gap-4 grid-cols-2">
         {initialData.map((agent) => {
           const config = statusConfig[agent.status];
+          const mood = agent.config?.mood;
+          const goals = agent.config?.goals ?? [];
+          const topGoal = goals.find((g) => g.priority === "high") ?? goals[0];
+          const emoji = mood ? (moodEmojis[mood.state] ?? "\u{1F916}") : "\u{1F916}";
+
           return (
             <Link key={agent.id} href={`/agents/${agent.id}`}>
               <Card className="cursor-pointer hover:border-primary/50 transition-all duration-200 group h-full">
@@ -90,6 +105,7 @@ export function AgentsClient({ initialData }: AgentsClientProps) {
                       <div>
                         <CardTitle className="text-base flex items-center gap-2">
                           {agent.name}
+                          <span className="text-lg" title={mood?.state}>{emoji}</span>
                           <StatusDot status={config.dot} pulse={agent.status === "online"} size="sm" />
                         </CardTitle>
                         <p className="text-xs text-muted-foreground mt-0.5">{agent.type}</p>
@@ -100,10 +116,21 @@ export function AgentsClient({ initialData }: AgentsClientProps) {
                     </Badge>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-3">
                   <p className="text-sm text-muted-foreground line-clamp-2">{agent.description}</p>
 
-                  <div className="space-y-2">
+                  {/* Mini goal progress */}
+                  {topGoal && (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] text-muted-foreground truncate flex-1">{topGoal.text}</p>
+                        <span className="text-[10px] text-muted-foreground ml-2">{Math.round(topGoal.progress * 100)}%</span>
+                      </div>
+                      <Progress value={topGoal.progress * 100} className="h-1" />
+                    </div>
+                  )}
+
+                  <div className="space-y-1">
                     <p className="text-xs font-medium text-muted-foreground">关联工作流</p>
                     <div className="flex flex-wrap gap-1">
                       {(agentWorkflows[agent.name] || []).map((wf) => (

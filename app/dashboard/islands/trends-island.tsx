@@ -1,8 +1,10 @@
-import { backendGet } from "@/lib/backend-client";
 import { DashboardTrends } from "../dashboard-trends";
+import { DashboardService } from "@/lib/services";
+import { getDbAsync } from "@/lib/db";
 
 export async function TrendsIsland() {
-  const res = await backendGet("/api/dashboard");
-  const trends = res.data.trends;
-  return <DashboardTrends trends={trends} />;
+  await getDbAsync();
+  const service = new DashboardService();
+  const dashboard = service.getDashboardData();
+  return <DashboardTrends trends={dashboard.trends} />;
 }

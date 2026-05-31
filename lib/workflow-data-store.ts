@@ -91,24 +91,24 @@ const adKeywords: AdKeyword[] = [
   { id: "kw-12", keyword: "best water fountain for dogs 2026", impressions: 7600, clicks: 532, spend: 266, sales: 2128, acos: 12.5, conversion: 13, cpc: 0.50, tag: "high-conversion", type: "SP", trend: [10, 12, 15, 18, 22, 25, 28, 30, 35, 38, 42, 45, 50, 55] },
 ];
 
-const infringementWords: InfringementWord[] = [
-  { word: "Stanley", type: "brand", position: "title" },
-  { word: "TikTok", type: "brand", position: "bullet" },
-  { word: "FDA approved", type: "sensitive", position: "title" },
+const infringementWords = [
+  { word: "Stanley", type: "brand" as const, risk: "High — registered trademark in title", action: "Remove from title immediately" },
+  { word: "TikTok", type: "brand" as const, risk: "Medium — social media brand in bullet", action: "Replace with generic term" },
+  { word: "FDA approved", type: "patent" as const, risk: "High — unverified medical claim", action: "Remove or add disclaimer" },
 ];
 
-const categoryRecs: CategoryRec[] = [
-  { path: "Pet Supplies > Feeding & Watering > Water Fountains", confidence: 92, reason: "类目高度匹配，关键词搜索量集中" },
-  { path: "Pet Supplies > Feeding & Watering > Automatic Feeders", confidence: 78, reason: "功能相近，可获得关联推荐流量" },
-  { path: "Home & Kitchen > Kitchen & Dining > Water Dispensers", confidence: 45, reason: "跨品类，搜索量较低但竞争小" },
+const categoryRecs = [
+  { id: "cat-001", name: "Pet Supplies > Feeding & Watering > Water Fountains", confidence: 92, reason: "类目高度匹配，关键词搜索量集中", bsr: 1250, fee: 15 },
+  { id: "cat-002", name: "Pet Supplies > Feeding & Watering > Automatic Feeders", confidence: 78, reason: "功能相近，可获得关联推荐流量", bsr: 3400, fee: 15 },
+  { id: "cat-003", name: "Home & Kitchen > Kitchen & Dining > Water Dispensers", confidence: 45, reason: "跨品类，搜索量较低但竞争小", bsr: 8900, fee: 12 },
 ];
 
-const bulletPoints: BulletPoint[] = [
-  { title: "Smart UV Sterilization", desc: "Built-in UV-C light eliminates 99.9% of bacteria, keeping your pet's water clean and safe 24/7.", seoScore: 88, rufus: "friendly" },
-  { title: "Ultra-Quiet Pump Technology", desc: "Our advanced DC brushless motor operates at under 30dB — quieter than a whisper.", seoScore: 92, rufus: "friendly" },
-  { title: "Real-Time Temperature Display", desc: "LED screen shows water temperature in real-time.", seoScore: 75, rufus: "neutral" },
-  { title: "Easy Disassembly & Cleaning", desc: "Tool-free design allows complete disassembly in seconds.", seoScore: 85, rufus: "friendly" },
-  { title: "Smart Water Level Alert", desc: "Intelligent sensor detects low water levels and sends gentle LED alerts.", seoScore: 70, rufus: "needs-opt" },
+const bulletPoints = [
+  { id: "bp-001", title: "Smart UV Sterilization", content: "Built-in UV-C light eliminates 99.9% of bacteria, keeping your pet's water clean and safe 24/7.", seoScore: 88, rufus: true },
+  { id: "bp-002", title: "Ultra-Quiet Pump Technology", content: "Our advanced DC brushless motor operates at under 30dB — quieter than a whisper.", seoScore: 92, rufus: true },
+  { id: "bp-003", title: "Real-Time Temperature Display", content: "LED screen shows water temperature in real-time.", seoScore: 75, rufus: false },
+  { id: "bp-004", title: "Easy Disassembly & Cleaning", content: "Tool-free design allows complete disassembly in seconds.", seoScore: 85, rufus: true },
+  { id: "bp-005", title: "Smart Water Level Alert", content: "Intelligent sensor detects low water levels and sends gentle LED alerts.", seoScore: 70, rufus: false },
 ];
 
 const inventoryItems: InventoryItem[] = [
@@ -127,38 +127,40 @@ const inventoryItems: InventoryItem[] = [
 ];
 
 const competitorKeywords: KeywordItem[] = [
-  { keyword: "pet water fountain", volume: 85000, competition: 92, type: "core" },
-  { keyword: "cat water fountain", volume: 62000, competition: 88, type: "core" },
-  { keyword: "automatic pet water dispenser", volume: 34000, competition: 75, type: "core" },
-  { keyword: "pet fountain stainless steel", volume: 28000, competition: 82, type: "core" },
-  { keyword: "uv pet water fountain", volume: 12000, competition: 45, type: "longtail" },
-  { keyword: "quiet cat water fountain 30db", volume: 8500, competition: 38, type: "longtail" },
-  { keyword: "smart water fountain temperature display", volume: 5200, competition: 32, type: "longtail" },
-  { keyword: "large dog water fountain 3l", volume: 9800, competition: 42, type: "longtail" },
-  { keyword: "whisper quiet pet water bowl", volume: 7200, competition: 35, type: "longtail" },
-  { keyword: "catit flower fountain", volume: 45000, competition: 85, type: "competitor" },
-  { keyword: "petlibro water fountain", volume: 38000, competition: 80, type: "competitor" },
-  { keyword: "veken pet fountain filter", volume: 22000, competition: 65, type: "competitor" },
-  { keyword: "pioneer swan fountain", volume: 15000, competition: 58, type: "competitor" },
+  { keyword: "pet water fountain", volume: 85000, competition: 92, cpc: 1.85, trend: [70, 72, 75, 78, 80, 82, 85], type: "core" },
+  { keyword: "cat water fountain", volume: 62000, competition: 88, cpc: 1.62, trend: [55, 58, 60, 62, 65, 68, 70], type: "core" },
+  { keyword: "automatic pet water dispenser", volume: 34000, competition: 75, cpc: 1.45, trend: [28, 30, 32, 34, 36, 38, 40], type: "core" },
+  { keyword: "pet fountain stainless steel", volume: 28000, competition: 82, cpc: 1.70, trend: [22, 24, 26, 28, 30, 32, 35], type: "core" },
+  { keyword: "uv pet water fountain", volume: 12000, competition: 45, cpc: 1.20, trend: [8, 9, 10, 11, 12, 13, 15], type: "longtail" },
+  { keyword: "quiet cat water fountain 30db", volume: 8500, competition: 38, cpc: 1.10, trend: [5, 6, 7, 8, 9, 10, 12], type: "longtail" },
+  { keyword: "smart water fountain temperature display", volume: 5200, competition: 32, cpc: 0.95, trend: [3, 4, 4, 5, 5, 6, 7], type: "longtail" },
+  { keyword: "large dog water fountain 3l", volume: 9800, competition: 42, cpc: 1.30, trend: [7, 8, 9, 10, 11, 12, 14], type: "longtail" },
+  { keyword: "whisper quiet pet water bowl", volume: 7200, competition: 35, cpc: 1.05, trend: [5, 6, 7, 7, 8, 9, 10], type: "longtail" },
+  { keyword: "catit flower fountain", volume: 45000, competition: 85, cpc: 1.55, trend: [40, 42, 44, 45, 46, 48, 50], type: "competitor" },
+  { keyword: "petlibro water fountain", volume: 38000, competition: 80, cpc: 1.48, trend: [30, 32, 34, 36, 38, 40, 42], type: "competitor" },
+  { keyword: "veken pet fountain filter", volume: 22000, competition: 65, cpc: 1.25, trend: [18, 20, 22, 24, 26, 28, 30], type: "competitor" },
+  { keyword: "pioneer swan fountain", volume: 15000, competition: 58, cpc: 1.15, trend: [12, 13, 14, 15, 16, 17, 18], type: "competitor" },
 ];
 
 const competitors: CompetitorEntry[] = [
-  { name: "Petlibro", sp: 45, sb: 30, sd: 25, coreKeywords: 28, topPosition: 65, targeting: "defense" },
-  { name: "Catit", sp: 55, sb: 25, sd: 20, coreKeywords: 32, topPosition: 72, targeting: "defense" },
-  { name: "Veken", sp: 60, sb: 20, sd: 20, coreKeywords: 22, topPosition: 55, targeting: "complement" },
-  { name: "Pioneer", sp: 70, sb: 15, sd: 15, coreKeywords: 18, topPosition: 48, targeting: "complement" },
-  { name: "Tomxcute", sp: 50, sb: 35, sd: 15, coreKeywords: 25, topPosition: 58, targeting: "offense" },
-  { name: "Wonder Creature", sp: 65, sb: 20, sd: 15, coreKeywords: 15, topPosition: 42, targeting: "complement" },
-  { name: "Homty", sp: 40, sb: 35, sd: 25, coreKeywords: 20, topPosition: 50, targeting: "offense" },
-  { name: "iPettie", sp: 55, sb: 25, sd: 20, coreKeywords: 12, topPosition: 38, targeting: "complement" },
-  { name: "Bergan", sp: 75, sb: 15, sd: 10, coreKeywords: 10, topPosition: 35, targeting: "complement" },
-  { name: "Drinkwell", sp: 60, sb: 25, sd: 15, coreKeywords: 20, topPosition: 52, targeting: "defense" },
+  { id: "comp-1", name: "Petlibro", spCount: 45, sbCount: 30, sdCount: 25, keywords: 28, rank: 1, strategy: "defensive" },
+  { id: "comp-2", name: "Catit", spCount: 55, sbCount: 25, sdCount: 20, keywords: 32, rank: 2, strategy: "defensive" },
+  { id: "comp-3", name: "Veken", spCount: 60, sbCount: 20, sdCount: 20, keywords: 22, rank: 3, strategy: "complementary" },
+  { id: "comp-4", name: "Pioneer", spCount: 70, sbCount: 15, sdCount: 15, keywords: 18, rank: 4, strategy: "complementary" },
+  { id: "comp-5", name: "Tomxcute", spCount: 50, sbCount: 35, sdCount: 15, keywords: 25, rank: 5, strategy: "offensive" },
+  { id: "comp-6", name: "Wonder Creature", spCount: 65, sbCount: 20, sdCount: 15, keywords: 15, rank: 6, strategy: "complementary" },
+  { id: "comp-7", name: "Homty", spCount: 40, sbCount: 35, sdCount: 25, keywords: 20, rank: 7, strategy: "offensive" },
+  { id: "comp-8", name: "iPettie", spCount: 55, sbCount: 25, sdCount: 20, keywords: 12, rank: 8, strategy: "complementary" },
+  { id: "comp-9", name: "Bergan", spCount: 75, sbCount: 15, sdCount: 10, keywords: 10, rank: 9, strategy: "complementary" },
+  { id: "comp-10", name: "Drinkwell", spCount: 60, sbCount: 25, sdCount: 15, keywords: 20, rank: 10, strategy: "defensive" },
 ];
 
-const adPositions: AdPosition[] = [
-  { position: "TOP", percentage: 42, count: 156 },
-  { position: "PP", percentage: 35, count: 130 },
-  { position: "Other", percentage: 23, count: 86 },
+const adPositions = [
+  { position: "Top of Search", share: 42, trend: [35, 37, 38, 40, 41, 42] },
+  { position: "Rest of Search", share: 28, trend: [30, 31, 30, 29, 28, 28] },
+  { position: "Product Pages", share: 18, trend: [20, 19, 19, 18, 18, 18] },
+  { position: "Sponsored Brands", share: 8, trend: [10, 9, 9, 9, 8, 8] },
+  { position: "Sponsored Display", share: 4, trend: [5, 5, 4, 4, 4, 4] },
 ];
 
 export function getDataSources(): DataSource[] {
@@ -230,18 +232,18 @@ export function getInventoryItems(filters?: {
   return { items, pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) } };
 }
 
-export function getRestockSuggestions(): { sku: string; name: string; currentStock: number; dailySales: number; suggestedQty: number; urgency: "high" | "medium" | "low"; shipMethod: string; estimatedArrival: string }[] {
+export function getRestockSuggestions(): { id: string; sku: string; name: string; suggestedQty: number; urgency: "high" | "medium" | "low"; method: string; eta: string; cost: number }[] {
   return inventoryItems
     .filter((item) => item.restockQty > 0)
     .map((item) => ({
+      id: `rs-${item.sku}`,
       sku: item.sku,
       name: item.name,
-      currentStock: item.stock,
-      dailySales: item.dailySales,
       suggestedQty: item.restockQty,
       urgency: item.ratioDays < 15 ? "high" as const : item.ratioDays < 30 ? "medium" as const : "low" as const,
-      shipMethod: item.shipDays <= 25 ? "express" as const : "sea" as const,
-      estimatedArrival: item.restockDate,
+      method: item.shipDays <= 25 ? "express" : "sea",
+      eta: item.restockDate,
+      cost: Math.round(item.restockQty * item.avgCost * 0.6),
     }));
 }
 

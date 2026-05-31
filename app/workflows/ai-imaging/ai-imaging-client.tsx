@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { PageTransition } from "@/components/ui/page-transition";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +49,7 @@ interface GeneratedImg {
   prompt: string;
   model: string;
   seed: number;
+  url?: string;
 }
 
 interface StoryboardFrame {
@@ -78,12 +80,41 @@ function scoreBarColor(score: number) {
 }
 
 export function AiImagingClient({ mainImages, sceneImages, storyboardFrames }: AiImagingClientProps) {
+  const router = useRouter();
   const [expandedImg, setExpandedImg] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState("main");
+  const [prompt, setPrompt] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [genMessage, setGenMessage] = useState("");
 
   const currentImages = selectedTab === "main" ? mainImages : selectedTab === "scene" ? sceneImages : mainImages;
   const bestCount = currentImages.filter((i) => i.isBest).length;
-  const avgScore = Math.round(currentImages.reduce((a, b) => a + b.overall, 0) / currentImages.length);
+  const avgScore = currentImages.length > 0 ? Math.round(currentImages.reduce((a, b) => a + b.overall, 0) / currentImages.length) : 0;
+
+  const handleGenerate = async () => {
+    if (!prompt.trim()) return;
+    setGenerating(true);
+    setGenMessage("");
+    try {
+      const res = await fetch("/api/workflows/ai-imaging/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: selectedTab === "storyboard" ? "main" : selectedTab, prompt }),
+      });
+      const json = await res.json();
+      if (json.success && json.data?.result) {
+        const results = Array.isArray(json.data.result) ? json.data.result : [];
+        setGenMessage(`生成完成 — ${results.length} 张图片`);
+        router.refresh();
+      } else {
+        setGenMessage(`生成失败: ${json.error}`);
+      }
+    } catch (err) {
+      setGenMessage(`生成失败: ${err instanceof Error ? err.message : "未知错误"}`);
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   return (
     <PageTransition className="space-y-4">
@@ -101,19 +132,26 @@ export function AiImagingClient({ mainImages, sceneImages, storyboardFrames }: A
         <CardContent className="p-4">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex-1 min-w-[200px]">
-              <Input placeholder="输入产品关键词或 ASIN..." className="h-9" />
+              <Input
+                placeholder="输入产品关键词或 ASIN..."
+                className="h-9"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+              />
             </div>
-            <div className="flex-1 min-w-[200px]">
-              <select className="flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-sm">
-                <option>ComfyUI 预设: 产品白底主图</option>
-                <option>ComfyUI 预设: 生活场景图</option>
-                <option>ComfyUI 预设: A+ 图文模块</option>
-                <option>ComfyUI 预设: 视频分镜</option>
-              </select>
-            </div>
-            <Button className="gap-2 bg-[var(--wf-imaging)] hover:bg-[var(--wf-imaging)]/90 h-9">
-              <Sparkles className="h-4 w-4" /> 开始生成
+            <Button
+              className="gap-2 bg-[var(--wf-imaging)] hover:bg-[var(--wf-imaging)]/90 h-9"
+              onClick={handleGenerate}
+              disabled={generating || !prompt.trim()}
+            >
+              {generating ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {generating ? "生成中..." : "开始生成"}
             </Button>
+            {genMessage && (
+              <span className={`text-xs ${genMessage.includes("失败") ? "text-red-400" : "text-emerald-400"}`}>
+                {genMessage}
+              </span>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -142,11 +180,15 @@ export function AiImagingClient({ mainImages, sceneImages, storyboardFrames }: A
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {currentImages.map((img) => (
               <Card key={img.id} className={cn("workflow-card overflow-hidden", img.isBest && "ring-1 ring-emerald-500/30")}>
-                <div className="relative aspect-square bg-muted/50 flex items-center justify-center">
-                  <div className="text-center">
-                    <ImageIcon className="h-12 w-12 text-muted-foreground/20 mx-auto mb-2" />
-                    <p className="text-[10px] text-muted-foreground/40 font-mono">seed: {img.seed}</p>
-                  </div>
+                <div className="relative aspect-square bg-muted/50 flex items-center justify-center overflow-hidden">
+                  {img.url ? (
+                    <img src={img.url} alt={img.prompt} className="h-full w-full object-cover" loading="lazy" />
+                  ) : (
+                    <div className="text-center">
+                      <ImageIcon className="h-12 w-12 text-muted-foreground/20 mx-auto mb-2" />
+                      <p className="text-[10px] text-muted-foreground/40 font-mono">seed: {img.seed}</p>
+                    </div>
+                  )}
                   {img.isBest && (
                     <div className="absolute top-2 right-2 flex items-center gap-1 rounded-md bg-emerald-500/90 px-2 py-0.5 text-[10px] text-white font-medium">
                       <Star className="h-3 w-3" /> 最佳
@@ -182,10 +224,10 @@ export function AiImagingClient({ mainImages, sceneImages, storyboardFrames }: A
                       <span className={cn("text-sm font-bold", scoreColor(img.overall))}>{img.overall}</span>
                     </div>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => img.url && window.open(img.url, "_blank")} disabled={!img.url}>
                         <Download className="h-3.5 w-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => router.push("/workflows/ai-listing")}>
                         <Send className="h-3.5 w-3.5" />
                       </Button>
                       <Button
@@ -212,13 +254,21 @@ export function AiImagingClient({ mainImages, sceneImages, storyboardFrames }: A
           </div>
 
           <div className="flex gap-3">
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2" onClick={() => {
+              const bestImgs = currentImages.filter((i) => i.isBest && i.url);
+              bestImgs.forEach((img) => img.url && window.open(img.url, "_blank"));
+            }}>
               <Download className="h-4 w-4" /> 批量下载最佳图片
             </Button>
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2" onClick={() => router.push("/workflows/ai-listing")}>
               <Send className="h-4 w-4" /> 发送到上架工作流
             </Button>
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2" onClick={() => {
+              const lowScoreImgs = currentImages.filter((i) => i.overall < 60 && i.url);
+              if (lowScoreImgs.length > 0 && prompt.trim()) {
+                handleGenerate();
+              }
+            }}>
               <RefreshCw className="h-4 w-4" /> 重新生成低分图
             </Button>
           </div>
@@ -266,13 +316,15 @@ export function AiImagingClient({ mainImages, sceneImages, storyboardFrames }: A
               ))}
             </div>
 
-            <Card className="mt-4 border-l-2 border-l-[var(--wf-imaging)]">
-              <CardContent className="p-3">
-                <p className="text-xs text-muted-foreground">
-                  <span className="text-[var(--wf-imaging)] font-medium">AI 创意建议:</span> 参考TikTok爆款宠物视频，建议增加宠物与产品互动的真实使用场景，配合ASMR音效和快节奏剪辑，预计CTR可提升25-35%
-                </p>
-              </CardContent>
-            </Card>
+            {storyboardFrames.length > 0 && (
+              <Card className="mt-4 border-l-2 border-l-[var(--wf-imaging)]">
+                <CardContent className="p-3">
+                  <p className="text-xs text-muted-foreground">
+                    <span className="text-[var(--wf-imaging)] font-medium">AI 创意建议:</span> 已生成 {storyboardFrames.length} 个分镜，可基于分镜内容优化视频脚本和拍摄方案
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </CardContent>
         </Card>
       )}

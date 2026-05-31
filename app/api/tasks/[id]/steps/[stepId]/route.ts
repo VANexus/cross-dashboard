@@ -1,22 +1,21 @@
-import { NextRequest, NextResponse } from "next/server";
-import { backendPatch } from "@/lib/backend-client";
+import type { NextRequest } from "next/server";
+import { withDb } from "@/lib/api-helpers";
+import { success, badRequest, notFound, methodNotAllowed } from "@/lib/api-response";
+import { parseBody, updateStepSchema } from "@/lib/api-validation";
+import { TaskService } from "@/lib/services";
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string; stepId: string }> }
-) {
+const service = new TaskService();
+
+export const PATCH = withDb(async (request: NextRequest,
+  { params }: { params: Promise<{ id: string; stepId: string }> }) => {
   const { id, stepId } = await params;
-  const body = await request.json();
-  const data = await backendPatch(`/api/tasks/${id}/steps/${stepId}`, body);
-  if (!data.success) {
-    return NextResponse.json(data, { status: 404 });
-  }
-  return NextResponse.json(data);
-}
+  const parsed = parseBody(updateStepSchema, await request.json());
+  if (!parsed.success) return badRequest(parsed.error);
+  const step = service.updateStep(id, stepId, parsed.data);
+  if (!step) return notFound("Task step");
+  return success(step);
+});
 
-export async function GET() {
-  return NextResponse.json(
-    { success: false, error: "Method not allowed", code: 405 },
-    { status: 405 }
-  );
-}
+export { methodNotAllowed as GET };
+export { methodNotAllowed as POST };
+export { methodNotAllowed as DELETE };

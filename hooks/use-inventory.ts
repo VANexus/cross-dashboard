@@ -25,3 +25,7 @@ export async function createRestockOrder(data: {
 }) {
   return apiPost("/api/workflows/inventory/restock-order", data);
 }
+
+export async function generateRestockSuggestions() {
+  return apiPost("/api/workflows/inventory/generate-suggestions", {});
+}

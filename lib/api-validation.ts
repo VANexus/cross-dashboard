@@ -1,4 +1,10 @@
-import { z } from "zod";
+import { z, type ZodSchema } from "zod";
+
+export function parseBody<T>(schema: ZodSchema<T>, body: unknown): { success: true; data: T } | { success: false; error: string } {
+  const result = schema.safeParse(body);
+  if (!result.success) return { success: false, error: result.error.issues.map((i) => i.message).join(", ") };
+  return { success: true, data: result.data };
+}
 
 export const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -83,7 +89,7 @@ export const updateAdKeywordSchema = z.object({
 export const generateImageSchema = z.object({
   type: z.enum(["main", "scene", "aplus"]),
   prompt: z.string().min(1),
-  model: z.string().default("stable-diffusion"),
+  model: z.string().optional(),
   style: z.string().optional(),
   count: z.number().int().min(1).max(4).default(1),
 });

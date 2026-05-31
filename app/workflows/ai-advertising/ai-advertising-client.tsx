@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { PageTransition } from "@/components/ui/page-transition";
 import { Badge } from "@/components/ui/badge";
@@ -70,12 +71,77 @@ function formatCurrency(n: number) {
 
 export interface AiAdvertisingClientProps {
   adKeywords: AdKeyword[];
+  recentAnalyses?: Array<{ id: string; keyword: string; resultJson: unknown; createdAt: string }>;
 }
 
-export function AiAdvertisingClient({ adKeywords }: AiAdvertisingClientProps) {
+export function AiAdvertisingClient({ adKeywords, recentAnalyses = [] }: AiAdvertisingClientProps) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"premium" | "bulk">("premium");
   const [expandedTags, setExpandedTags] = useState<Record<string, boolean>>({});
   const [selectedKw, setSelectedKw] = useState<string | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<string>(() => {
+    if (recentAnalyses.length > 0) {
+      const r = recentAnalyses[0].resultJson;
+      return typeof r === "string" ? r : JSON.stringify(r, null, 2);
+    }
+    return "";
+  });
+
+  const handleAnalyze = useCallback(async () => {
+    if (adKeywords.length === 0) return;
+    setAnalyzing(true);
+    setAnalysisResult("");
+    try {
+      const sample = adKeywords[0];
+      const res = await fetch("/api/workflows/ai-advertising/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          keyword: sample.keyword,
+          currentData: {
+            impressions: sample.impressions,
+            clicks: sample.clicks,
+            spend: sample.spend,
+            sales: sample.sales,
+            acos: sample.acos,
+          },
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setAnalysisResult(typeof json.data === "string" ? json.data : JSON.stringify(json.data, null, 2));
+        router.refresh();
+      } else {
+        setAnalysisResult("分析失败: " + (json.error || "未知错误"));
+      }
+    } catch (err) {
+      setAnalysisResult("请求失败: " + (err instanceof Error ? err.message : "网络错误"));
+    } finally {
+      setAnalyzing(false);
+    }
+  }, [adKeywords]);
+
+  const handleExport = useCallback(async () => {
+    try {
+      const res = await fetch("/api/workflows/ai-advertising/export", { method: "POST" });
+      const json = await res.json();
+      if (json.success) {
+        const csvContent = typeof json.data === "string" ? json.data : JSON.stringify(json.data);
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "ad-keywords-export.csv";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } catch {
+      // silent fail for export
+    }
+  }, []);
 
   const highAcos = adKeywords.filter((k) => k.tag === "high-acos");
   const highConv = adKeywords.filter((k) => k.tag === "high-conversion");
@@ -187,9 +253,15 @@ export function AiAdvertisingClient({ adKeywords }: AiAdvertisingClientProps) {
                 </div>
               )}
 
-              <Button className="w-full gap-2 bg-[var(--wf-ad)] hover:bg-[var(--wf-ad)]/90">
-                <Search className="h-4 w-4" /> 开始分析
+              <Button className="w-full gap-2 bg-[var(--wf-ad)] hover:bg-[var(--wf-ad)]/90" onClick={handleAnalyze} disabled={analyzing}>
+                <Search className="h-4 w-4" /> {analyzing ? "分析中..." : "开始分析"}
               </Button>
+              {analysisResult && (
+                <div className="rounded-lg border bg-muted/30 p-3 text-xs">
+                  <p className="font-medium mb-1">分析结果</p>
+                  <pre className="whitespace-pre-wrap text-muted-foreground max-h-40 overflow-auto scrollbar-thin">{analysisResult}</pre>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -223,7 +295,7 @@ export function AiAdvertisingClient({ adKeywords }: AiAdvertisingClientProps) {
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm">广告数据透视表</CardTitle>
-                <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
+                <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs" onClick={handleExport}>
                   <Download className="h-3 w-3" /> 导出CSV
                 </Button>
               </div>

@@ -25,6 +25,7 @@ import {
   PackagePlus,
   Boxes,
   Target,
+  Globe,
 } from "lucide-react";
 
 type WorkflowStatus = "running" | "idle" | "warning" | "error";
@@ -67,6 +68,7 @@ const navGroups: NavGroup[] = [
       { label: "账号风险", href: "/risk", icon: <ShieldCheck className="h-4 w-4" /> },
       { label: "Agent 管理", href: "/agents", icon: <Bot className="h-4 w-4" /> },
       { label: "任务中心", href: "/tasks", icon: <ListTodo className="h-4 w-4" /> },
+      { label: "爬虫中心", href: "/crawler", icon: <Globe className="h-4 w-4" /> },
     ],
   },
   {

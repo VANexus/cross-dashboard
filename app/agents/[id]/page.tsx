@@ -13,7 +13,7 @@ function AgentDetailSkeleton() {
           <div className="h-4 w-24 skeleton rounded" />
         </div>
       </div>
-      <div className="grid gap-6 grid-cols-3">
+      <div className="grid gap-4 grid-cols-3">
         {Array.from({ length: 3 }).map((_, i) => (
           <Card key={i}>
             <CardHeader className="pb-2">
@@ -26,22 +26,25 @@ function AgentDetailSkeleton() {
           </Card>
         ))}
       </div>
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="h-4 w-24 skeleton rounded" />
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="h-3 w-full skeleton rounded" />
-          <div className="h-3 w-3/4 skeleton rounded" />
-        </CardContent>
-      </Card>
+      <div className="grid gap-4 grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Card key={i}>
+            <CardHeader className="pb-2">
+              <div className="h-4 w-20 skeleton rounded" />
+            </CardHeader>
+            <CardContent>
+              <div className="h-7 w-16 skeleton rounded" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
       <Card>
         <CardHeader className="pb-3">
           <div className="h-4 w-24 skeleton rounded" />
         </CardHeader>
         <CardContent className="space-y-2">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-12 w-full skeleton rounded" />
+            <div key={i} className="h-10 w-full skeleton rounded" />
           ))}
         </CardContent>
       </Card>
@@ -51,15 +54,29 @@ function AgentDetailSkeleton() {
 
 async function AgentDetailData({ id }: { id: string }) {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-  const [agentRes, tasksRes] = await Promise.all([
+  const [agentRes, tasksRes, journalRes] = await Promise.all([
     fetch(`${baseUrl}/api/agents/${id}`, { cache: "no-store" }),
     fetch(`${baseUrl}/api/tasks`, { cache: "no-store" }),
+    fetch(`${baseUrl}/api/agents/${id}/journal?limit=100`, { cache: "no-store" }),
   ]);
   const agentJson = await agentRes.json();
   const tasksJson = await tasksRes.json();
+  const journalJson = await journalRes.json();
   if (!agentJson.data) notFound();
-  const agentTasks = (tasksJson.data || []).filter((t: { agentId: string }) => t.agentId === id);
-  return <AgentDetailClient agent={agentJson.data} tasks={agentTasks} />;
+
+  // Filter tasks assigned to this agent
+  const allTasks = tasksJson.data || [];
+  const agentTasks = allTasks.filter((t: { assignedAgents: string[] }) =>
+    t.assignedAgents?.includes(id)
+  );
+
+  return (
+    <AgentDetailClient
+      agent={agentJson.data}
+      tasks={agentTasks}
+      journal={journalJson.data || []}
+    />
+  );
 }
 
 export default async function AgentDetailPage({

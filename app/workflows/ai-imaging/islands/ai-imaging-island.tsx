@@ -1,18 +1,15 @@
-import { backendGet } from "@/lib/backend-client";
 import { AiImagingClient } from "../ai-imaging-client";
+import { WorkflowService } from "@/lib/services";
+import { getDbAsync } from "@/lib/db";
 
 export async function AiImagingIsland() {
-  const [mainRes, sceneRes, storyboardRes] = await Promise.all([
-    backendGet("/api/workflows/ai-imaging/images?type=main"),
-    backendGet("/api/workflows/ai-imaging/images?type=scene"),
-    backendGet("/api/workflows/ai-imaging/storyboard"),
-  ]);
-
+  await getDbAsync();
+  const service = new WorkflowService();
   return (
     <AiImagingClient
-      mainImages={mainRes.data ?? []}
-      sceneImages={sceneRes.data ?? []}
-      storyboardFrames={storyboardRes.data ?? []}
+      mainImages={service.getImages("main")}
+      sceneImages={service.getImages("scene")}
+      storyboardFrames={service.getStoryboardFrames()}
     />
   );
 }

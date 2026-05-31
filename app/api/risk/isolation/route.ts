@@ -1,20 +1,22 @@
-import { NextRequest, NextResponse } from "next/server";
-import { backendGet, backendPatch } from "@/lib/backend-client";
+import type { NextRequest } from "next/server";
+import { withDb } from "@/lib/api-helpers";
+import { success, badRequest, methodNotAllowed } from "@/lib/api-response";
+import { parseBody, updateIsolationSchema } from "@/lib/api-validation";
+import { RiskService } from "@/lib/services";
 
-export async function GET() {
-  const data = await backendGet("/api/risk/isolation");
-  return NextResponse.json(data);
-}
+const service = new RiskService();
 
-export async function PATCH(request: NextRequest) {
-  const body = await request.json();
-  const data = await backendPatch("/api/risk/isolation", body);
-  return NextResponse.json(data);
-}
+export const GET = withDb(async (_request: NextRequest) => {
+  const items = service.getIsolationItems();
+  return success(items);
+});
 
-export async function POST() {
-  return NextResponse.json(
-    { success: false, error: "Method not allowed", code: 405 },
-    { status: 405 }
-  );
-}
+export const PATCH = withDb(async (request: NextRequest) => {
+  const parsed = parseBody(updateIsolationSchema, await request.json());
+  if (!parsed.success) return badRequest(parsed.error);
+  const ok = service.updateIsolation(parsed.data.index, parsed.data.checked);
+  if (!ok) return badRequest("Isolation item not found");
+  return success({ updated: true });
+});
+
+export { methodNotAllowed as POST };

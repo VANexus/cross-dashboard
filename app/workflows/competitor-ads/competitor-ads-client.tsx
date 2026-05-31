@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { PageTransition } from "@/components/ui/page-transition";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,7 @@ import {
   FileText,
   Globe,
   ExternalLink,
+  Loader2,
 } from "lucide-react";
 
 interface KeywordData {
@@ -66,6 +68,7 @@ export interface CompetitorAdsClientProps {
   competitors: Competitor[];
   adPositions: AdPosition[];
   targetingData: TaggingData[];
+  recentAnalyses?: Array<{ id: string; asins: string[]; resultJson: unknown; createdAt: string }>;
 }
 
 const strategyMeta = {
@@ -74,9 +77,41 @@ const strategyMeta = {
   defensive: { label: "侧翼型", color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20" },
 };
 
-export function CompetitorAdsClient({ keywords, competitors, adPositions, targetingData }: CompetitorAdsClientProps) {
+export function CompetitorAdsClient({ keywords, competitors, adPositions, targetingData, recentAnalyses = [] }: CompetitorAdsClientProps) {
+  const router = useRouter();
   const [selectedKeyword, setSelectedKeyword] = useState<string | null>(null);
   const [selectedCompetitor, setSelectedCompetitor] = useState<string | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<string>(() => {
+    if (recentAnalyses.length > 0) {
+      const r = recentAnalyses[0].resultJson;
+      return typeof r === "string" ? r : JSON.stringify(r, null, 2);
+    }
+    return "";
+  });
+
+  const handleAnalyze = async () => {
+    setAnalyzing(true);
+    setAnalysisResult("");
+    try {
+      const asins = competitors.slice(0, 3).map((c) => c.id);
+      const res = await fetch("/api/workflows/competitor-ads/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ asins, marketplace: "US" }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setAnalysisResult(typeof json.data?.result === "string" ? json.data.result : JSON.stringify(json.data?.result, null, 2));
+      } else {
+        setAnalysisResult(`分析失败: ${json.error}`);
+      }
+    } catch (err) {
+      setAnalysisResult(`分析失败: ${err instanceof Error ? err.message : "未知错误"}`);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
   const coreKeywords = keywords.core;
   const longtailKeywords = keywords.longtail;
@@ -217,7 +252,7 @@ export function CompetitorAdsClient({ keywords, competitors, adPositions, target
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-sm">定向策略矩阵</CardTitle>
-                  <p className="text-xs text-muted-foreground mt-1">目标品类: Smart Home Hub</p>
+                  <p className="text-xs text-muted-foreground mt-1">基于 {totalKeywords} 个关键词的策略分析</p>
                 </div>
                 <Badge variant="outline" className="text-[10px]">
                   {targetingData.reduce((a, b) => a + b.core + b.longtail + b.competitor, 0)} 个关键词
@@ -333,15 +368,42 @@ export function CompetitorAdsClient({ keywords, competitors, adPositions, target
               <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">快捷操作</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Button variant="outline" className="w-full justify-start gap-2 h-8 text-xs">
+              <Button
+                className="w-full justify-start gap-2 h-8 text-xs bg-[var(--wf-competitor)] hover:bg-[var(--wf-competitor)]/90"
+                onClick={handleAnalyze}
+                disabled={analyzing}
+              >
+                {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+                {analyzing ? "分析中..." : "开始 AI 分析"}
+              </Button>
+              <Button variant="outline" className="w-full justify-start gap-2 h-8 text-xs" onClick={() => {
+                if (selectedCompetitor) {
+                  const comp = competitors.find((c) => c.id === selectedCompetitor);
+                  if (comp) alert(`竞品: ${comp.name}\n排名: #${comp.rank}\nSP: ${comp.spCount} | SB: ${comp.sbCount} | SD: ${comp.sdCount}\n关键词: ${comp.keywords}\n策略: ${comp.strategy}`);
+                } else {
+                  alert("请先点击左侧选择一个竞品");
+                }
+              }}>
                 <Eye className="h-3.5 w-3.5" /> 查看竞品详情
               </Button>
-              <Button variant="outline" className="w-full justify-start gap-2 h-8 text-xs">
+              <Button variant="outline" className="w-full justify-start gap-2 h-8 text-xs" onClick={() => {
+                const content = competitors.map((c) => `${c.name}\t#${c.rank}\tSP:${c.spCount}\tSB:${c.sbCount}\tSD:${c.sdCount}\t关键词:${c.keywords}\t策略:${c.strategy}`).join("\n");
+                const blob = new Blob(["竞品分析报告\n\n" + content], { type: "text/plain;charset=utf-8" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url; a.download = "竞品分析报告.txt"; a.click();
+                URL.revokeObjectURL(url);
+              }}>
                 <BarChart3 className="h-3.5 w-3.5" /> 导出分析报告
               </Button>
-              <Button variant="outline" className="w-full justify-start gap-2 h-8 text-xs">
+              <Button variant="outline" className="w-full justify-start gap-2 h-8 text-xs" onClick={() => router.push("/workflows/ai-advertising")}>
                 <Target className="h-3.5 w-3.5" /> 发送到广告工作流
               </Button>
+              {analysisResult && (
+                <div className="rounded-md bg-muted/50 p-2 text-[10px] font-mono max-h-40 overflow-auto whitespace-pre-wrap">
+                  {analysisResult}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

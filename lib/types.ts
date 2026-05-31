@@ -4,6 +4,58 @@ export type TaskStatus = "pending" | "running" | "completed" | "failed" | "cance
 export type RiskLevel = "safe" | "level3" | "level2" | "level1";
 export type MemoryZone = "preset" | "dev" | "prompt";
 
+// ========== Agent Life System Types ==========
+
+export type MoodState = "focused" | "alert" | "tired" | "stressed" | "curious" | "satisfied";
+
+export interface AgentPersona {
+  systemPrompt: string;
+  communicationStyle: string;
+  expertise: string[];
+}
+
+export interface AgentGoal {
+  id: string;
+  text: string;
+  progress: number;
+  priority: "high" | "medium" | "low";
+}
+
+export interface AgentMood {
+  state: MoodState;
+  energy: number;
+  lastUpdated: string;
+}
+
+export interface AgentCycleConfig {
+  intervalMs: number;
+  enabled: boolean;
+}
+
+export interface AgentConfig {
+  persona: AgentPersona;
+  goals: AgentGoal[];
+  mood: AgentMood;
+  cycleConfig: AgentCycleConfig;
+}
+
+export interface JournalEntry {
+  id: string;
+  agentId: string;
+  type: "thought" | "decision" | "observation" | "reflection";
+  content: string;
+  context: Record<string, unknown>;
+  moodAt: string;
+  createdAt: string;
+}
+
+export interface AgentEvent {
+  type: "thought" | "decision" | "observation" | "reflection" | "mood_change" | "memory_created";
+  agentId: string;
+  data: Record<string, unknown>;
+  timestamp: string;
+}
+
 export interface Agent {
   id: string;
   name: string;
@@ -15,6 +67,7 @@ export interface Agent {
   successRate: number;
   lastHeartbeat: string;
   reflexLevel: number;
+  config?: AgentConfig;
 }
 
 export interface SubAgent {
@@ -146,6 +199,7 @@ export interface BusinessMetrics {
 export interface GeneratedImg {
   id: string;
   type: string;
+  url?: string;
   clipScore: number;
   ctrScore: number;
   overall: number;
@@ -153,6 +207,7 @@ export interface GeneratedImg {
   prompt: string;
   model: string;
   seed: number;
+  revisedPrompt?: string;
 }
 
 export interface AdKeyword {
@@ -190,17 +245,20 @@ export interface KeywordItem {
   keyword: string;
   volume: number;
   competition: number;
+  cpc: number;
+  trend: number[];
   type: "core" | "longtail" | "competitor";
 }
 
 export interface CompetitorEntry {
+  id: string;
   name: string;
-  sp: number;
-  sb: number;
-  sd: number;
-  coreKeywords: number;
-  topPosition: number;
-  targeting: "complement" | "defense" | "offense";
+  spCount: number;
+  sbCount: number;
+  sdCount: number;
+  keywords: number;
+  rank: number;
+  strategy: "offensive" | "complementary" | "defensive";
 }
 
 export interface WorkflowStatus {
@@ -309,36 +367,41 @@ export interface StoryboardFrame {
 
 export interface InfringementWord {
   word: string;
-  type: "brand" | "sensitive";
-  position: string;
+  type: "brand" | "patent" | "generic";
+  risk: string;
+  action: string;
 }
 
 export interface CategoryRec {
-  path: string;
+  id: string;
+  name: string;
   confidence: number;
   reason: string;
+  bsr: number;
+  fee: number;
 }
 
 export interface BulletPoint {
+  id: string;
   title: string;
-  desc: string;
+  content: string;
   seoScore: number;
-  rufus: "friendly" | "neutral" | "needs-opt";
+  rufus: boolean;
 }
 
 export interface AdPosition {
   position: string;
-  percentage: number;
-  count: number;
+  share: number;
+  trend: number[];
 }
 
 export interface RestockSuggestion {
+  id: string;
   sku: string;
   name: string;
-  currentStock: number;
-  dailySales: number;
   suggestedQty: number;
   urgency: "high" | "medium" | "low";
-  shipMethod: string;
-  estimatedArrival: string;
+  method: string;
+  eta: string;
+  cost: number;
 }

@@ -1,9 +1,12 @@
-import { backendGet } from "@/lib/backend-client";
 import { DashboardAlerts } from "../dashboard-alerts";
+import { DashboardService } from "@/lib/services";
+import { getDbAsync } from "@/lib/db";
 import type { Alert } from "@/lib/types";
 
 export async function AlertsIsland() {
-  const res = await backendGet("/api/dashboard");
-  const alerts: Alert[] = res.data.alerts ?? [];
+  await getDbAsync();
+  const service = new DashboardService();
+  const dashboard = service.getDashboardData();
+  const alerts: Alert[] = dashboard.alerts ?? [];
   return <DashboardAlerts alerts={alerts} />;
 }

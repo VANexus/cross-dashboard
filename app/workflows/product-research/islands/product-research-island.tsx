@@ -1,18 +1,22 @@
-import { backendGet } from "@/lib/backend-client";
 import { ProductResearchClient } from "../product-research-client";
+import { WorkflowService } from "@/lib/services";
+import { getDbAsync } from "@/lib/db";
+import { getRecentResearchResults } from "@/lib/repositories/workflow.repository";
 
 export async function ProductResearchIsland() {
-  const [sourcesRes, keywordsRes, painRes] = await Promise.all([
-    backendGet("/api/workflows/product-research/data-sources"),
-    backendGet("/api/workflows/product-research/keywords"),
-    backendGet("/api/workflows/product-research/pain-points"),
-  ]);
+  await getDbAsync();
+  const service = new WorkflowService();
+  const dataSources = service.getDataSources();
+  const keywords = service.getProductKeywords();
+  const painPoints = service.getPainPoints();
+  const recentResults = getRecentResearchResults(5);
 
   return (
     <ProductResearchClient
-      dataSources={sourcesRes.data ?? []}
-      keywords={keywordsRes.data ?? []}
-      painPoints={painRes.data ?? []}
+      dataSources={dataSources}
+      keywords={keywords}
+      painPoints={painPoints}
+      recentResults={recentResults}
     />
   );
 }

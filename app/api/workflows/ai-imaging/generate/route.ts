@@ -1,15 +1,20 @@
-import { NextRequest, NextResponse } from "next/server";
-import { backendPost } from "@/lib/backend-client";
+import type { NextRequest } from "next/server";
+import { withDb } from "@/lib/api-helpers";
+import { success, badRequest, error, methodNotAllowed } from "@/lib/api-response";
+import { parseBody, generateImageSchema } from "@/lib/api-validation";
+import { WorkflowService } from "@/lib/services";
 
-export async function POST(request: NextRequest) {
-  const body = await request.json();
-  const data = await backendPost("/api/workflows/ai-imaging/generate", body);
-  return NextResponse.json(data);
-}
+const service = new WorkflowService();
 
-export async function GET() {
-  return NextResponse.json(
-    { success: false, error: "Method not allowed", code: 405 },
-    { status: 405 }
-  );
-}
+export const POST = withDb(async (request: NextRequest) => {
+  const parsed = parseBody(generateImageSchema, await request.json());
+  if (!parsed.success) return badRequest(parsed.error);
+  try {
+    const result = await service.generateImage(parsed.data);
+    return success(result);
+  } catch (err) {
+    return error(err instanceof Error ? err.message : "图片生成失败", 500);
+  }
+});
+
+export { methodNotAllowed as GET };

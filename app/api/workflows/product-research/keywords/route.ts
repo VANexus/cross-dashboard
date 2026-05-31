@@ -1,15 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
-import { backendGet } from "@/lib/backend-client";
+import type { NextRequest } from "next/server";
+import { withDb } from "@/lib/api-helpers";
+import { success, methodNotAllowed } from "@/lib/api-response";
+import { WorkflowService } from "@/lib/services";
 
-export async function GET(request: NextRequest) {
+const service = new WorkflowService();
+
+export const GET = withDb(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
-  const data = await backendGet("/api/workflows/product-research/keywords", Object.fromEntries(searchParams));
-  return NextResponse.json(data);
-}
+  const marketplace = searchParams.get("marketplace") ?? undefined;
+  const data = service.getProductKeywords(marketplace);
+  return success(data);
+});
 
-export async function POST() {
-  return NextResponse.json(
-    { success: false, error: "Method not allowed", code: 405 },
-    { status: 405 }
-  );
-}
+export { methodNotAllowed as POST };

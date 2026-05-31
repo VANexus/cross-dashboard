@@ -1,46 +1,35 @@
-import { NextRequest, NextResponse } from "next/server";
-import { backendGet, backendPut, backendDelete } from "@/lib/backend-client";
+import type { NextRequest } from "next/server";
+import { withDb } from "@/lib/api-helpers";
+import { success, badRequest, notFound, methodNotAllowed } from "@/lib/api-response";
+import { parseBody, updateMemorySchema } from "@/lib/api-validation";
+import { MemoryService } from "@/lib/services";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+const service = new MemoryService();
+
+export const GET = withDb(async (_request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
-  const data = await backendGet(`/api/memory/${id}`);
-  if (!data.success) {
-    return NextResponse.json(data, { status: 404 });
-  }
-  return NextResponse.json(data);
-}
+  const entry = service.getById(id);
+  if (!entry) return notFound("Memory entry");
+  return success(entry);
+});
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const PATCH = withDb(async (request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
-  const body = await request.json();
-  const data = await backendPut(`/api/memory/${id}`, body);
-  if (!data.success) {
-    return NextResponse.json(data, { status: 404 });
-  }
-  return NextResponse.json(data);
-}
+  const parsed = parseBody(updateMemorySchema, await request.json());
+  if (!parsed.success) return badRequest(parsed.error);
+  const entry = service.update(id, parsed.data);
+  if (!entry) return notFound("Memory entry");
+  return success(entry);
+});
 
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const DELETE = withDb(async (_request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
-  const data = await backendDelete(`/api/memory/${id}`);
-  if (!data.success) {
-    return NextResponse.json(data, { status: 404 });
-  }
-  return NextResponse.json(data);
-}
+  const ok = service.delete(id);
+  if (!ok) return notFound("Memory entry");
+  return success({ deleted: true });
+});
 
-export async function POST() {
-  return NextResponse.json(
-    { success: false, error: "Method not allowed", code: 405 },
-    { status: 405 }
-  );
-}
+export { methodNotAllowed as POST };

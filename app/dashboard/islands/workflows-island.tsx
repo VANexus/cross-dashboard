@@ -1,9 +1,11 @@
-import { backendGet } from "@/lib/backend-client";
 import { DashboardWorkflows } from "../dashboard-workflows";
+import { WorkflowService } from "@/lib/services";
+import { getDbAsync } from "@/lib/db";
 import type { WorkflowStatus } from "@/lib/types";
 
 export async function WorkflowsIsland() {
-  const res = await backendGet("/api/workflows/status");
-  const workflows: WorkflowStatus[] = res.data ?? [];
+  await getDbAsync();
+  const service = new WorkflowService();
+  const workflows: WorkflowStatus[] = service.getWorkflowStatuses();
   return <DashboardWorkflows workflows={workflows} />;
 }

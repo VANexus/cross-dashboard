@@ -1,12 +1,15 @@
-import { backendGet } from "@/lib/backend-client";
 import { AiAdvertisingClient } from "../ai-advertising-client";
+import { WorkflowService } from "@/lib/services";
+import { getDbAsync } from "@/lib/db";
 
 export async function AiAdvertisingIsland() {
-  const keywordsRes = await backendGet("/api/workflows/ai-advertising/keywords");
-
+  await getDbAsync();
+  const service = new WorkflowService();
+  const recentAnalyses = service.getRecentAdAnalyses(5);
   return (
     <AiAdvertisingClient
-      adKeywords={keywordsRes.data ?? []}
+      adKeywords={service.getAdKeywords()}
+      recentAnalyses={recentAnalyses}
     />
   );
 }

@@ -1,14 +1,13 @@
-import { NextResponse } from "next/server";
-import { backendGet } from "@/lib/backend-client";
+import type { NextRequest } from "next/server";
+import { withDb } from "@/lib/api-helpers";
+import { success, methodNotAllowed } from "@/lib/api-response";
+import { WorkflowService } from "@/lib/services";
 
-export async function GET() {
-  const data = await backendGet("/api/workflows/competitor-ads/positions");
-  return NextResponse.json(data);
-}
+const service = new WorkflowService();
 
-export async function POST() {
-  return NextResponse.json(
-    { success: false, error: "Method not allowed", code: 405 },
-    { status: 405 }
-  );
-}
+export const GET = withDb(async (_request: NextRequest) => {
+  const data = service.getAdPositions();
+  return success(data);
+});
+
+export { methodNotAllowed as POST };

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { PageTransition } from "@/components/ui/page-transition";
 import { Badge } from "@/components/ui/badge";
@@ -63,9 +64,18 @@ interface RestockSuggestion {
   cost: number;
 }
 
+interface RestockOrder {
+  id: string;
+  items: Array<{ sku: string; quantity: number; shipMethod: string }>;
+  status: string;
+  totalItems: number;
+  createdAt: string;
+}
+
 export interface InventoryClientProps {
   inventoryItems: InventoryItem[];
   restockSuggestions: RestockSuggestion[];
+  recentOrders?: RestockOrder[];
 }
 
 function urgencyColor(u: string) {
@@ -74,13 +84,58 @@ function urgencyColor(u: string) {
   return "text-emerald-400";
 }
 
-export function InventoryClient({ inventoryItems, restockSuggestions }: InventoryClientProps) {
+export function InventoryClient({ inventoryItems, restockSuggestions, recentOrders = [] }: InventoryClientProps) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [creatingOrder, setCreatingOrder] = useState(false);
+  const [orderResult, setOrderResult] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const filteredItems = inventoryItems.filter((item) =>
-    item.name.toLowerCase().includes(search.toLowerCase()) || item.sku.toLowerCase().includes(search.toLowerCase())
-  );
+  useEffect(() => {
+    setOrderResult("");
+  }, [selectedItem]);
+
+  const handleCreateOrder = async () => {
+    if (!selectedItem) return;
+    setCreatingOrder(true);
+    setOrderResult("");
+    try {
+      const res = await fetch("/api/workflows/inventory/restock-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [{
+            sku: selectedItem.sku,
+            quantity: selectedItem.restockQty,
+            shipMethod: selectedItem.shipDays <= 25 ? "express" : "sea",
+          }],
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setOrderResult(data.error || "创建补货单失败");
+      } else {
+        setOrderResult(`补货单已创建: ${data.data?.orderId ?? data.data?.id ?? "成功"}`);
+        router.refresh();
+      }
+    } catch (err) {
+      setOrderResult("网络错误，请稍后重试");
+    } finally {
+      setCreatingOrder(false);
+    }
+  };
+
+  const filteredItems = inventoryItems.filter((item) => {
+    const matchesSearch =
+      item.name.toLowerCase().includes(search.toLowerCase()) || item.sku.toLowerCase().includes(search.toLowerCase());
+    if (!matchesSearch) return false;
+    if (statusFilter === "all") return true;
+    if (statusFilter === "预警") return item.status === "caution" || item.status === "warning";
+    if (statusFilter === "正常") return item.status === "normal";
+    if (statusFilter === "滞销") return item.status === "stale" || item.status === "overstock";
+    return true;
+  });
 
   const warningCount = inventoryItems.filter((i) => i.status === "warning" || i.status === "caution").length;
   const totalStock = inventoryItems.reduce((a, b) => a + b.stock, 0);
@@ -105,16 +160,26 @@ export function InventoryClient({ inventoryItems, restockSuggestions }: Inventor
         </div>
         <div className="flex gap-2">
           {(["全部", "预警", "正常", "滞销"] as const).map((f) => (
-            <Badge key={f} variant="outline" className="cursor-pointer hover:bg-primary/10 hover:text-primary hover:border-primary/30 text-xs">
+            <Badge
+              key={f}
+              variant="outline"
+              className={cn(
+                "cursor-pointer text-xs transition-colors",
+                statusFilter === f
+                  ? "bg-primary/15 text-primary border-primary/40"
+                  : "hover:bg-primary/10 hover:text-primary hover:border-primary/30"
+              )}
+              onClick={() => setStatusFilter(f)}
+            >
               {f}
             </Badge>
           ))}
         </div>
         <div className="ml-auto flex gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs">
+          <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs" onClick={() => setStatusFilter("滞销")}>
             <BarChart3 className="h-3.5 w-3.5" /> 库龄报告
           </Button>
-          <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs">
+          <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs" onClick={() => setStatusFilter("预警")}>
             <Calendar className="h-3.5 w-3.5" /> 断货预测
           </Button>
         </div>
@@ -254,13 +319,28 @@ export function InventoryClient({ inventoryItems, restockSuggestions }: Inventor
                   </div>
 
                   <div className="flex gap-2 mt-3">
-                    <Button size="sm" className="gap-1.5 h-8 text-xs bg-[var(--wf-inventory)] hover:bg-[var(--wf-inventory)]/90">
-                      <Truck className="h-3.5 w-3.5" /> 创建补货单
+                    <Button
+                      size="sm"
+                      className="gap-1.5 h-8 text-xs bg-[var(--wf-inventory)] hover:bg-[var(--wf-inventory)]/90"
+                      onClick={handleCreateOrder}
+                      disabled={creatingOrder}
+                    >
+                      {creatingOrder ? (
+                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Truck className="h-3.5 w-3.5" />
+                      )}
+                      {creatingOrder ? "创建中..." : "创建补货单"}
                     </Button>
-                    <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs">
+                    <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs" onClick={handleCreateOrder} disabled={creatingOrder}>
                       <ArrowRight className="h-3.5 w-3.5" /> 发送到采购
                     </Button>
                   </div>
+                  {orderResult && (
+                    <p className={cn("mt-2 text-xs", orderResult.includes("已创建") ? "text-emerald-400" : "text-red-400")}>
+                      {orderResult}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -292,7 +372,25 @@ export function InventoryClient({ inventoryItems, restockSuggestions }: Inventor
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">补货建议</CardTitle>
-                <Button variant="outline" size="sm" className="h-6 gap-1 text-[10px]">
+                <Button variant="outline" size="sm" className="h-6 gap-1 text-[10px]" onClick={async () => {
+                  if (restockSuggestions.length === 0) return;
+                  try {
+                    const res = await fetch("/api/workflows/inventory/restock-order", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        items: restockSuggestions.map((s) => ({
+                          sku: s.sku, quantity: s.suggestedQty, shipMethod: s.method,
+                        })),
+                      }),
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                      alert(`已创建补货单: ${data.data?.orderId ?? "成功"}`);
+                      router.refresh();
+                    }
+                  } catch { /* silent */ }
+                }}>
                   <Send className="h-3 w-3" /> 一键推送
                 </Button>
               </div>
@@ -317,26 +415,27 @@ export function InventoryClient({ inventoryItems, restockSuggestions }: Inventor
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">物流追踪</CardTitle>
+              <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">最近补货单</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {[
-                { order: "PO-2026-008", status: "运输中", eta: "3月20日", progress: 65 },
-                { order: "PO-2026-005", status: "已签收", eta: "3月10日", progress: 100 },
-              ].map((t) => (
-                <div key={t.order} className="p-2 rounded-lg border text-xs">
-                  <div className="flex justify-between mb-1.5">
-                    <span className="font-medium">{t.order}</span>
-                    <Badge variant="outline" className={cn("text-[10px] h-4", t.progress === 100 ? "text-emerald-400" : "text-amber-400")}>
-                      {t.status}
-                    </Badge>
+              {recentOrders.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">暂无补货记录</p>
+              ) : (
+                recentOrders.map((order) => (
+                  <div key={order.id} className="p-2 rounded-lg border text-xs">
+                    <div className="flex justify-between mb-1.5">
+                      <span className="font-medium">{order.id}</span>
+                      <Badge variant="outline" className={cn("text-[10px] h-4", order.status === "created" ? "text-amber-400" : "text-emerald-400")}>
+                        {order.status === "created" ? "已创建" : order.status}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                      <span>{order.totalItems} 件商品</span>
+                      <span>{new Date(order.createdAt).toLocaleDateString("zh-CN")}</span>
+                    </div>
                   </div>
-                  <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden mb-1">
-                    <div className={cn("h-full rounded-full", t.progress === 100 ? "bg-emerald-500" : "bg-amber-500")} style={{ width: `${t.progress}%` }} />
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">ETA: {t.eta}</p>
-                </div>
-              ))}
+                ))
+              )}
             </CardContent>
           </Card>
         </div>

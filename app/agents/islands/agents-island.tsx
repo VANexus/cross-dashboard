@@ -1,9 +1,11 @@
-import { backendGet } from "@/lib/backend-client";
 import { AgentsClient } from "../agents-client";
+import { AgentService } from "@/lib/services";
+import { getDbAsync } from "@/lib/db";
 import type { Agent } from "@/lib/types";
 
 export async function AgentsIsland() {
-  const res = await backendGet("/api/agents");
-  const agents: Agent[] = res.data ?? [];
+  await getDbAsync();
+  const service = new AgentService();
+  const agents: Agent[] = service.list();
   return <AgentsClient initialData={agents} />;
 }

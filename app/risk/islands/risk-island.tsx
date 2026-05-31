@@ -1,9 +1,11 @@
-import { backendGet } from "@/lib/backend-client";
 import { RiskClient } from "../risk-client";
+import { RiskService } from "@/lib/services";
+import { getDbAsync } from "@/lib/db";
 import type { RiskEvent } from "@/lib/types";
 
 export async function RiskIsland() {
-  const res = await backendGet("/api/risk/events");
-  const events: RiskEvent[] = res.data ?? [];
+  await getDbAsync();
+  const service = new RiskService();
+  const events: RiskEvent[] = service.listEvents().items;
   return <RiskClient initialEvents={events} />;
 }

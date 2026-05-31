@@ -1,14 +1,26 @@
-import { NextRequest, NextResponse } from "next/server";
-import { backendGet, backendPost } from "@/lib/backend-client";
+import type { NextRequest } from "next/server";
+import { withDb } from "@/lib/api-helpers";
+import { success, badRequest, methodNotAllowed } from "@/lib/api-response";
+import { parseBody, createTaskSchema, paginationSchema } from "@/lib/api-validation";
+import { TaskService } from "@/lib/services";
 
-export async function GET(request: NextRequest) {
+const service = new TaskService();
+
+export const GET = withDb(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
-  const data = await backendGet("/api/tasks", Object.fromEntries(searchParams));
-  return NextResponse.json(data);
-}
+  const pagination = paginationSchema.safeParse({ page: searchParams.get("page"), pageSize: searchParams.get("pageSize") });
+  if (!pagination.success) return badRequest("Invalid pagination parameters");
+  const result = service.list({
+    status: searchParams.get("status") ?? undefined,
+    priority: searchParams.get("priority") ?? undefined,
+    ...pagination.data,
+  });
+  return success(result.items, result.pagination);
+});
 
-export async function POST(request: NextRequest) {
-  const body = await request.json();
-  const data = await backendPost("/api/tasks", body);
-  return NextResponse.json(data);
-}
+export const POST = withDb(async (request: NextRequest) => {
+  const parsed = parseBody(createTaskSchema, await request.json());
+  if (!parsed.success) return badRequest(parsed.error);
+  const task = service.create(parsed.data);
+  return success(task);
+});

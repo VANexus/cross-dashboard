@@ -18,3 +18,25 @@ export async function updateAdKeyword(id: string, data: Partial<AdKeyword>) {
 export async function exportAdReport(format: "csv" | "xlsx") {
   return apiPost<{ url: string }>("/api/workflows/ai-advertising/export", { format });
 }
+
+export async function analyzeAdKeyword(data: {
+  keyword: string;
+  currentData: {
+    impressions: number;
+    clicks: number;
+    spend: number;
+    sales: number;
+    acos: number;
+  };
+}) {
+  return apiPost("/api/workflows/ai-advertising/analyze", data);
+}
+
+export async function optimizeAdStrategy(data: {
+  keywords?: string[];
+  asin?: string;
+  marketplace?: string;
+  budget?: number;
+}) {
+  return apiPost("/api/workflows/ai-advertising/optimize", data);
+}
