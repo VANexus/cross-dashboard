@@ -1,30 +1,32 @@
-# CLAUDE.md
+# CLAUDE.md — Claude Code 开发指南
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+> 本文件为 Claude Code (claude.ai/code) 提供 cross-dashboard 项目的开发指引。
 
-## Commands
+## 常用命令
 
-| Task | Command |
-|------|---------|
-| Dev server | `bun run dev` |
-| Production build | `bun run build` |
-| Start production | `bun run start` |
-| Lint | `bun run lint` |
-| E2E tests | `bun run test:e2e` |
-| Single E2E test | `bun run test:e2e -- path/to/test.spec.ts` |
-| List E2E tests | `bun run test:e2e:list` |
+| 任务 | 命令 |
+|------|------|
+| 开发服务器 | `bun run dev` |
+| 生产构建 | `bun run build` |
+| 启动生产 | `bun run start` |
+| 代码检查 | `bun run lint` |
+| E2E 测试 | `bun run test:e2e` |
+| 单个测试 | `bun run test:e2e -- path/to/test.spec.ts` |
+| 列出测试 | `bun run test:e2e:list` |
 
-Package manager is **Bun** (not npm/pnpm/yarn). There are no unit tests — only Playwright E2E in `e2e/`.
+包管理器是 **Bun**（不是 npm/pnpm/yarn）。没有单元测试，只有 Playwright E2E 测试（`e2e/`）。
 
-## This is NOT the Next.js you know
+## ⚠️ 这不是你熟悉的 Next.js
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
+本项目使用 Next.js 16.2.6，有破坏性变更——API、约定和文件结构可能与你的训练数据不同。编写代码前**必须**阅读 `node_modules/next/dist/docs/` 中的指南。注意弃用通知。
 
-## Architecture
+## 项目概述
 
-**FlowMind** — a cross-border e-commerce intelligent orchestration system (跨境电商智能编排系统). UI is entirely in Chinese (zh-CN).
+**FlowMind** — 跨境电商智能编排系统（跨境电商智能编排系统）。UI 全部为中文（zh-CN）。
 
-### Layered architecture
+系统通过 RAK 协议引擎协调多个自主智能体，实现选品、AI 制图、广告优化、商品发布、库存管理、竞品分析六大工作流的自动化编排。
+
+## 分层架构
 
 ```
 API Routes (app/api/)  ←→  Services (lib/services/)  ←→  Repositories (lib/repositories/)  ←→  SQLite (lib/db/)
@@ -32,120 +34,159 @@ API Routes (app/api/)  ←→  Services (lib/services/)  ←→  Repositories (l
                                                   RAK Engine (lib/rak/)
                                                        ↕
                                                   AI Providers (lib/ai/)
+                                                  Agent Runtime (lib/agent-runtime/)
 ```
 
-### Data flow (two paths)
+## 数据流（双路径）
 
-1. **Client-side**: React components → custom hooks (`hooks/use-*.ts`) → `fetch('/api/...')` → API Route Handler → Service → Repository → SQLite
-2. **Server-side (SSR)**: Island components (`islands/*-island.tsx`) → Service → Repository → SQLite → pass data as props to client components
+1. **客户端**：React 组件 → hooks (`hooks/use-*.ts`) → `fetch('/api/...')` → API Route Handler → Service → Repository → SQLite
+2. **服务端 (SSR)**：Island 组件 (`islands/*-island.tsx`) → Service → Repository → SQLite → 作为 props 传递给客户端组件
 
-Both paths share the same SQLite database (sql.js, stored at `./data/flowmind.db`).
+两条路径共享同一个 SQLite 数据库（sql.js，存储在 `./data/flowmind.db`）。
 
-### Key directories
+## 关键目录
 
-- `lib/db/` — Database singleton (sql.js WASM), schema, migrations, seed data. Use `getDbAsync()` for init, `getDb()` for sync access after init.
-- `lib/repositories/` — Data access layer. Each entity has a repository (agent, task, risk, memory, evolution, workflow, rak). Use `paginatedQuery()` from `base.ts` for list endpoints.
-- `lib/services/` — Business logic layer. Services are plain classes, instantiate as needed.
-- `lib/rak/` — RAK protocol engine (coordinator, mesh executor, conflict resolver, consensus, scheduler).
-- `lib/ai/` — AI provider adapters (Claude, OpenAI, mock). Provider-agnostic via adapter pattern.
-- `lib/types.ts` — All shared TypeScript interfaces
-- `lib/api-response.ts` — Standardized response helpers: `success()`, `error()`, `notFound()`, `badRequest()`, `methodNotAllowed()`
-- `lib/api-validation.ts` — Zod schemas for request body/pagination/ID validation (`parseBody()`)
-- `lib/api-helpers.ts` — `withDb()` wrapper that ensures DB initialization before route handler execution
-- `hooks/` — Client-side hooks, all use `useFetch<T>` for GET and `apiPost`/`apiPatch`/`apiDelete` for mutations
+| 目录 | 说明 |
+|------|------|
+| `lib/db/` | 数据库单例（sql.js WASM），schema、迁移、种子数据。用 `getDbAsync()` 初始化，`getDb()` 同步访问 |
+| `lib/repositories/` | 数据访问层。每个实体一个 Repository（agent、task、risk、memory、evolution、workflow、rak）。列表端点使用 `paginatedQuery()` |
+| `lib/services/` | 业务逻辑层。纯类，按需实例化 |
+| `lib/rak/` | RAK 协议引擎（coordinator、mesh executor、conflict resolver、consensus） |
+| `lib/ai/` | AI Provider 适配器（Claude、OpenAI、mock）。通过适配器模式实现 Provider 无关 |
+| `lib/agent-runtime/` | Agent 自主运行时（生命周期、情绪状态机、决策循环、日志、事件总线） |
+| `lib/ziniao/` | 紫鸟浏览器桥接客户端 |
+| `lib/crawlers/` | 爬虫实现 |
+| `lib/image-gen/` | 图片生成 |
+| `lib/types.ts` | 所有共享 TypeScript 接口 |
+| `lib/api-response.ts` | 标准化响应辅助函数：`success()`、`error()`、`notFound()`、`badRequest()`、`methodNotAllowed()` |
+| `lib/api-validation.ts` | Zod schema 验证（`parseBody()`） |
+| `lib/api-helpers.ts` | `withDb()` 包装器，确保路由执行前数据库已初始化 |
+| `hooks/` | 客户端 hooks，全部基于 `useFetch<T>` 做 GET，`apiPost`/`apiPatch`/`apiDelete` 做变更 |
 
-### Legacy (being deprecated)
+## 遗留代码（逐步废弃）
 
-- `lib/mock-data-store.ts` — Old in-memory CRUD store
-- `lib/workflow-data-store.ts` — Old in-memory workflow store
+- `lib/mock-data-store.ts` — 旧内存 CRUD 存储
+- `lib/workflow-data-store.ts` — 旧内存工作流存储
 
-### Page structure pattern
+## 页面结构模式
 
-Every page follows this layout:
+每个页面遵循以下布局：
 
 ```
 app/<section>/
-  page.tsx              ← Server Component, imports island
-  <section>-client.tsx  ← "use client" component with all UI logic
+  page.tsx              ← Server Component，导入 island
+  <section>-client.tsx  ← "use client" 组件，包含所有 UI 逻辑
   islands/
-    <section>-island.tsx ← Server Component that fetches via services, passes as props
-  loading.tsx           ← Suspense skeleton
-  error.tsx             ← Error boundary
+    <section>-island.tsx ← Server Component，通过 service 获取数据，传递 props 给 client 组件
+  loading.tsx           ← Suspense 骨架屏
+  error.tsx             ← 错误边界
 ```
 
-The island pattern: Server Component fetches data via services → passes to client component → client component renders interactivity.
+Island 模式：Server Component 通过 service 获取数据 → 传递给 client component → client component 渲染交互。
 
-Some sections use multiple islands (e.g., dashboard has 5: stats, workflows, heartbeat, alerts, trends). Some have dynamic routes (e.g., `app/agents/[id]/`). The `settings` page is a simpler exception with no island directory.
+部分页面使用多个 Island（如 dashboard 有 5 个：stats、workflows、heartbeat、alerts、trends）。部分有动态路由（如 `app/agents/[id]/`）。`settings` 页面较简单，没有 island 目录。
 
-### API route pattern
+## API 路由模式
 
-All API routes use `success()` from `lib/api-response.ts` and return `{ success: true, data, pagination? }`. Import services from `lib/services/`, not data stores directly. Validate request bodies with `parseBody()` from `lib/api-validation.ts`.
+所有 API 路由使用 `lib/api-response.ts` 中的 `success()` 返回 `{ success: true, data, pagination? }`。从 `lib/services/` 导入 service，不要直接访问 data store。使用 `lib/api-validation.ts` 中的 `parseBody()` 验证请求体。
 
-Every route handler must be wrapped with `withDb()` from `lib/api-helpers.ts` to ensure the database is initialized:
+每个路由处理器必须使用 `withDb()` 包装：
 
-```ts
+```typescript
 import { withDb } from "@/lib/api-helpers";
 export const GET = withDb(async (request: NextRequest) => { ... });
 ```
 
-### Workflow API structure
+## 六大工作流 API
 
-Six workflow sub-systems under `app/api/workflows/`:
+`app/api/workflows/` 下的六个子系统：
 
-- `ai-advertising/` — keywords, analyze, optimize, export
-- `ai-imaging/` — images, generate, storyboard
-- `ai-listing/` — generate, bullets, categories, infringement, publish
-- `competitor-ads/` — competitors, keywords, positions, analyze
-- `inventory/` — restock-suggestions, restock-order, generate-suggestions
-- `product-research/` — execute, keywords, data-sources, pain-points
+| 工作流 | API 子路由 |
+|--------|-----------|
+| `ai-advertising/` | keywords, analyze, optimize, export |
+| `ai-imaging/` | images, generate, storyboard |
+| `ai-listing/` | generate, bullets, categories, infringement, publish |
+| `competitor-ads/` | competitors, keywords, positions, analyze |
+| `inventory/` | restock-suggestions, restock-order, generate-suggestions |
+| `product-research/` | execute, keywords, data-sources, pain-points |
 
-Each has nested route files. Dynamic routes use `[id]` segments (e.g., `app/api/agents/[id]/route.ts`). The `[id]` param is extracted from `params` in the handler signature.
+动态路由使用 `[id]` 段（如 `app/api/agents/[id]/route.ts`）。`[id]` 参数从 handler 签名的 `params` 中提取。
 
-### Database notes
+## 数据库
 
-- sql.js (pure JS SQLite) with WASM — works in both Bun and Node.js
-- DB file persisted to `./data/flowmind.db` (configurable via `RAK_DB_PATH` env var)
-- Schema auto-created on first run, seeded if empty
-- `CompatDatabase` wrapper provides bun:sqlite-compatible API
+- sql.js（纯 JS SQLite）+ WASM — 在 Bun 和 Node.js 中均可工作
+- 数据文件持久化到 `./data/flowmind.db`（通过 `RAK_DB_PATH` 环境变量配置）
+- 首次运行自动建表，空库时自动填充种子数据
+- `CompatDatabase` 封装提供 bun:sqlite 兼容 API
+- 轻量级迁移在 `lib/db/index.ts` 中（ALTER TABLE / CREATE TABLE IF NOT EXISTS）
 
-### Component library
+## 组件库
 
-24 Radix-based UI components in `components/ui/` following shadcn/ui patterns. Uses Tailwind CSS v4 — **no `tailwind.config.*` file**; theme is configured in `globals.css` with `@theme inline` block.
+`components/ui/` 中有 24 个基于 Radix UI 的组件，遵循 shadcn/ui 模式。
 
-### Styling
+## 样式
 
-- Dark mode default (`defaultTheme: "dark"`)
-- Custom utility classes: `.glass`, `.glass-panel`, `.data-grid`, `.metric-value`
-- Uses `cn()` from `lib/utils.ts` (clsx + tailwind-merge)
-- Framer Motion for animations, Recharts for charts
-- Tailwind v4: theme uses CSS variables mapped via `@theme inline` block in `globals.css`. Custom workflow colors: `--wf-product`, `--wf-imaging`, `--wf-ad`, `--wf-listing`, `--wf-inventory`, `--wf-competitor`. Use `text-wf-product`, `bg-wf-imaging`, etc.
+- Tailwind CSS v4 — **没有 `tailwind.config.*` 文件**，主题在 `globals.css` 中通过 `@theme inline` 块配置
+- 自定义工具类：`.glass`、`.glass-panel`、`.data-grid`、`.metric-value`
+- 使用 `cn()`（clsx + tailwind-merge）
+- Framer Motion 动画，Recharts 图表
+- 工作流颜色：`--wf-product`、`--wf-imaging`、`--wf-ad`、`--wf-listing`、`--wf-inventory`、`--wf-competitor`。使用 `text-wf-product`、`bg-wf-imaging` 等
 
-### Key libraries
+## 关键依赖
 
-- `@tanstack/react-table` — Table components
-- `lucide-react` — Icons
-- `date-fns` — Date formatting
-- `zod` v4 — Schema validation (used in `lib/api-validation.ts`)
-- `recharts` v3 — Charts
-- `framer-motion` v12 — Animations
+| 库 | 用途 |
+|----|------|
+| `@tanstack/react-table` | 表格组件 |
+| `lucide-react` | 图标 |
+| `date-fns` | 日期格式化 |
+| `zod` v4 | Schema 验证（`lib/api-validation.ts`） |
+| `recharts` v3 | 图表 |
+| `framer-motion` v12 | 动画 |
+| `sql.js` | SQLite WASM |
+| `zustand` v5 | 全局状态 |
+| `next-themes` | 主题切换 |
 
-### State management
+## 状态管理
 
-Zustand for global state. `next-themes` for theme switching. Most state is managed via hooks (`hooks/use-*.ts`) and React state rather than global stores.
+Zustand 用于全局状态。`next-themes` 用于主题切换。大部分状态通过 hooks（`hooks/use-*.ts`）和 React state 管理，而非全局 store。
 
-### Config notes
+## 配置说明
 
-Next.js 16.2.6 with React 19. `next.config.ts` enables `cacheComponents: true`. E2E suite includes `rsc-features.spec.ts` for testing server component behavior.
+- Next.js 16.2.6 + React 19
+- `next.config.ts` 启用 `cacheComponents: true`
+- E2E 套件包含 `rsc-features.spec.ts` 测试 Server Component 行为
 
-### E2E tests
+## E2E 测试
 
-Playwright tests in `e2e/` — one spec file per page (agents, dashboard, evolution, memory, navigation, risk, tasks, workflows) plus `rsc-features.spec.ts` for Suspense/RSC behavior. Run `bun run test:e2e` for all, or `bun run test:e2e -- e2e/agents.spec.ts` for a single file.
+Playwright 测试在 `e2e/` 中，每个页面一个 spec 文件（agents、dashboard、evolution、memory、navigation、risk、tasks、workflows），加上 `rsc-features.spec.ts` 测试 Suspense/RSC 行为。
 
-### AI configuration
+运行 `bun run test:e2e` 执行全部，或 `bun run test:e2e -- e2e/agents.spec.ts` 执行单个文件。
 
-AI provider settings are stored in the `ai_config` table and synced from environment variables on startup. Set these in `.env.local`:
+## AI 配置
 
-- `AI_PROVIDER` — `"mock"` | `"claude"` | `"openai"` (default: mock)
-- `AI_MODEL`, `AI_BASE_URL`, `AI_API_KEY` — provider-specific config
-- `AI_MAX_TOKENS`, `AI_TEMPERATURE` — generation params
-- `AI_DEMO_MODE` — `"true"` to use mock data without real AI calls
+AI Provider 设置存储在 `ai_config` 表中，启动时从环境变量同步。在 `.env.local` 中设置：
+
+| 变量 | 说明 |
+|------|------|
+| `AI_PROVIDER` | `"mock"` / `"claude"` / `"openai"`（默认 mock） |
+| `AI_MODEL` | 模型名称 |
+| `AI_BASE_URL` | API 地址 |
+| `AI_API_KEY` | API 密钥 |
+| `AI_MAX_TOKENS` | 最大 token 数 |
+| `AI_TEMPERATURE` | 温度参数 |
+| `AI_DEMO_MODE` | `"true"` 使用模拟数据 |
+
+## Agent 生命系统
+
+Agent 具有自主运行时（`lib/agent-runtime/`），数据库初始化时自动启动：
+
+- **情绪状态机**：6 种状态（focused / alert / tired / stressed / curious / satisfied）
+- **决策循环**：wake → context → think → journal → decide → mood → emit
+- **人格配置**：系统提示词、沟通风格、专业领域
+- **目标追踪**：带优先级和进度
+- **日志系统**：thought / decision / observation / reflection 四种类型
+- **事件总线**：进程内事件分发
+
+## 紫鸟浏览器桥接
+
+爬虫中心通过 `lib/ziniao/client.ts` 连接本地紫鸟防关联浏览器（默认 `http://127.0.0.1:9481`）。API Key 通过 `ZCLAW_API_KEY` 环境变量或 `~/.zclaw/config.json` 配置。
