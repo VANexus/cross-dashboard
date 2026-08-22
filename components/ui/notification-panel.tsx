@@ -109,7 +109,7 @@ export function NotificationPanel({ open, onClose }: NotificationPanelProps) {
       <div className="fixed inset-0 z-40" onClick={onClose} />
       <div
         className={cn(
-          "fixed right-0 top-0 z-50 h-full w-[380px] border-l bg-card shadow-xl",
+          "fixed right-0 top-0 z-50 h-full w-[380px] glass-surface",
           "animate-slide-in-right"
         )}
       >

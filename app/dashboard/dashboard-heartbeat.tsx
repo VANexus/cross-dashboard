@@ -3,6 +3,7 @@
 import { StatusDot } from "@/components/ui/status-dot";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Activity } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { Agent } from "@/lib/types";
 
 const statusMap: Record<string, "success" | "warning" | "danger" | "idle"> = {
@@ -11,6 +12,8 @@ const statusMap: Record<string, "success" | "warning" | "danger" | "idle"> = {
   error: "danger",
   offline: "idle",
 };
+
+const heartbeatWave = [8, 14, 10, 18, 12, 16, 9, 15, 11, 13];
 
 export function DashboardHeartbeat({ agents }: { agents: Agent[] }) {
   return (
@@ -21,23 +24,23 @@ export function DashboardHeartbeat({ agents }: { agents: Agent[] }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {agents.map((agent, i) => {
+        {agents.map((agent) => {
           const dotStatus = statusMap[agent.status] ?? "idle";
           const barCount = Math.round(agent.successRate / 10); // 0-10 bars based on successRate
           return (
             <div key={agent.id} className="flex items-center gap-3">
               <StatusDot status={dotStatus} pulse={agent.status === "online"} size="sm" />
               <span className="text-sm flex-1">{agent.name}</span>
-              <div className="flex gap-0.5">
-                {Array.from({ length: 12 }).map((_, j) => (
+              <div className="flex items-end gap-[3px]">
+                {heartbeatWave.map((h, j) => (
                   <div
                     key={j}
-                    className={`w-1 rounded-full ${j < barCount ? "bg-emerald-500" : "bg-muted"}`}
-                    style={{ height: `${8 + ((i * 3 + j * 7) % 12)}px`, opacity: j < barCount ? 0.7 + ((j * 5) % 3) * 0.1 : 0.2 }}
+                    className={cn("w-1 rounded-full", j < barCount ? "bg-emerald-500" : "bg-muted")}
+                    style={{ height: `${h}px` }}
                   />
                 ))}
               </div>
-              <span className="text-[10px] text-muted-foreground w-12 text-right">
+              <span className="text-[10px] text-muted-foreground w-12 text-right tabular-nums">
                 {agent.successRate}%
               </span>
             </div>
