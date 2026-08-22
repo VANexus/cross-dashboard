@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
+  --background: #f5f5f7;
   --foreground: #09090b;
   --card: #ffffff;
   --card-foreground: #09090b;
@@ -20,7 +20,14 @@
   --border: #e4e4e7;
   --input: #e4e4e7;
   --ring: #d97706;
-  --radius: 0.5rem;
+  --radius: 0.75rem;
+  --glass-blur: 20px;
+  --glass-saturate: 1.6;
+  --dur-fast: 150ms;
+  --dur-base: 250ms;
+  --dur-slow: 450ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
   --sidebar-width: 260px;
   --sidebar-width-collapsed: 72px;
   --topbar-height: 56px;
@@ -101,6 +108,7 @@
   --color-wf-competitor: var(--wf-competitor);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sora), var(--font-geist-sans), Arial, sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -112,26 +120,48 @@
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
+  background-image:
+    radial-gradient(60rem 40rem at 100% -12%, oklch(0.94 0.015 240 / 0.55), transparent 60%),
+    radial-gradient(44rem 32rem at -8% 108%, oklch(0.95 0.03 75 / 0.3), transparent 60%);
+  background-attachment: fixed;
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
+.dark body {
+  background-image:
+    radial-gradient(60rem 40rem at 100% -12%, oklch(0.3 0.03 255 / 0.26), transparent 60%),
+    radial-gradient(44rem 32rem at -8% 108%, oklch(0.32 0.05 75 / 0.15), transparent 60%);
+}
+
 @layer utilities {
-  .glass {
-    background: oklch(1 0 0 / 0.05);
-    backdrop-filter: blur(12px);
-    border: 1px solid oklch(1 0 0 / 0.08);
+  .glass-surface {
+    background: color-mix(in srgb, var(--card) 66%, transparent);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    border: 1px solid color-mix(in srgb, var(--foreground) 8%, transparent);
+    box-shadow:
+      inset 0 1px 0 0 oklch(1 0 0 / 0.55),
+      0 1px 2px oklch(0 0 0 / 0.04),
+      0 16px 40px -20px oklch(0 0 0 / 0.12);
   }
-  .dark .glass {
-    background: oklch(0.15 0.01 280 / 0.6);
-    border-color: oklch(1 0 0 / 0.06);
+  .dark .glass-surface {
+    background: color-mix(in srgb, var(--card) 58%, transparent);
+    border-color: oklch(1 0 0 / 0.08);
+    box-shadow:
+      inset 0 1px 0 0 oklch(1 0 0 / 0.08),
+      0 1px 2px oklch(0 0 0 / 0.25),
+      0 20px 48px -24px oklch(0 0 0 / 0.55);
   }
 
-  .glass-panel {
-    background: color-mix(in srgb, var(--card) 80%, transparent);
-    backdrop-filter: blur(16px);
-    border: 1px solid var(--border);
+  .glass-nav {
+    background: color-mix(in srgb, var(--card) 84%, transparent);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
+  }
+  .dark .glass-nav {
+    background: color-mix(in srgb, var(--card) 78%, transparent);
   }
 
   .data-grid {
@@ -172,12 +202,18 @@ body {
     border-radius: var(--radius);
     border: 1px solid var(--border);
     background: var(--card);
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    transition:
+      border-color var(--dur-base) var(--ease-standard),
+      box-shadow var(--dur-base) var(--ease-standard),
+      transform var(--dur-base) var(--ease-out);
   }
 
   .workflow-card:hover {
     border-color: color-mix(in srgb, var(--primary) 40%, transparent);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 20%, transparent);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--primary) 20%, transparent),
+      0 14px 32px -18px oklch(0 0 0 / 0.16);
+    transform: translateY(-1px);
   }
 }
 
@@ -239,11 +275,11 @@ body {
 }
 
 .animate-fade-in-up {
-  animation: fade-in-up 0.3s ease-out;
+  animation: fade-in-up var(--dur-base) var(--ease-out);
 }
 
 .animate-slide-in-right {
-  animation: slide-in-right 0.3s ease-out;
+  animation: slide-in-right var(--dur-base) var(--ease-out);
 }
 
 .animate-pulse-glow {
@@ -255,7 +291,7 @@ body {
 }
 
 .animate-slide-in {
-  animation: slide-in 0.3s ease-out;
+  animation: slide-in var(--dur-base) var(--ease-out);
 }
 
 .scrollbar-thin {
@@ -309,4 +345,16 @@ body {
 
 .animate-pulse-border {
   animation: pulse-border 2s ease-in-out infinite;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-sora), var(--font-geist-sans), sans-serif;
+  letter-spacing: -0.02em;
 }
