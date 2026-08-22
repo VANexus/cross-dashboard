@@ -101,7 +101,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-30 flex h-screen flex-col border-r bg-card transition-[width] duration-300",
+        "fixed left-0 top-0 z-30 flex h-screen flex-col border-r glass-nav transition-[width] duration-300",
         collapsed ? "w-[72px]" : "w-[260px]"
       )}
     >
@@ -112,7 +112,7 @@ export function Sidebar() {
             <div className="absolute -inset-0.5 rounded-lg bg-primary/10 blur-sm -z-10" />
           </div>
           {!collapsed && (
-            <span className="text-base font-bold tracking-tight">
+            <span className="font-heading text-base font-bold tracking-tight">
               Flow<span className="text-primary">Mind</span>
             </span>
           )}
@@ -144,7 +144,7 @@ export function Sidebar() {
                       key={item.href}
                       href={item.href}
                       className={cn(
-                        "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-all duration-150",
+                        "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
                         isActive
                           ? "bg-primary/10 text-primary font-medium"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground",
