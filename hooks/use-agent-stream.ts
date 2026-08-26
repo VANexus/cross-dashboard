@@ -19,6 +19,7 @@ export function useAgentStream(agentId: string | null) {
   });
   const sourceRef = useRef<EventSource | null>(null);
   const eventsRef = useRef<AgentEvent[]>([]);
+  const connectRef = useRef<() => void>(() => {});
 
   const connect = useCallback(() => {
     if (!agentId) return;
@@ -52,9 +53,14 @@ export function useAgentStream(agentId: string | null) {
       setState((prev) => ({ ...prev, connected: false }));
       source.close();
       // Auto-reconnect after 3s
-      setTimeout(() => connect(), 3000);
+      setTimeout(() => connectRef.current(), 3000);
     };
   }, [agentId]);
+
+  useEffect(() => {
+    // Keep the ref in sync with the latest connect function
+    connectRef.current = connect;
+  }, [connect]);
 
   useEffect(() => {
     connect();
