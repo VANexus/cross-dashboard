@@ -30,10 +30,11 @@ function rowToTask(r: LocalizeRow): LocalizeTask {
   const started = r.started_at;
   const finished = r.finished_at;
   let durationSeconds: number | null = null;
-  if (started) {
-    // naive 时间戳（无时区后缀）按本地时间解析——VL 的 started_at/finished_at 是本地时间
+  if (started && finished) {
+    // naive 时间戳（无时区后缀）按本地时间解析——VL 的 started_at/finished_at 是本地时间。
+    // 仅完成态任务计算时长；进行中任务不调 Date.now()（保持 SSR 确定性，兼容 cacheComponents）
     const s = new Date(started.replace(" ", "T")).getTime();
-    const e = finished ? new Date(finished.replace(" ", "T")).getTime() : Date.now();
+    const e = new Date(finished.replace(" ", "T")).getTime();
     if (!Number.isNaN(s) && !Number.isNaN(e)) durationSeconds = Math.max(0, (e - s) / 1000);
   }
   return {
