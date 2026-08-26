@@ -10,7 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-const AnimatedNumber = dynamic(() => import("@/components/ui/animated-number").then((m) => ({ default: m.AnimatedNumber })), { ssr: false });
 const Sparkline = dynamic(() => import("@/components/ui/sparkline").then((m) => ({ default: m.Sparkline })), { ssr: false });
 import {
   BarChart3,
@@ -23,14 +22,9 @@ import {
   ChevronDown,
   ChevronRight,
   DollarSign,
-  Eye,
-  MousePointer,
-  ShoppingCart,
   Zap,
   Target,
-  Filter,
   Download,
-  ArrowRight,
   Lock,
 } from "lucide-react";
 
@@ -50,9 +44,9 @@ interface AdKeyword {
 }
 
 const tagMeta = {
-  "high-acos": { label: "高ACOS", color: "bg-red-500/10 text-red-400 border-red-500/20", icon: AlertTriangle, barColor: "bg-red-500/40" },
-  "high-conversion": { label: "高转化", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", icon: CheckCircle2, barColor: "bg-emerald-500/40" },
-  "non-precise": { label: "非精准", color: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20", icon: XCircle, barColor: "bg-zinc-500/40" },
+  "high-acos": { label: "高ACOS", color: "bg-red-500/10 text-red-400 border-red-500/20", icon: AlertTriangle },
+  "high-conversion": { label: "高转化", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", icon: CheckCircle2 },
+  "non-precise": { label: "非精准", color: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20", icon: XCircle },
 };
 
 const adTypeMeta = {
@@ -60,10 +54,6 @@ const adTypeMeta = {
   SB: { label: "SB", color: "text-purple-400" },
   SD: { label: "SD", color: "text-orange-400" },
 };
-
-function formatNum(n: number) {
-  return n >= 1000 ? (n / 1000).toFixed(1) + "K" : n.toFixed(0);
-}
 
 function formatCurrency(n: number) {
   return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -120,7 +110,7 @@ export function AiAdvertisingClient({ adKeywords, recentAnalyses = [] }: AiAdver
     } finally {
       setAnalyzing(false);
     }
-  }, [adKeywords]);
+  }, [adKeywords, router]);
 
   const handleExport = useCallback(async () => {
     try {
@@ -301,10 +291,10 @@ export function AiAdvertisingClient({ adKeywords, recentAnalyses = [] }: AiAdver
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="overflow-x-auto scrollbar-thin">
+              <div className="overflow-x-auto scrollbar-thin max-h-[420px]">
                 <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b bg-muted/30">
+                  <thead className="table-glass-head">
+                    <tr>
                       <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">关键词</th>
                       <th className="px-3 py-2.5 text-right font-medium text-muted-foreground">类型</th>
                       <th className="px-3 py-2.5 text-right font-medium text-muted-foreground">展示</th>
@@ -322,13 +312,17 @@ export function AiAdvertisingClient({ adKeywords, recentAnalyses = [] }: AiAdver
                     {adKeywords.map((kw) => (
                       <tr
                         key={kw.id}
-                        className={cn("border-b border-border/50 hover:bg-muted/30 cursor-pointer transition-colors", selectedKw === kw.id && "bg-muted/50")}
+                        data-active={selectedKw === kw.id}
+                        className={cn(
+                          "row-rail border-b border-border/50 hover:bg-muted/30 cursor-pointer transition-colors",
+                          selectedKw === kw.id && "bg-muted/50",
+                          kw.tag === "high-conversion" && "[--rail:var(--wf-listing)]",
+                          kw.tag === "high-acos" && "[--rail:#ef4444]"
+                        )}
                         onClick={() => setSelectedKw(selectedKw === kw.id ? null : kw.id)}
                       >
                         <td className="px-3 py-2">
-                          <div className={cn("pl-2 border-l-2", tagMeta[kw.tag].barColor)}>
-                            <span className="font-medium">{kw.keyword}</span>
-                          </div>
+                          <span className="font-medium">{kw.keyword}</span>
                         </td>
                         <td className="px-3 py-2 text-right">
                           <span className={adTypeMeta[kw.type].color}>{kw.type}</span>
@@ -345,7 +339,7 @@ export function AiAdvertisingClient({ adKeywords, recentAnalyses = [] }: AiAdver
                         </td>
                         <td className="px-3 py-2 text-right">${kw.cpc.toFixed(2)}</td>
                         <td className="px-3 py-2 text-right">
-                          <Sparkline data={kw.trend} width={60} height={16} color={kw.tag === "high-conversion" ? "#22c55e" : kw.tag === "high-acos" ? "#ef4444" : "#71717a"} />
+                          <Sparkline quiet data={kw.trend} width={60} height={16} color={kw.tag === "high-conversion" ? "#22c55e" : kw.tag === "high-acos" ? "#ef4444" : "#71717a"} />
                         </td>
                         <td className="px-3 py-2 text-center">
                           <Badge className={cn("text-[9px] px-1.5 py-0", tagMeta[kw.tag].color)}>

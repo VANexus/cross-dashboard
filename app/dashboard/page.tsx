@@ -5,6 +5,7 @@ import { WorkflowsIsland } from "./islands/workflows-island";
 import { HeartbeatIsland } from "./islands/heartbeat-island";
 import { AlertsIsland } from "./islands/alerts-island";
 import { TrendsIsland } from "./islands/trends-island";
+import { TopologyIsland } from "./islands/topology-island";
 
 function StatsSkeleton() {
   return (
@@ -36,6 +37,10 @@ export default function DashboardPage() {
     <DashboardShell>
       <Suspense fallback={<StatsSkeleton />}>
         <StatsIsland />
+      </Suspense>
+
+      <Suspense fallback={<PanelSkeleton rows={3} />}>
+        <TopologyIsland />
       </Suspense>
 
       <div className="dash-grid-main">

@@ -13,10 +13,7 @@ import { cn } from "@/lib/utils";
 const AnimatedNumber = dynamic(() => import("@/components/ui/animated-number").then((m) => ({ default: m.AnimatedNumber })), { ssr: false });
 import {
   FileText,
-  Search,
   CheckCircle2,
-  AlertTriangle,
-  Star,
   Zap,
   Eye,
   Globe,
@@ -24,9 +21,7 @@ import {
   ArrowRight,
   Send,
   RefreshCw,
-  Lock,
   ChevronRight,
-  Shield,
 } from "lucide-react";
 
 const steps = [

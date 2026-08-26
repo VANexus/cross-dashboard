@@ -20,8 +20,8 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
-  title: "FlowMind | 跨境电商智能编排系统",
-  description: "多模态工作流智能编排与自进化决策系统",
+  title: "FlowMind | 多垂直智能内容编排",
+  description: "视频本地化与多平台内容创作 · 智能编排与自进化",
 };
 
 export default function RootLayout({

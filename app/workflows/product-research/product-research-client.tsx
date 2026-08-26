@@ -7,7 +7,6 @@ import { PageTransition } from "@/components/ui/page-transition";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import {
@@ -19,7 +18,6 @@ import {
   CheckCircle2,
   ArrowRight,
   TrendingUp,
-  TrendingDown,
   ShieldAlert,
   Factory,
   Package,
@@ -30,8 +28,6 @@ import {
   ShoppingCart,
   BarChart3,
   FileText,
-  Eye,
-  ExternalLink,
   Loader2,
 } from "lucide-react";
 
@@ -158,14 +154,16 @@ export function ProductResearchClient({ dataSources, keywords, painPoints, recen
         </div>
       </div>
 
-      <div className="flex gap-2">
+      <div className="stagger-in flex gap-2">
         {steps.map((s, i) => (
           <button
             key={s.id}
             onClick={() => { if (i <= currentIdx) setCurrentStep(s.id); }}
             className={cn(
-              "flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors",
-              s.id === currentStep ? "bg-primary/10 text-primary font-medium" : i < currentIdx ? "text-muted-foreground hover:bg-muted cursor-pointer" : "text-muted-foreground/40"
+              "flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all duration-200",
+              s.id === currentStep
+                ? "glass-surface text-primary font-medium shadow-sm ring-1 ring-primary/25"
+                : i < currentIdx ? "text-muted-foreground hover:bg-muted cursor-pointer" : "text-muted-foreground/40"
             )}
           >
             {i < currentIdx ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : s.id === currentStep ? <Play className="h-4 w-4" /> : <span className="h-4 w-4 rounded-full border text-[10px] flex items-center justify-center">{i + 1}</span>}
@@ -239,22 +237,30 @@ export function ProductResearchClient({ dataSources, keywords, painPoints, recen
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto scrollbar-thin max-h-[440px]">
                   <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b text-xs text-muted-foreground">
-                        <th className="text-left px-4 py-2 font-medium">关键词</th>
-                        <th className="text-right px-4 py-2 font-medium">搜索量</th>
-                        <th className="text-right px-4 py-2 font-medium">CPC</th>
-                        <th className="text-right px-4 py-2 font-medium">竞争度</th>
-                        <th className="text-right px-4 py-2 font-medium">供需比</th>
-                        <th className="text-center px-4 py-2 font-medium">趋势</th>
-                        <th className="text-center px-4 py-2 font-medium">AI 标注</th>
+                    <thead className="table-glass-head">
+                      <tr>
+                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">关键词</th>
+                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">搜索量</th>
+                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">CPC</th>
+                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">竞争度</th>
+                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">供需比</th>
+                        <th className="text-center px-4 py-2 font-medium text-muted-foreground">趋势</th>
+                        <th className="text-center px-4 py-2 font-medium text-muted-foreground">AI 标注</th>
                       </tr>
                     </thead>
                     <tbody>
                       {keywords.map((kw) => (
-                        <tr key={kw.keyword} className="border-b hover:bg-muted/50 transition-colors">
+                        <tr
+                          key={kw.keyword}
+                          className={cn(
+                            "row-rail border-b hover:bg-muted/50 transition-colors",
+                            kw.aiTag === "potential" && "[--rail:var(--wf-listing)]",
+                            kw.aiTag === "risky" && "[--rail:var(--destructive)]",
+                            kw.aiTag === "competitive" && "[--rail:var(--warning)]"
+                          )}
+                        >
                           <td className="px-4 py-2.5 font-medium">{kw.keyword}</td>
                           <td className="px-4 py-2.5 text-right metric-value">{kw.volume.toLocaleString()}</td>
                           <td className="px-4 py-2.5 text-right metric-value">${kw.cpc.toFixed(2)}</td>
@@ -269,7 +275,7 @@ export function ProductResearchClient({ dataSources, keywords, painPoints, recen
                             </span>
                           </td>
                           <td className="px-4 py-2.5 flex justify-center">
-                            <Sparkline data={kw.trend} width={64} height={20} color={kw.trend[kw.trend.length - 1] > kw.trend[0] ? "var(--success)" : "var(--destructive)"} />
+                            <Sparkline quiet data={kw.trend} width={64} height={20} color={kw.trend[kw.trend.length - 1] > kw.trend[0] ? "var(--success)" : "var(--destructive)"} />
                           </td>
                           <td className="px-4 py-2.5 text-center">
                             <Badge

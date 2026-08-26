@@ -10,7 +10,6 @@ import { StatusDot } from "@/components/ui/status-dot";
 import {
   Globe,
   Store,
-  Camera,
   Download,
   RefreshCw,
   ExternalLink,
@@ -18,7 +17,7 @@ import {
   CheckCircle2,
   Database,
 } from "lucide-react";
-import { useCrawlerStatus, useCrawlerResults, extractData, takeScreenshot } from "@/hooks/use-crawler";
+import { useCrawlerStatus, useCrawlerResults, extractData } from "@/hooks/use-crawler";
 import type { StoreStatus } from "@/hooks/use-crawler";
 import type { CrawlResult } from "@/lib/services/crawler.service";
 
@@ -48,18 +47,6 @@ export function CrawlerClient({ initialStatus, initialResults }: CrawlerClientPr
       refetchResults();
     } catch (err) {
       setMessage(`提取失败: ${err instanceof Error ? err.message : "未知错误"}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleScreenshot = async (storeId: string) => {
-    setLoading(true);
-    try {
-      await takeScreenshot(storeId, true);
-      setMessage("截图完成");
-    } catch (err) {
-      setMessage(`截图失败: ${err instanceof Error ? err.message : "未知错误"}`);
     } finally {
       setLoading(false);
     }

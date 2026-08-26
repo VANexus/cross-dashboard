@@ -17,7 +17,6 @@ import {
   Clock,
   Link as LinkIcon,
   BarChart3,
-  ArrowRight,
   TrendingUp,
   Zap,
 } from "lucide-react";
