@@ -45,7 +45,7 @@ export function AgentDetailClient({ agent, tasks, journal }: AgentDetailClientPr
   const agentConfig = agent.config;
 
   // Real-time SSE stream
-  const { events, connected, latestMood } = useAgentStream(agent.id);
+  const { events, connected } = useAgentStream(agent.id);
 
   // Journal data (client-side refresh)
   const { data: liveJournal } = useAgentJournal(agent.id, 100);

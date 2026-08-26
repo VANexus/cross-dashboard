@@ -24,26 +24,11 @@ export interface AnalyzeParams {
   schema?: string; // Zod schema description for structured output
 }
 
-export interface ImageParams {
-  prompt: string;
-  model?: string;
-  style?: string;
-  size?: string;
-  count?: number;
-}
-
-export interface ImageResult {
-  url: string;
-  model: string;
-  seed?: number;
-}
-
 export interface AIProvider {
   readonly name: string;
 
   generate(params: GenerateParams): Promise<GenerateResult>;
   analyze<T>(params: AnalyzeParams): Promise<T>;
-  generateImage?(params: ImageParams): Promise<ImageResult>;
 }
 
 export type AIProviderName = "mock" | "claude" | "openai";

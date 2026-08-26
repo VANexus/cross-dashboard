@@ -6,20 +6,15 @@ import { PageTransition } from "@/components/ui/page-transition";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import {
   Shield,
   AlertTriangle,
   CheckCircle2,
   Clock,
-  Bell,
-  ExternalLink,
   ChevronDown,
   ChevronUp,
   Activity,
-  TrendingUp,
   Eye,
   Lock,
   Globe,
@@ -42,12 +37,6 @@ const levelConfig: Record<import("@/lib/types").RiskLevel, { label: string; colo
   level2: { label: "P2", color: "text-amber-500", bg: "bg-amber-500/10", dot: "warning" },
   level3: { label: "P3", color: "text-blue-500", bg: "bg-blue-500/10", dot: "info" },
   safe: { label: "安全", color: "text-emerald-500", bg: "bg-emerald-500/10", dot: "success" },
-};
-
-const statusConfig = {
-  active: { label: "活跃", color: "text-red-500", bg: "bg-red-500/10" },
-  resolved: { label: "已解决", color: "text-emerald-500", bg: "bg-emerald-500/10" },
-  monitoring: { label: "监控中", color: "text-amber-500", bg: "bg-amber-500/10" },
 };
 
 interface RiskClientProps {

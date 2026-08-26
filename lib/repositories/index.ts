@@ -9,3 +9,4 @@ export * from "./evolution.repository";
 export * from "./workflow.repository";
 export * from "./rak.repository";
 export * from "./base";
+export * from "./content.repository";

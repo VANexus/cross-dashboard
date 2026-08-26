@@ -98,6 +98,7 @@ export function updateEvolution(id: string, data: Partial<EvolutionRecord>): Evo
 
   if (sets.length === 0) return getEvolutionById(id);
   params.push(id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db.run(`UPDATE evolution_records SET ${sets.join(", ")} WHERE id = ?`, params as any[]);
   return getEvolutionById(id);
 }

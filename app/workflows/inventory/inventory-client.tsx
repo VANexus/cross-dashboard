@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, startTransition } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { PageTransition } from "@/components/ui/page-transition";
@@ -23,8 +23,6 @@ import {
   Send,
   BarChart3,
   Calendar,
-  DollarSign,
-  ChevronRight,
   X,
   ArrowRight,
 } from "lucide-react";
@@ -93,7 +91,9 @@ export function InventoryClient({ inventoryItems, restockSuggestions, recentOrde
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   useEffect(() => {
-    setOrderResult("");
+    startTransition(() => {
+      setOrderResult("");
+    });
   }, [selectedItem]);
 
   const handleCreateOrder = async () => {
@@ -119,7 +119,7 @@ export function InventoryClient({ inventoryItems, restockSuggestions, recentOrde
         setOrderResult(`补货单已创建: ${data.data?.orderId ?? data.data?.id ?? "成功"}`);
         router.refresh();
       }
-    } catch (err) {
+    } catch (_err) {
       setOrderResult("网络错误，请稍后重试");
     } finally {
       setCreatingOrder(false);
@@ -226,7 +226,7 @@ export function InventoryClient({ inventoryItems, restockSuggestions, recentOrde
                           <td className="px-4 py-2.5 text-right text-xs text-muted-foreground">{item.stockoutDate}</td>
                           <td className="px-4 py-2.5 text-right metric-value">{item.restockQty.toLocaleString()}</td>
                           <td className="px-4 py-2.5">
-                            <Sparkline data={item.trend} width={60} height={18} color={item.trend[item.trend.length - 1] < item.trend[0] ? "var(--destructive)" : "var(--success)"} />
+                            <Sparkline quiet data={item.trend} width={60} height={18} color={item.trend[item.trend.length - 1] < item.trend[0] ? "var(--destructive)" : "var(--success)"} />
                           </td>
                           <td className="px-4 py-2.5 text-center">
                             <Badge variant="outline" className={cn("text-[10px]", meta.color, meta.bg, meta.border)}>

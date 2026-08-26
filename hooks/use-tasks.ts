@@ -1,6 +1,6 @@
 "use client";
 
-import { useFetch, apiGet, apiPost, apiPatch, apiDelete } from "./use-fetch";
+import { useFetch, apiPost, apiPatch, apiDelete } from "./use-fetch";
 import type { Task, TaskStep } from "@/lib/types";
 
 interface TasksResponse {

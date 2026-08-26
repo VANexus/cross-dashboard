@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { withDb } from "@/lib/api-helpers";
-import { success, badRequest, methodNotAllowed } from "@/lib/api-response";
+import { success, badRequest } from "@/lib/api-response";
 import { parseBody, createEvolutionSchema, paginationSchema } from "@/lib/api-validation";
 import { EvolutionService } from "@/lib/services";
 

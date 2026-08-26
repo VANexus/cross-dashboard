@@ -419,4 +419,77 @@ CREATE TABLE IF NOT EXISTS crawl_results (
 );
 CREATE INDEX IF NOT EXISTS idx_crawl_store ON crawl_results(store_id);
 CREATE INDEX IF NOT EXISTS idx_crawl_time ON crawl_results(timestamp);
+
+-- ========== 工作流: 视频本地化 ==========
+
+CREATE TABLE IF NOT EXISTS wf_localize_tasks (
+  id               TEXT PRIMARY KEY,
+  batch_id         TEXT NOT NULL DEFAULT '',
+  video_path       TEXT NOT NULL,
+  target_lang      TEXT NOT NULL DEFAULT 'en',
+  source_lang      TEXT NOT NULL DEFAULT 'zh',
+  enable_tts       INTEGER NOT NULL DEFAULT 1,
+  remove_subtitles INTEGER NOT NULL DEFAULT 1,
+  status           TEXT NOT NULL DEFAULT 'queued',
+  outputs          TEXT NOT NULL DEFAULT '{}',
+  error            TEXT,
+  created_at       TEXT,
+  started_at       TEXT,
+  finished_at      TEXT,
+  updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_localize_batch ON wf_localize_tasks(batch_id);
+
+-- ========== 工作流: 内容创作中心 ==========
+
+CREATE TABLE IF NOT EXISTS wf_content_rules (
+  id               TEXT PRIMARY KEY,
+  platform         TEXT NOT NULL DEFAULT '*',
+  category         TEXT NOT NULL DEFAULT 'advert',
+  severity         TEXT NOT NULL DEFAULT 'warning',
+  pattern          TEXT NOT NULL DEFAULT '',
+  label            TEXT NOT NULL DEFAULT '',
+  suggestion       TEXT NOT NULL DEFAULT '',
+  enabled          INTEGER NOT NULL DEFAULT 1,
+  created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_content_rules_platform ON wf_content_rules(platform);
+
+CREATE TABLE IF NOT EXISTS wf_content_hot_topics (
+  id               TEXT PRIMARY KEY,
+  platform         TEXT NOT NULL,
+  word             TEXT NOT NULL,
+  heat             INTEGER NOT NULL DEFAULT 0,
+  delta            INTEGER,
+  url              TEXT NOT NULL DEFAULT '',
+  source           TEXT NOT NULL DEFAULT '',
+  fetched_at       TEXT,
+  created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_content_hot_platform ON wf_content_hot_topics(platform, fetched_at);
+
+CREATE TABLE IF NOT EXISTS wf_content_ideas (
+  id               TEXT PRIMARY KEY,
+  platform         TEXT NOT NULL,
+  angle            TEXT NOT NULL DEFAULT '',
+  title            TEXT NOT NULL,
+  subject          TEXT NOT NULL DEFAULT '',
+  created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_content_ideas_platform ON wf_content_ideas(platform);
+
+CREATE TABLE IF NOT EXISTS wf_content_drafts (
+  id               TEXT PRIMARY KEY,
+  platform         TEXT NOT NULL,
+  title            TEXT NOT NULL DEFAULT '',
+  body             TEXT NOT NULL DEFAULT '',
+  tags             TEXT NOT NULL DEFAULT '[]',
+  status           TEXT NOT NULL DEFAULT 'draft',
+  audit_passed     INTEGER NOT NULL DEFAULT 0,
+  audit_result     TEXT NOT NULL DEFAULT '{}',
+  image_count      INTEGER NOT NULL DEFAULT 0,
+  created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_content_drafts_platform ON wf_content_drafts(platform);
 `;

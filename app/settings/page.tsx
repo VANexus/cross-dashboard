@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { Settings, Server, Bell, Key, Shield, Brain, Save, Check } from "lucide-react";
+import { Server, Bell, Shield, Brain, Save, Check } from "lucide-react";
 
 interface AIConfig {
   provider: string;

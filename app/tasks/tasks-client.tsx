@@ -1,7 +1,7 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useState, useMemo } from "react";
+import { motion, LayoutGroup } from "framer-motion";
 import { PageTransition } from "@/components/ui/page-transition";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,23 +15,15 @@ import {
   Clock,
   AlertTriangle,
   Loader2,
-  Filter,
   LayoutGrid,
   List,
-  ArrowUpDown,
+  Columns3,
   Bot,
-  Workflow,
   ArrowRight,
-  BarChart3,
-  Eye,
 } from "lucide-react";
 import Link from "next/link";
-import type { Task, Agent } from "@/lib/types";
-
-const AnimatedNumber = dynamic(
-  () => import("@/components/ui/animated-number").then((m) => ({ default: m.AnimatedNumber })),
-  { ssr: false }
-);
+import { updateTask } from "@/hooks/use-tasks";
+import type { Task, Agent, TaskStatus } from "@/lib/types";
 
 const statusConfig: Record<import("@/lib/types").TaskStatus, { label: string; icon: React.ComponentType<{ className?: string }>; color: string; bg: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   completed: { label: "已完成", icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-500/10", variant: "default" },
@@ -56,16 +48,18 @@ interface TasksClientProps {
 export function TasksClient({ initialTasks, agents }: TasksClientProps) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [view, setView] = useState<"list" | "grid">("list");
+  const [view, setView] = useState<"list" | "grid" | "board">("list");
+  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
-    return initialTasks.filter((t) => {
+    return tasks.filter((t) => {
       const matchSearch = t.title.toLowerCase().includes(search.toLowerCase()) ||
         t.description.toLowerCase().includes(search.toLowerCase());
       const matchStatus = statusFilter === "all" || t.status === statusFilter;
       return matchSearch && matchStatus;
     });
-  }, [initialTasks, search, statusFilter]);
+  }, [tasks, search, statusFilter]);
 
   const agentMap = useMemo(() => {
     const m: Record<string, Agent> = {};
@@ -73,10 +67,14 @@ export function TasksClient({ initialTasks, agents }: TasksClientProps) {
     return m;
   }, [agents]);
 
-  const completedCount = initialTasks.filter((t) => t.status === "completed").length;
-  const runningCount = initialTasks.filter((t) => t.status === "running").length;
-  const pendingCount = initialTasks.filter((t) => t.status === "pending").length;
-  const failedCount = initialTasks.filter((t) => t.status === "failed").length;
+  const completedCount = tasks.filter((t) => t.status === "completed").length;
+  const runningCount = tasks.filter((t) => t.status === "running").length;
+  const failedCount = tasks.filter((t) => t.status === "failed").length;
+
+  const handleMove = (taskId: string, status: TaskStatus) => {
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status } : t)));
+    updateTask(taskId, { status }).catch(() => {});
+  };
 
   return (
     <PageTransition className="space-y-6">
@@ -146,6 +144,14 @@ export function TasksClient({ initialTasks, agents }: TasksClientProps) {
           >
             <LayoutGrid className="h-4 w-4" />
           </Button>
+          <Button
+            variant={view === "board" ? "default" : "ghost"}
+            size="sm"
+            className="h-8 rounded-l-none border-l"
+            onClick={() => setView("board")}
+          >
+            <Columns3 className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
@@ -194,7 +200,7 @@ export function TasksClient({ initialTasks, agents }: TasksClientProps) {
             </div>
           </CardContent>
         </Card>
-      ) : (
+      ) : view === "grid" ? (
         <div className="grid gap-4 grid-cols-2">
           {filtered.map((task) => {
             const agent = agentMap[task.assignedAgents[0]];
@@ -232,6 +238,69 @@ export function TasksClient({ initialTasks, agents }: TasksClientProps) {
             );
           })}
         </div>
+      ) : (
+        <LayoutGroup>
+          <div className="flex gap-4 overflow-x-auto pb-2">
+            {(Object.keys(statusConfig) as TaskStatus[]).map((status) => {
+              const config = statusConfig[status];
+              const columnTasks = filtered.filter((t) => t.status === status);
+              return (
+                <div
+                  key={status}
+                  className="flex w-[248px] shrink-0 flex-col gap-3 rounded-2xl border border-border/70 bg-muted/25 p-3"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (draggingId) handleMove(draggingId, status);
+                    setDraggingId(null);
+                  }}
+                >
+                  <div className="flex items-center gap-2 px-1.5">
+                    <config.icon className={cn("h-3.5 w-3.5", config.color)} />
+                    <span className="text-xs font-semibold text-muted-foreground">{config.label}</span>
+                    <span className="metric-value ml-auto text-[11px] text-muted-foreground">{columnTasks.length}</span>
+                  </div>
+                  {columnTasks.map((task) => {
+                    const agent = agentMap[task.assignedAgents[0]];
+                    return (
+                      <motion.div
+                        key={task.id}
+                        layout
+                        layoutId={task.id}
+                        draggable
+                        onDragStart={() => setDraggingId(task.id)}
+                        onDragEnd={() => setDraggingId(null)}
+                        className={cn(
+                          "cursor-grab rounded-xl border border-border bg-card p-3 shadow-sm transition-colors hover:border-primary/40 active:cursor-grabbing",
+                          draggingId === task.id && "opacity-50"
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm font-medium leading-snug">{task.title}</p>
+                          <Badge variant="outline" className={cn("shrink-0 text-[10px]", priorityConfig[task.priority]?.color, priorityConfig[task.priority]?.bg, "border-0")}>
+                            {priorityConfig[task.priority]?.label || task.priority}
+                          </Badge>
+                        </div>
+                        <p className="mt-1.5 line-clamp-2 text-xs text-muted-foreground">{task.description}</p>
+                        {agent && (
+                          <div className="mt-2.5 flex items-center gap-1.5 border-t border-border/70 pt-2 text-xs text-muted-foreground">
+                            <Bot className="h-3 w-3" />
+                            {agent.name}
+                          </div>
+                        )}
+                      </motion.div>
+                    );
+                  })}
+                  {columnTasks.length === 0 && (
+                    <div className="rounded-xl border border-dashed border-border/70 py-8 text-center text-xs text-muted-foreground/60">
+                      拖拽任务到这里
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </LayoutGroup>
       )}
     </PageTransition>
   );

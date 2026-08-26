@@ -2,7 +2,7 @@
  * FlowMind RAK — Mock AI Provider
  * Simulates AI responses for development and demos
  */
-import type { AIProvider, GenerateParams, GenerateResult, AnalyzeParams, ImageParams, ImageResult } from "./provider";
+import type { AIProvider, GenerateParams, GenerateResult, AnalyzeParams } from "./provider";
 
 export class MockAIProvider implements AIProvider {
   readonly name = "mock";
@@ -22,15 +22,6 @@ export class MockAIProvider implements AIProvider {
   async analyze<T>(params: AnalyzeParams): Promise<T> {
     await this.simulateLatency();
     return this.generateMockAnalysis<T>(params.prompt, params.data);
-  }
-
-  async generateImage(params: ImageParams): Promise<ImageResult> {
-    await this.simulateLatency();
-    return {
-      url: `https://placehold.co/1024x1024/1a1a2e/d4a017?text=${encodeURIComponent(params.prompt.slice(0, 30))}`,
-      model: params.model ?? "SDXL-1.0",
-      seed: Math.floor(Math.random() * 99999),
-    };
   }
 
   private async simulateLatency(): Promise<void> {

@@ -6,7 +6,7 @@ import { RiskService } from "@/lib/services";
 
 const service = new RiskService();
 
-export const GET = withDb(async (_request: NextRequest) => {
+export const GET = withDb(async (_: NextRequest) => {
   const items = service.getIsolationItems();
   return success(items);
 });

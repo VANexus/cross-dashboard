@@ -9,7 +9,7 @@ import * as memoryRepo from "../repositories/memory.repository";
 import { agentEventBus } from "./event-bus";
 import { assembleContext } from "./context";
 import { RealAgentBrain } from "./real-brain";
-import type { AgentConfig, MoodState, AgentEvent, JournalEntry } from "../types";
+import type { AgentConfig, MoodState, AgentEvent } from "../types";
 
 const brain = new RealAgentBrain();
 

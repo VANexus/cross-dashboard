@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { PageTransition } from "@/components/ui/page-transition";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,11 +18,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { Agent, AgentStatus, MoodState } from "@/lib/types";
-
-const AnimatedNumber = dynamic(
-  () => import("@/components/ui/animated-number").then((m) => ({ default: m.AnimatedNumber })),
-  { ssr: false }
-);
 
 const agentIcons: Record<string, React.ReactNode> = {
   "哨兵Agent": <Search className="h-5 w-5" />,

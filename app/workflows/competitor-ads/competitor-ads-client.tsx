@@ -7,23 +7,15 @@ import { PageTransition } from "@/components/ui/page-transition";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 const AnimatedNumber = dynamic(() => import("@/components/ui/animated-number").then((m) => ({ default: m.AnimatedNumber })), { ssr: false });
 const Sparkline = dynamic(() => import("@/components/ui/sparkline").then((m) => ({ default: m.Sparkline })), { ssr: false });
 import {
-  Search,
   Eye,
   BarChart3,
   Target,
   Zap,
-  ChevronRight,
-  CheckCircle2,
-  AlertTriangle,
-  FileText,
-  Globe,
-  ExternalLink,
   Loader2,
 } from "lucide-react";
 
@@ -187,7 +179,7 @@ export function CompetitorAdsClient({ keywords, competitors, adPositions, target
                         <td className="px-4 py-2.5 text-right metric-value">{kw.volume.toLocaleString()}</td>
                         <td className="px-4 py-2.5 text-right metric-value">${kw.cpc.toFixed(2)}</td>
                         <td className="px-4 py-2.5 flex justify-center">
-                          <Sparkline data={kw.trend} width={60} height={18} color={kw.trend[kw.trend.length - 1] > kw.trend[0] ? "var(--success)" : "var(--destructive)"} />
+                          <Sparkline quiet data={kw.trend} width={60} height={18} color={kw.trend[kw.trend.length - 1] > kw.trend[0] ? "var(--success)" : "var(--destructive)"} />
                         </td>
                         <td className="px-4 py-2.5 text-center">
                           <Badge variant="outline" className={cn("text-[10px]",

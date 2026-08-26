@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, startTransition } from "react";
 
 interface FetchState<T> {
   data: T | null;
@@ -37,7 +37,11 @@ export function useFetch<T>(url: string | null, options: FetchOptions = {}) {
   }, [url]);
 
   useEffect(() => {
-    if (immediate && url) execute();
+    if (immediate && url) {
+      startTransition(() => {
+        execute();
+      });
+    }
   }, [execute, immediate, url]);
 
   return { ...state, refetch: execute, setState };

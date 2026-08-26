@@ -67,6 +67,7 @@ export function getMessagesForAgent(agentId: string, status?: string): RAKMessag
   if (status) { sql += " AND status = ?"; params.push(status); }
   sql += " ORDER BY created_at DESC LIMIT 100";
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (db.query(sql).all(...(params as any[])) as RAKMessageRow[]).map(mapMessage);
 }
 
@@ -76,148 +77,8 @@ export function updateMessageStatus(id: string, status: string): void {
   const params: unknown[] = [status];
   if (status === "delivered") { sets.push("delivered_at = datetime('now')"); }
   params.push(id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db.run(`UPDATE rak_messages SET ${sets.join(", ")} WHERE id = ?`, params as any[]);
-}
-
-// ========== Conflicts ==========
-
-export interface RAKConflict {
-  id: string;
-  taskId: string;
-  agents: string[];
-  conflictType: string;
-  description: string;
-  resolution?: string;
-  resolvedAt?: string;
-  result?: unknown;
-  createdAt: string;
-}
-
-export function saveConflict(data: {
-  taskId: string;
-  agents: string[];
-  conflictType: string;
-  description: string;
-}): RAKConflict {
-  const db = getDb();
-  const id = `conflict-${Date.now()}`;
-  db.run(
-    `INSERT INTO rak_conflicts (id, task_id, agents, conflict_type, description)
-     VALUES (?, ?, ?, ?, ?)`,
-    [id, data.taskId, JSON.stringify(data.agents), data.conflictType, data.description],
-  );
-  const row = db.query("SELECT * FROM rak_conflicts WHERE id = ?").get(id) as {
-    id: string; task_id: string; agents: string; conflict_type: string;
-    description: string; resolution: string | null; resolved_at: string | null;
-    result: string | null; created_at: string;
-  };
-  return {
-    id: row.id, taskId: row.task_id,
-    agents: parseJsonField<string[]>(row.agents, []),
-    conflictType: row.conflict_type, description: row.description,
-    resolution: row.resolution ?? undefined, resolvedAt: row.resolved_at ?? undefined,
-    result: row.result ? JSON.parse(row.result) : undefined,
-    createdAt: row.created_at,
-  };
-}
-
-export function resolveConflict(id: string, resolution: string, result: unknown): void {
-  const db = getDb();
-  db.run(
-    `UPDATE rak_conflicts SET resolution = ?, resolved_at = datetime('now'), result = ? WHERE id = ?`,
-    [resolution, JSON.stringify(result), id],
-  );
-}
-
-export function getConflictsForTask(taskId: string): RAKConflict[] {
-  const db = getDb();
-  const rows = db.query("SELECT * FROM rak_conflicts WHERE task_id = ? ORDER BY created_at DESC").all(taskId) as Array<{
-    id: string; task_id: string; agents: string; conflict_type: string;
-    description: string; resolution: string | null; resolved_at: string | null;
-    result: string | null; created_at: string;
-  }>;
-  return rows.map((r) => ({
-    id: r.id, taskId: r.task_id,
-    agents: parseJsonField<string[]>(r.agents, []),
-    conflictType: r.conflict_type, description: r.description,
-    resolution: r.resolution ?? undefined, resolvedAt: r.resolved_at ?? undefined,
-    result: r.result ? JSON.parse(r.result) : undefined,
-    createdAt: r.created_at,
-  }));
-}
-
-// ========== Consensus ==========
-
-export interface RAKConsensus {
-  id: string;
-  proposalId: string;
-  proposer: string;
-  voters: { agentId: string; vote: string; weight: number }[];
-  status: string;
-  threshold: number;
-  result?: unknown;
-  createdAt: string;
-  resolvedAt?: string;
-}
-
-export function saveConsensus(data: {
-  proposalId: string;
-  proposer: string;
-  threshold?: number;
-}): RAKConsensus {
-  const db = getDb();
-  const id = `consensus-${Date.now()}`;
-  db.run(
-    `INSERT INTO rak_consensus_log (id, proposal_id, proposer, status, threshold)
-     VALUES (?, ?, ?, 'pending', ?)`,
-    [id, data.proposalId, data.proposer, data.threshold ?? 0.67],
-  );
-  return {
-    id, proposalId: data.proposalId, proposer: data.proposer,
-    voters: [], status: "pending", threshold: data.threshold ?? 0.67,
-    createdAt: new Date().toISOString(),
-  };
-}
-
-export function getConsensus(id: string): RAKConsensus | null {
-  const db = getDb();
-  const row = db.query("SELECT * FROM rak_consensus_log WHERE id = ?").get(id) as {
-    id: string; proposal_id: string; proposer: string; voters: string;
-    status: string; threshold: number; result: string | null;
-    created_at: string; resolved_at: string | null;
-  } | null;
-  if (!row) return null;
-  return {
-    id: row.id, proposalId: row.proposal_id, proposer: row.proposer,
-    voters: parseJsonField<Array<{ agentId: string; vote: string; weight: number }>>(row.voters, []),
-    status: row.status, threshold: row.threshold,
-    result: row.result ? JSON.parse(row.result) : undefined,
-    createdAt: row.created_at, resolvedAt: row.resolved_at ?? undefined,
-  };
-}
-
-export function addVote(consensusId: string, agentId: string, vote: string, weight: number): void {
-  const db = getDb();
-  const row = db.query("SELECT voters FROM rak_consensus_log WHERE id = ?").get(consensusId) as { voters: string } | null;
-  if (!row) return;
-
-  const voters = parseJsonField<Array<{ agentId: string; vote: string; weight: number }>>(row.voters, []);
-  const existing = voters.findIndex((v) => v.agentId === agentId);
-  if (existing >= 0) {
-    voters[existing] = { agentId, vote, weight };
-  } else {
-    voters.push({ agentId, vote, weight });
-  }
-
-  db.run("UPDATE rak_consensus_log SET voters = ? WHERE id = ?", [JSON.stringify(voters), consensusId]);
-}
-
-export function resolveConsensus(id: string, status: "accepted" | "rejected", result: unknown): void {
-  const db = getDb();
-  db.run(
-    `UPDATE rak_consensus_log SET status = ?, resolved_at = datetime('now'), result = ? WHERE id = ?`,
-    [status, JSON.stringify(result), id],
-  );
 }
 
 // ========== DAG Nodes ==========
@@ -299,5 +160,6 @@ export function updateDAGNodeStatus(id: string, taskId: string, status: string, 
   if (status === "completed" || status === "failed") sets.push("completed_at = datetime('now')");
   if (result !== undefined) { sets.push("result = ?"); params.push(JSON.stringify(result)); }
   params.push(id, taskId);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db.run(`UPDATE rak_dag_nodes SET ${sets.join(", ")} WHERE id = ? AND task_id = ?`, params as any[]);
 }

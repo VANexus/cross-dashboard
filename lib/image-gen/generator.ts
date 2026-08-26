@@ -118,18 +118,4 @@ export class ImageGenerator {
       revisedPrompt: img.revised_prompt,
     }));
   }
-
-  /**
-   * Generic image generation API
-   */
-  private async generateGeneric(
-    prompt: string,
-    size: string,
-    count: number,
-    model: string,
-  ): Promise<GeneratedImage[]> {
-    // Placeholder for other image generation APIs (Stable Diffusion, Midjourney, etc.)
-    // In production, implement specific API integration here
-    throw new Error(`Unsupported image generation model: ${model}`);
-  }
 }

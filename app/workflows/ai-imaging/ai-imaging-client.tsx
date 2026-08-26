@@ -1,25 +1,21 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
 import { PageTransition } from "@/components/ui/page-transition";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
-const AnimatedNumber = dynamic(() => import("@/components/ui/animated-number").then((m) => ({ default: m.AnimatedNumber })), { ssr: false });
 import {
   Image as ImageIcon,
-  Play,
-  Search,
   Download,
   Send,
   RefreshCw,
-  Check,
   Star,
   ChevronDown,
   ChevronUp,
@@ -27,9 +23,6 @@ import {
   Layout,
   Sparkles,
   Camera,
-  Monitor,
-  Smartphone,
-  Zap,
 } from "lucide-react";
 
 const imageTabs = [
@@ -182,7 +175,7 @@ export function AiImagingClient({ mainImages, sceneImages, storyboardFrames }: A
               <Card key={img.id} className={cn("workflow-card overflow-hidden", img.isBest && "ring-1 ring-emerald-500/30")}>
                 <div className="relative aspect-square bg-muted/50 flex items-center justify-center overflow-hidden">
                   {img.url ? (
-                    <img src={img.url} alt={img.prompt} className="h-full w-full object-cover" loading="lazy" />
+                    <Image src={img.url} alt={img.prompt} fill className="object-cover" sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" />
                   ) : (
                     <div className="text-center">
                       <ImageIcon className="h-12 w-12 text-muted-foreground/20 mx-auto mb-2" />

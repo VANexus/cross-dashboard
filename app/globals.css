@@ -1,13 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
+  --background: #f5f5f7;
   --foreground: #09090b;
   --card: #ffffff;
   --card-foreground: #09090b;
   --popover: #ffffff;
   --popover-foreground: #09090b;
-  --primary: #d97706;
+  --primary: oklch(0.555 0.146 49);
   --primary-foreground: #ffffff;
   --secondary: #f4f4f5;
   --secondary-foreground: #18181b;
@@ -19,8 +19,15 @@
   --destructive-foreground: #ffffff;
   --border: #e4e4e7;
   --input: #e4e4e7;
-  --ring: #d97706;
-  --radius: 0.5rem;
+  --ring: oklch(0.555 0.146 49);
+  --radius: 0.75rem;
+  --glass-blur: 20px;
+  --glass-saturate: 1.6;
+  --dur-fast: 150ms;
+  --dur-base: 250ms;
+  --dur-slow: 450ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
   --sidebar-width: 260px;
   --sidebar-width-collapsed: 72px;
   --topbar-height: 56px;
@@ -35,6 +42,7 @@
   --wf-listing: #10b981;
   --wf-inventory: #06b6d4;
   --wf-competitor: #ec4899;
+  --wf-localize: #8b5cf6;
 }
 
 .dark {
@@ -68,6 +76,7 @@
   --wf-listing: #34d399;
   --wf-inventory: #22d3ee;
   --wf-competitor: #f472b6;
+  --wf-localize: #a78bfa;
 }
 
 @theme inline {
@@ -99,8 +108,10 @@
   --color-wf-listing: var(--wf-listing);
   --color-wf-inventory: var(--wf-inventory);
   --color-wf-competitor: var(--wf-competitor);
+  --color-wf-localize: var(--wf-localize);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sora), var(--font-geist-sans), Arial, sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -112,26 +123,51 @@
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
+  background-image:
+    radial-gradient(52rem 42rem at 88% -12%, oklch(0.91 0.07 70 / 0.55), transparent 62%),
+    radial-gradient(46rem 38rem at -8% 110%, oklch(0.90 0.05 250 / 0.45), transparent 60%),
+    radial-gradient(38rem 30rem at 45% 8%, oklch(0.94 0.04 320 / 0.32), transparent 58%);
+  background-attachment: fixed;
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
+.dark body {
+  background-image:
+    radial-gradient(52rem 42rem at 88% -12%, oklch(0.35 0.09 70 / 0.30), transparent 62%),
+    radial-gradient(46rem 38rem at -8% 110%, oklch(0.30 0.07 250 / 0.28), transparent 60%),
+    radial-gradient(38rem 30rem at 45% 8%, oklch(0.34 0.06 320 / 0.22), transparent 58%);
+}
+
 @layer utilities {
-  .glass {
-    background: oklch(1 0 0 / 0.05);
-    backdrop-filter: blur(12px);
-    border: 1px solid oklch(1 0 0 / 0.08);
+  .glass-surface {
+    background: color-mix(in oklch, var(--card) 56%, transparent);
+    backdrop-filter: blur(30px) saturate(1.7);
+    -webkit-backdrop-filter: blur(30px) saturate(1.7);
+    border: 1px solid color-mix(in oklch, var(--foreground) 7%, transparent);
+    box-shadow:
+      inset 0 1px 0 0 oklch(1 0 0 / 0.60),
+      inset 0 -1px 0 0 oklch(1 0 0 / 0.18),
+      0 1px 2px oklch(0 0 0 / 0.04),
+      0 22px 44px -26px oklch(0 0 0 / 0.18);
   }
-  .dark .glass {
-    background: oklch(0.15 0.01 280 / 0.6);
-    border-color: oklch(1 0 0 / 0.06);
+  .dark .glass-surface {
+    background: color-mix(in oklch, var(--card) 48%, transparent);
+    border-color: oklch(1 0 0 / 0.09);
+    box-shadow:
+      inset 0 1px 0 0 oklch(1 0 0 / 0.09),
+      0 1px 2px oklch(0 0 0 / 0.30),
+      0 26px 50px -26px oklch(0 0 0 / 0.55);
   }
 
-  .glass-panel {
-    background: color-mix(in srgb, var(--card) 80%, transparent);
-    backdrop-filter: blur(16px);
-    border: 1px solid var(--border);
+  .glass-nav {
+    background: color-mix(in srgb, var(--card) 84%, transparent);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
+  }
+  .dark .glass-nav {
+    background: color-mix(in srgb, var(--card) 78%, transparent);
   }
 
   .data-grid {
@@ -172,13 +208,79 @@ body {
     border-radius: var(--radius);
     border: 1px solid var(--border);
     background: var(--card);
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    transition:
+      border-color var(--dur-base) var(--ease-standard),
+      box-shadow var(--dur-base) var(--ease-standard),
+      transform var(--dur-base) var(--ease-out);
   }
 
   .workflow-card:hover {
     border-color: color-mix(in srgb, var(--primary) 40%, transparent);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 20%, transparent);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--primary) 20%, transparent),
+      0 14px 32px -18px oklch(0 0 0 / 0.16);
+    transform: translateY(-1px);
   }
+
+  /* ---- data-viz: sparkline / chart accents ---- */
+  .viz-line-glow {
+    filter: drop-shadow(0 0 3px color-mix(in srgb, currentColor 55%, transparent));
+  }
+  .viz-endpoint-pulse {
+    animation: viz-endpoint 2.4s ease-in-out infinite;
+    transform-origin: center;
+  }
+  @keyframes viz-endpoint {
+    0%, 100% { opacity: 1; r: 2.5; }
+    50% { opacity: 0.55; r: 3.5; }
+  }
+
+  /* ---- tables: glass header + accent rail rows ---- */
+  .table-glass-head th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: color-mix(in srgb, var(--card) 78%, transparent);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    border-bottom: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+  }
+  .row-rail {
+    position: relative;
+  }
+  .row-rail::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 15%;
+    bottom: 15%;
+    width: 2px;
+    border-radius: 9999px;
+    background: var(--rail, var(--primary));
+    opacity: 0;
+    transform: scaleY(0.4);
+    transition:
+      opacity var(--dur-fast) var(--ease-out),
+      transform var(--dur-base) var(--ease-out);
+  }
+  .row-rail:hover::before,
+  .row-rail[data-active="true"]::before {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+
+  /* ---- staggered list entrance (command palette, step pills) ---- */
+  .stagger-in > * {
+    animation: fade-in-up var(--dur-slow) var(--ease-out) both;
+  }
+  .stagger-in > *:nth-child(1) { animation-delay: 0ms; }
+  .stagger-in > *:nth-child(2) { animation-delay: 40ms; }
+  .stagger-in > *:nth-child(3) { animation-delay: 80ms; }
+  .stagger-in > *:nth-child(4) { animation-delay: 120ms; }
+  .stagger-in > *:nth-child(5) { animation-delay: 160ms; }
+  .stagger-in > *:nth-child(6) { animation-delay: 200ms; }
+  .stagger-in > *:nth-child(7) { animation-delay: 240ms; }
+  .stagger-in > *:nth-child(n + 8) { animation-delay: 280ms; }
 }
 
 @keyframes fade-in-up {
@@ -239,11 +341,11 @@ body {
 }
 
 .animate-fade-in-up {
-  animation: fade-in-up 0.3s ease-out;
+  animation: fade-in-up var(--dur-base) var(--ease-out);
 }
 
 .animate-slide-in-right {
-  animation: slide-in-right 0.3s ease-out;
+  animation: slide-in-right var(--dur-base) var(--ease-out);
 }
 
 .animate-pulse-glow {
@@ -255,7 +357,7 @@ body {
 }
 
 .animate-slide-in {
-  animation: slide-in 0.3s ease-out;
+  animation: slide-in var(--dur-base) var(--ease-out);
 }
 
 .scrollbar-thin {
@@ -304,9 +406,622 @@ body {
 
 @keyframes pulse-border {
   0%, 100% { border-color: var(--border); }
-  50% { border-color: var(--amber); }
+  50% { border-color: var(--ring); }
 }
 
 .animate-pulse-border {
   animation: pulse-border 2s ease-in-out infinite;
 }
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-sora), var(--font-geist-sans), sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/* ════════════════════════════════════════════════════════════
+   FlowMind · 液态玻璃仪表盘（OpenDesign 设计稿落地）
+   主色 : 琥珀 oklch(0.56 0.15 55) —— 单点强调
+   玻璃 : 背景光斑 + 顶高光 + 描边 + 鼠标跟随光斑
+   ════════════════════════════════════════════════════════════ */
+:root {
+  --accent-soft: color-mix(in oklch, var(--primary) 13%, transparent);
+  --accent-ghost: color-mix(in oklch, var(--primary) 7%, transparent);
+}
+
+.dark {
+  --accent-soft: color-mix(in oklch, var(--primary) 16%, transparent);
+  --accent-ghost: color-mix(in oklch, var(--primary) 9%, transparent);
+}
+
+/* ── 玻璃面板（设计稿 .glass）── */
+.glass {
+  background: color-mix(in oklch, var(--card) 56%, transparent);
+  backdrop-filter: blur(30px) saturate(1.7);
+  -webkit-backdrop-filter: blur(30px) saturate(1.7);
+  border: 1px solid color-mix(in oklch, var(--foreground) 7%, transparent);
+  border-radius: 20px;
+  box-shadow:
+    inset 0 1px 0 0 oklch(1 0 0 / 0.60),
+    inset 0 -1px 0 0 oklch(1 0 0 / 0.18),
+    0 1px 2px oklch(0 0 0 / 0.04),
+    0 22px 44px -26px oklch(0 0 0 / 0.18);
+}
+.dark .glass {
+  background: color-mix(in oklch, var(--card) 48%, transparent);
+  border-color: oklch(1 0 0 / 0.09);
+  box-shadow:
+    inset 0 1px 0 0 oklch(1 0 0 / 0.09),
+    0 1px 2px oklch(0 0 0 / 0.30),
+    0 26px 50px -26px oklch(0 0 0 / 0.55);
+}
+
+/* 鼠标跟随光斑 —— 液态玻璃的“灵动”签名 */
+.glass-hover {
+  position: relative;
+}
+.glass-hover::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(340px circle at var(--mx, 50%) var(--my, 50%), oklch(1 0 0 / 0.30), transparent 62%);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  z-index: 1;
+}
+.dark .glass-hover::before {
+  background: radial-gradient(340px circle at var(--mx, 50%) var(--my, 50%), oklch(1 0 0 / 0.08), transparent 62%);
+}
+.glass-hover:hover::before {
+  opacity: 1;
+}
+
+/* ── 页面头 ── */
+.dash-pagehead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.dash-crumbs {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  letter-spacing: 0.02em;
+}
+.dash-crumbs b {
+  color: var(--foreground);
+  font-weight: 500;
+}
+.dash-pagehead h1 {
+  font-family: var(--font-sora), sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-top: 6px;
+}
+.dash-pagehead .dash-desc {
+  color: var(--muted-foreground);
+  font-size: 13.5px;
+  margin-top: 6px;
+}
+.dash-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.btn-orchestrate {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: oklch(1 0 0);
+  background: linear-gradient(180deg, oklch(0.58 0.15 55), oklch(0.50 0.16 50));
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.28), 0 8px 20px -10px color-mix(in oklch, var(--primary) 55%, transparent);
+  transition: transform 0.06s ease, filter var(--dur-base) ease;
+  cursor: pointer;
+}
+.btn-orchestrate:hover {
+  filter: brightness(1.06);
+}
+.btn-orchestrate:active {
+  transform: translateY(1px);
+}
+.btn-orchestrate:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+/* ── KPI 卡 ── */
+.dash-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+}
+.dash-kpi {
+  padding: 18px 20px 16px;
+  position: relative;
+  z-index: 0;
+}
+.dash-kpi > * {
+  position: relative;
+  z-index: 2;
+}
+.dash-kpi-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.dash-kpi-label {
+  font-size: 12.5px;
+  color: var(--muted-foreground);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.dash-kpi-label svg {
+  width: 14px;
+  height: 14px;
+  color: var(--muted-foreground);
+}
+.dash-kpi-value {
+  font-family: var(--font-sora), sans-serif;
+  font-weight: 700;
+  font-size: 32px;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin-top: 12px;
+}
+.dash-kpi-value .unit {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  margin-left: 3px;
+}
+.dash-kpi-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+.dash-kpi-delta {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.dash-kpi-delta.up {
+  color: var(--success);
+}
+.dash-kpi-delta.down {
+  color: var(--destructive);
+}
+.dash-kpi-delta.warn {
+  color: var(--warning);
+}
+.dash-kpi-delta.muted {
+  color: var(--muted-foreground);
+}
+.dash-kpi-spark {
+  height: 34px;
+}
+
+/* ── 面板 ── */
+.dash-panel {
+  padding: 20px 22px;
+}
+.dash-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.dash-panel-title {
+  font-family: var(--font-sora), sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.dash-panel-title svg {
+  width: 16px;
+  height: 16px;
+  color: var(--primary);
+}
+.dash-panel-more {
+  font-size: 12.5px;
+  color: var(--muted-foreground);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.dash-panel-more:hover {
+  color: var(--foreground);
+}
+.dash-grid-main {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 18px;
+}
+.dash-grid-sub {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 18px;
+}
+
+/* ── 工作流行 ── */
+.dash-wf-row {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 12px 13px;
+  border-radius: 13px;
+  transition: background var(--dur-base) ease;
+}
+.dash-wf-row:hover {
+  background: var(--accent-ghost);
+}
+.dash-wf-rail {
+  flex: none;
+  width: 3px;
+  align-self: stretch;
+  border-radius: 3px;
+}
+.dash-wf-name {
+  font-size: 13.5px;
+  font-weight: 500;
+}
+.dash-wf-meta {
+  font-size: 11.5px;
+  color: var(--muted-foreground);
+}
+.dash-wf-right {
+  margin-left: auto;
+  text-align: right;
+}
+.dash-wf-pct {
+  font-family: var(--font-mono), monospace;
+  font-size: 12.5px;
+}
+.dash-wf-pct.ok {
+  color: var(--success);
+}
+.dash-wf-pct.warn {
+  color: var(--warning);
+}
+.dash-wf-pct.muted {
+  color: var(--muted-foreground);
+}
+
+/* ── 状态点 ── */
+.dash-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.dash-dot.ok {
+  background: var(--success);
+  animation: dash-pulse 2.4s ease-out infinite;
+}
+.dash-dot.warn {
+  background: var(--warning);
+}
+.dash-dot.danger {
+  background: var(--destructive);
+}
+.dash-dot.idle {
+  background: color-mix(in oklch, var(--foreground) 22%, transparent);
+}
+@keyframes dash-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--success) 40%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 7px color-mix(in oklch, var(--success) 0%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--success) 0%, transparent);
+  }
+}
+
+/* ── Agent 心跳 ── */
+.dash-hb-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+.dash-hb-name {
+  font-size: 13px;
+  flex: none;
+  width: 74px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dash-hb-bars {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 26px;
+}
+.dash-hb-bars i {
+  flex: 1;
+  max-width: 6px;
+  border-radius: 2px;
+  background: var(--primary);
+  opacity: 0.85;
+  animation: dash-beat 1.6s ease-in-out infinite;
+}
+.dash-hb-bars i:nth-child(2n) {
+  animation-delay: 0.25s;
+}
+.dash-hb-bars i:nth-child(3n) {
+  animation-delay: 0.5s;
+}
+.dash-hb-bars i:nth-child(5n) {
+  animation-delay: 0.75s;
+}
+@keyframes dash-beat {
+  0%, 100% {
+    transform: scaleY(0.5);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+.dash-hb-val {
+  flex: none;
+  width: 42px;
+  text-align: right;
+  font-family: var(--font-mono), monospace;
+  font-size: 11.5px;
+  color: var(--muted-foreground);
+}
+
+/* ── 图表 ── */
+.dash-chart-wrap {
+  width: 100%;
+  height: 224px;
+  position: relative;
+}
+.dash-chart-legend {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.dash-chart-legend .sw {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.dash-chart-legend .sw i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.dash-y-axis {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 22px;
+  width: 46px;
+  pointer-events: none;
+}
+.dash-y-axis span {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  color: var(--muted-foreground);
+  line-height: 1;
+}
+.dash-x-axis {
+  position: absolute;
+  left: 6px;
+  right: 0;
+  bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+
+/* ── 告警 ── */
+.dash-alert-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 13px;
+  border-radius: 13px;
+  transition: background var(--dur-base) ease;
+}
+.dash-alert-row:hover {
+  background: var(--accent-ghost);
+}
+.dash-alert-msg {
+  font-size: 13px;
+  font-weight: 500;
+}
+.dash-alert-sub {
+  font-size: 11.5px;
+  color: var(--muted-foreground);
+}
+.dash-alert-time {
+  margin-left: auto;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+/* ── AI 实时编排卡 ── */
+.dash-ai-live {
+  overflow: hidden;
+}
+.dash-ai-live-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 16px;
+}
+.dash-ai-title {
+  font-family: var(--font-sora), sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dash-ai-title .spark {
+  width: 16px;
+  height: 16px;
+  color: var(--primary);
+}
+.dash-ai-tag {
+  margin-left: auto;
+}
+.dash-steps {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.dash-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  border: 1px solid var(--border);
+  background: var(--card);
+  white-space: nowrap;
+}
+.dash-step.done {
+  color: var(--success);
+  border-color: color-mix(in oklch, var(--success) 28%, transparent);
+}
+.dash-step.running {
+  color: var(--primary);
+  border-color: color-mix(in oklch, var(--primary) 32%, transparent);
+  background: var(--accent-soft);
+}
+.dash-step.pending {
+  opacity: 0.6;
+}
+.dash-step .ic {
+  width: 13px;
+  height: 13px;
+}
+.dash-stream {
+  font-family: var(--font-mono), monospace;
+  font-size: 12.5px;
+  line-height: 1.85;
+  color: var(--muted-foreground);
+  min-height: 96px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: color-mix(in oklch, var(--foreground) 3%, transparent);
+  border: 1px solid color-mix(in oklch, var(--foreground) 7%, transparent);
+  overflow: hidden;
+}
+.dash-stream .ln {
+  display: flex;
+  gap: 8px;
+}
+.dash-stream .t {
+  color: var(--muted-foreground);
+  opacity: 0.7;
+  flex: none;
+}
+.dash-stream .cursor {
+  display: inline-block;
+  width: 7px;
+  height: 14px;
+  margin-left: 2px;
+  background: var(--primary);
+  vertical-align: -2px;
+  animation: dash-blink 1s steps(2) infinite;
+}
+@keyframes dash-blink {
+  50% {
+    opacity: 0;
+  }
+}
+.dash-progress {
+  margin-top: 16px;
+  height: 6px;
+  border-radius: 4px;
+  background: color-mix(in oklch, var(--foreground) 7%, transparent);
+  overflow: hidden;
+}
+.dash-progress > i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--primary), color-mix(in oklch, var(--primary) 60%, white));
+  background-size: 200% 100%;
+  animation: dash-flow 1.6s linear infinite;
+  transition: width 0.5s var(--ease-out);
+}
+@keyframes dash-flow {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* 入场 */
+@keyframes dash-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.dash-rise {
+  animation: dash-rise 0.5s var(--ease-out) both;
+}
+
+/* 响应式 */
+@media (max-width: 1180px) {
+  .dash-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .dash-grid-main,
+  .dash-grid-sub {
+    grid-template-columns: 1fr;
+  }
+}
+

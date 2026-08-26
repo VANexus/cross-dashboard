@@ -4,7 +4,7 @@
  */
 import * as rakRepo from "../repositories/rak.repository";
 import type { DAGNode } from "../repositories/rak.repository";
-import type { DAGDefinition, DAGNodeDefinition } from "./protocol";
+import type { DAGDefinition } from "./protocol";
 
 export class MeshExecutor {
   // ========== DAG Management ==========

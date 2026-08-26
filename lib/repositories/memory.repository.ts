@@ -116,6 +116,7 @@ export function updateMemory(id: string, data: Partial<MemoryEntry>): MemoryEntr
   if (data.verified !== undefined) { sets.push("verified = ?"); params.push(data.verified ? 1 : 0); }
 
   params.push(id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db.run(`UPDATE memory_entries SET ${sets.join(", ")} WHERE id = ?`, params as any[]);
   return getMemoryById(id);
 }

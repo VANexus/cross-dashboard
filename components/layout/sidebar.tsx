@@ -2,11 +2,11 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { useSidebar } from "@/hooks/use-sidebar";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { StatusDot } from "@/components/ui/status-dot";
 import {
   LayoutDashboard,
   Workflow,
@@ -18,26 +18,32 @@ import {
   Settings,
   ChevronsLeft,
   ChevronsRight,
+  PenLine,
+  Video,
+  Search,
+  ImageIcon,
+  Megaphone,
+  Package,
+  BarChart3,
+  Crosshair,
   Globe,
   Plug,
-  Package,
   TrendingUp,
   Palette,
-  Megaphone,
   ShoppingCart,
-  BarChart3,
   Shield,
-  Video,
   FileSearch,
 } from "lucide-react";
 import { useServiceRegistry } from "@/lib/discovery";
-
-type WorkflowStatus = "running" | "idle" | "warning" | "error";
+import type { WorkflowStatus } from "@/lib/types";
 
 interface NavItem {
   label: string;
   href: string;
   icon: React.ReactNode;
+  /** 工作流领域色状态点（tailwind bg-* 类，如 bg-wf-product） */
+  dot?: string;
+  /** 工作流状态（用于服务发现动态项） */
   wfStatus?: WorkflowStatus;
   /** 来源服务 id（动态技能用） */
   serviceId?: string;
@@ -51,7 +57,7 @@ interface NavGroup {
   dynamic?: boolean;
 }
 
-/** 静态核心导航（始终显示） */
+/** 静态核心导航（液态玻璃设计 + 领域色状态点） */
 const STATIC_GROUPS: NavGroup[] = [
   {
     label: "概览",
@@ -60,19 +66,43 @@ const STATIC_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "监控中心",
+    label: "核心能力 · 工作流",
     items: [
-      { label: "账号风险", href: "/risk", icon: <ShieldCheck className="h-4 w-4" /> },
+      { label: "能力中心", href: "/skills", icon: <Workflow className="h-4 w-4" /> },
+      { label: "选品分析", href: "/workflows/product-research", icon: <Search className="h-4 w-4" />, dot: "bg-wf-product" },
+      { label: "AI 作图", href: "/workflows/ai-imaging", icon: <ImageIcon className="h-4 w-4" />, dot: "bg-wf-imaging" },
+      { label: "AI 广告", href: "/workflows/ai-advertising", icon: <Megaphone className="h-4 w-4" />, dot: "bg-wf-ad" },
+      { label: "AI 上架", href: "/workflows/ai-listing", icon: <Package className="h-4 w-4" />, dot: "bg-wf-listing" },
+      { label: "库销比", href: "/workflows/inventory", icon: <BarChart3 className="h-4 w-4" />, dot: "bg-wf-inventory" },
+      { label: "竞品广告", href: "/workflows/competitor-ads", icon: <Crosshair className="h-4 w-4" />, dot: "bg-wf-competitor" },
+      { label: "视频本地化", href: "/workflows/video-localization", icon: <Video className="h-4 w-4" /> },
+    ],
+  },
+  {
+    label: "内容与采集",
+    items: [
+      { label: "内容创作中心", href: "/content-studio", icon: <PenLine className="h-4 w-4" /> },
+      { label: "爬虫中心", href: "/crawler", icon: <Globe className="h-4 w-4" /> },
+    ],
+  },
+  {
+    label: "智能体与任务",
+    items: [
       { label: "Agent 管理", href: "/agents", icon: <Bot className="h-4 w-4" /> },
       { label: "任务中心", href: "/tasks", icon: <ListTodo className="h-4 w-4" /> },
-      { label: "爬虫中心", href: "/crawler", icon: <Globe className="h-4 w-4" /> },
+    ],
+  },
+  {
+    label: "风控与洞察",
+    items: [
+      { label: "内容合规", href: "/risk", icon: <ShieldCheck className="h-4 w-4" /> },
+      { label: "记忆系统", href: "/memory", icon: <Brain className="h-4 w-4" /> },
+      { label: "自进化", href: "/evolution", icon: <Sparkles className="h-4 w-4" /> },
     ],
   },
   {
     label: "系统",
     items: [
-      { label: "记忆系统", href: "/memory", icon: <Brain className="h-4 w-4" /> },
-      { label: "自进化", href: "/evolution", icon: <Sparkles className="h-4 w-4" /> },
       { label: "设置", href: "/settings", icon: <Settings className="h-4 w-4" /> },
     ],
   },
@@ -80,16 +110,7 @@ const STATIC_GROUPS: NavGroup[] = [
 
 /**
  * 图标池 —— 动态、开放、零维护
- *
- * 设计意图：category 是开放集合（后端技能发现返回的任意标签），
- * 绝不可能用静态映射表穷举。我们维护一个「图标池」，用 category
- * 字符串的哈希值取模，稳定地分配一个图标。
- *
- * 这样任何新 category（"翻译"、"客服"、"财税"……）都会自动、
- * 确定性地得到一个图标，无需前端改代码。
- *
- * 使用预创建的 React 节点（模块级常量），避免在 render 中
- * 动态构造组件触发 react-hooks/static-components lint 规则。
+ * 新 category 自动确定性分配图标，无需前端改代码
  */
 const ICON_POOL: React.ReactNode[] = [
   <Workflow className="h-4 w-4" />,
@@ -109,7 +130,7 @@ const ICON_POOL: React.ReactNode[] = [
   <Plug className="h-4 w-4" />,
 ];
 
-/** 简单的字符串哈希（FNV-1a），确定性、分布均匀 */
+/** FNV-1a 字符串哈希 */
 function hashString(s: string): number {
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) {
@@ -139,13 +160,13 @@ function wfStatusToDot(status?: WorkflowStatus) {
 
 export function Sidebar() {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
+  const { collapsed, setCollapsed } = useSidebar();
 
   // ── 从发现注册表订阅动态技能分组 ──
   const manifests = useServiceRegistry((s) => s.manifests);
   const discovering = useServiceRegistry((s) => s.discovering);
 
-  // 动态构建"插件服务"分组（从 discovered skills 按 category 聚合）
+  // 动态构建"插件服务"分组
   const dynamicGroups: NavGroup[] = useMemo(() => {
     const categoryMap = new Map<string, NavItem[]>();
 
@@ -171,7 +192,6 @@ export function Sidebar() {
       }
     }
 
-    // 转为 NavGroup 数组
     return [...categoryMap.entries()].map(([label, items]) => ({
       label,
       items,
@@ -183,7 +203,6 @@ export function Sidebar() {
   // 合并：静态组 + 动态组
   const navGroups = useMemo(() => {
     if (dynamicGroups.length === 0) return STATIC_GROUPS;
-    // 动态组插入到"概览"之后（即第二个位置）
     const groups = [...STATIC_GROUPS];
     groups.splice(1, 0, ...dynamicGroups);
     return groups;
@@ -192,7 +211,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-30 flex h-screen flex-col border-r bg-card transition-[width] duration-300",
+        "fixed left-0 top-0 z-30 flex h-screen flex-col border-r glass-nav transition-[width] duration-300",
         collapsed ? "w-[72px]" : "w-[260px]"
       )}
     >
@@ -203,7 +222,7 @@ export function Sidebar() {
             <div className="absolute -inset-0.5 rounded-lg bg-primary/10 blur-sm -z-10" />
           </div>
           {!collapsed && (
-            <span className="text-base font-bold tracking-tight">
+            <span className="font-heading text-base font-bold tracking-tight">
               Flow<span className="text-primary">Mind</span>
             </span>
           )}
@@ -215,22 +234,14 @@ export function Sidebar() {
           {navGroups.map((group) => (
             <div key={group.label} className="mb-2">
               {!collapsed && (
-                <p className={cn(
-                  "px-2 py-1.5 text-[11px] font-semibold uppercase tracking-widest",
-                  group.accent ? "text-primary/70" : "text-muted-foreground/50"
-                )}>
+                <p className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/50">
                   {group.label}
                   {group.dynamic && discovering && (
                     <span className="ml-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary align-middle" />
                   )}
                 </p>
               )}
-              {group.accent && !collapsed && (
-                <div className="relative ml-0 mb-1">
-                  <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-primary/60 to-primary/0 rounded-full" />
-                </div>
-              )}
-              <div className={cn("space-y-0.5", group.accent && "pl-1 border-l-2 border-primary/20 ml-1")}>
+              <div className="space-y-0.5">
                 {group.items.map((item) => {
                   const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
                   return (
@@ -238,7 +249,7 @@ export function Sidebar() {
                       key={item.href}
                       href={item.href}
                       className={cn(
-                        "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-all duration-150",
+                        "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
                         isActive
                           ? "bg-primary/10 text-primary font-medium"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -246,16 +257,11 @@ export function Sidebar() {
                       )}
                       title={collapsed ? item.label : undefined}
                     >
-                      {item.wfStatus !== undefined && (
-                        <StatusDot
-                          status={wfStatusToDot(item.wfStatus)}
-                          pulse={item.wfStatus === "running"}
-                          size="sm"
-                          className={cn(collapsed && "absolute top-1 right-1")}
-                        />
-                      )}
                       <span className="shrink-0">{item.icon}</span>
                       {!collapsed && <span className="truncate">{item.label}</span>}
+                      {!collapsed && item.dot && (
+                        <span className={cn("ml-auto h-1.5 w-1.5 shrink-0 rounded-full", item.dot)} />
+                      )}
                     </Link>
                   );
                 })}

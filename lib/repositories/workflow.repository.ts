@@ -29,6 +29,7 @@ export function getProductKeywords(marketplace?: string): ProductKeyword[] {
   let sql = "SELECT * FROM wf_product_keywords";
   const params: unknown[] = [];
   if (marketplace) { sql += " WHERE marketplace = ?"; params.push(marketplace); }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rows = db.query(sql).all(...(params as any[])) as Array<{
     keyword: string; volume: number; cpc: number; competition: number;
     supply_demand: number; trend: string; ai_tag: string;
@@ -60,6 +61,7 @@ export function getImages(type?: string): GeneratedImg[] {
   if (type) { sql += " WHERE type = ?"; params.push(type); }
   sql += " ORDER BY created_at DESC";
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rows = db.query(sql).all(...(params as any[])) as Array<{
     id: string; type: string; url: string; clip_score: number; ctr_score: number;
     overall: number; is_best: number; prompt: string; model: string; seed: number; revised_prompt: string | null;
@@ -75,6 +77,7 @@ export function insertImage(img: { id: string; type: string; url: string; prompt
   const db = getDb();
   db.run(
     "INSERT INTO wf_generated_images (id, type, url, prompt, model, revised_prompt) VALUES (?, ?, ?, ?, ?, ?)",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [img.id, img.type, img.url, img.prompt, img.model, img.revisedPrompt ?? null] as any[],
   );
 }
@@ -91,6 +94,7 @@ export function updateImage(id: string, data: Partial<GeneratedImg>): GeneratedI
 
   if (sets.length === 0) return getImages().find((i) => i.id === id) ?? null;
   params.push(id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db.run(`UPDATE wf_generated_images SET ${sets.join(", ")} WHERE id = ?`, params as any[]);
   return getImages().find((i) => i.id === id) ?? null;
 }
@@ -117,6 +121,7 @@ export function getAdKeywords(filters?: { type?: string; tag?: string }): AdKeyw
   if (filters?.type) { sql += " AND type = ?"; params.push(filters.type); }
   if (filters?.tag) { sql += " AND tag = ?"; params.push(filters.tag); }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rows = db.query(sql).all(...(params as any[])) as Array<{
     id: string; keyword: string; impressions: number; clicks: number;
     spend: number; sales: number; acos: number; conversion: number;
@@ -140,6 +145,7 @@ export function updateAdKeyword(id: string, data: Partial<AdKeyword>): AdKeyword
 
   if (sets.length === 0) return getAdKeywords().find((k) => k.id === id) ?? null;
   params.push(id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db.run(`UPDATE wf_ad_keywords SET ${sets.join(", ")} WHERE id = ?`, params as any[]);
   return getAdKeywords().find((k) => k.id === id) ?? null;
 }
@@ -247,6 +253,7 @@ export function getCompetitorKeywords(type?: string): KeywordItem[] {
   const params: unknown[] = [];
   if (type) { sql += " WHERE type = ?"; params.push(type); }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rows = db.query(sql).all(...(params as any[])) as Array<{
     keyword: string; volume: number; competition: number; cpc: number; trend: string; type: string;
   }>;
@@ -296,6 +303,7 @@ export function updateWorkflowStatus(id: string, data: { status?: string; lastRu
   if (data.successRate !== undefined) { sets.push("success_rate = ?"); params.push(data.successRate); }
 
   params.push(id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db.run(`UPDATE wf_workflow_statuses SET ${sets.join(", ")} WHERE id = ?`, params as any[]);
 }
 
@@ -307,6 +315,7 @@ export function insertAdAnalysis(data: {
   const db = getDb();
   db.run(
     "INSERT INTO wf_ad_analyses (id, keyword, current_data, result_json) VALUES (?, ?, ?, ?)",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [data.id, data.keyword, JSON.stringify(data.currentData), JSON.stringify(data.resultJson)] as any[],
   );
 }
@@ -330,6 +339,7 @@ export function insertResearchResult(data: {
   const db = getDb();
   db.run(
     "INSERT INTO wf_generated_research (id, marketplace, category, keywords, sources, result_json) VALUES (?, ?, ?, ?, ?, ?)",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [data.id, data.marketplace, data.category, JSON.stringify(data.keywords), JSON.stringify(data.sources), JSON.stringify(data.resultJson)] as any[],
   );
 }
@@ -355,6 +365,7 @@ export function insertListingResult(data: {
   const db = getDb();
   db.run(
     "INSERT INTO wf_generated_listings (id, keyword, category, language, title, bullets, description, search_terms, seo_score, estimated_ctr, result_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [data.id, data.keyword, data.category, data.language, data.title, JSON.stringify(data.bullets), data.description, JSON.stringify(data.searchTerms), data.seoScore, data.estimatedCtr, JSON.stringify(data.resultJson)] as any[],
   );
 }
@@ -378,6 +389,7 @@ export function insertCompetitorAnalysis(data: {
   const db = getDb();
   db.run(
     "INSERT INTO wf_generated_competitor_analysis (id, asins, marketplace, keywords, result_json) VALUES (?, ?, ?, ?, ?)",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [data.id, JSON.stringify(data.asins), data.marketplace, JSON.stringify(data.keywords), JSON.stringify(data.resultJson)] as any[],
   );
 }
@@ -399,6 +411,7 @@ export function insertRestockOrder(data: { id: string; items: Array<{ sku: strin
   const db = getDb();
   db.run(
     "INSERT INTO wf_restock_orders (id, items, status, total_items) VALUES (?, ?, ?, ?)",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [data.id, JSON.stringify(data.items), data.status, data.items.length] as any[],
   );
 }

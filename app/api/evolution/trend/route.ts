@@ -5,7 +5,7 @@ import { EvolutionService } from "@/lib/services";
 
 const service = new EvolutionService();
 
-export const GET = withDb(async (_request: NextRequest) => {
+export const GET = withDb(async (_: NextRequest) => {
   const data = service.getTrend();
   return success(data);
 });

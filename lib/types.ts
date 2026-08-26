@@ -405,3 +405,168 @@ export interface RestockSuggestion {
   eta: string;
   cost: number;
 }
+
+// ========== 视频本地化（video-localizer 后端） ==========
+
+export type LocalizeTaskStatus =
+  | "queued"
+  | "running"
+  | "retrying"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "not_found"
+  | "unknown";
+
+export interface LocalizeTask {
+  id: string;
+  batchId: string;
+  videoPath: string;
+  targetLang: string;
+  sourceLang: string;
+  enableTts: boolean;
+  removeSubtitles: boolean;
+  status: LocalizeTaskStatus;
+  outputs: Record<string, string>;
+  error: string | null;
+  createdAt: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  durationSeconds: number | null;
+  isTerminal: boolean;
+  isStalled: boolean;
+  updatedAt: string;
+}
+
+export interface LocalizeBatch {
+  id: string;
+  jobIds: string[];
+  videoCount: number;
+  targetLang: string;
+  sourceLang: string;
+  enableTts: boolean;
+  removeSubtitles: boolean;
+  costBand: "低" | "中" | "高";
+  submittedAt: string;
+}
+
+export interface LocalizeHealth {
+  ok: boolean;
+  latencyMs: number;
+  apiBase: string;
+  error?: string;
+}
+
+export interface LocalizeBatchReport {
+  batchId: string;
+  batchIds: string[];
+  jobIds: string[];
+  submittedCount: number;
+  rejectedCount: number;
+  rejectedPaths: string[];
+  costBand: "低" | "中" | "高";
+  ttsRecommended: boolean;
+  batchSizeWarning: boolean;
+  apiMessage: string;
+  failureCategory?: string;
+  retriable?: boolean;
+  warning?: string;
+}
+
+// ── 内容创作中心（Content Studio）──
+export type ContentPlatform = "xhs" | "wechat" | "douyin";
+
+export interface IdeaAngle {
+  angle: string;
+  title: string;
+  reason?: string;
+}
+
+export interface ContentIdea {
+  id: string;
+  platform: ContentPlatform;
+  angle: string;
+  title: string;
+  subject: string;
+  createdAt: string;
+}
+
+export interface HotTopic {
+  word: string;
+  heat: number;
+  delta: number | null;
+  url: string;
+  source: string;
+}
+
+export interface HotTopicsResult {
+  platform: ContentPlatform;
+  source: string;
+  endpoint: string;
+  degraded: boolean;
+  degradationReason?: string;
+  topics: HotTopic[];
+  failureCategory?: string;
+  retriable?: boolean;
+  warning?: string;
+}
+
+export interface AuditFinding {
+  category: string;
+  severity: "error" | "warning";
+  message: string;
+  suggestion: string;
+  matchedText?: string;
+  ruleId?: string;
+}
+
+export interface AuditResult {
+  platform: ContentPlatform;
+  passed: boolean;
+  findings: AuditFinding[];
+  llmReviewed: boolean;
+  ruleFindingCount: number;
+  llmFindingCount: number;
+}
+
+export interface ContentImage {
+  index: number;
+  url: string;
+}
+
+export interface ContentImageResult {
+  platform: ContentPlatform;
+  width: number;
+  height: number;
+  backendUsed: string;
+  images: ContentImage[];
+}
+
+export type ContentDraftStatus = "draft" | "published" | "archived";
+
+export interface CopyDraft {
+  id: string;
+  platform: ContentPlatform;
+  title: string;
+  body: string;
+  tags: string[];
+  status: ContentDraftStatus;
+  auditPassed: boolean;
+  auditResult: AuditFinding[] | null;
+  imageCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContentWorks {
+  drafts: CopyDraft[];
+  videos: LocalizeTask[];
+}
+
+export interface ContentPlatformMeta {
+  id: ContentPlatform;
+  label: string;
+  color: string;
+  hint: string;
+  imageAspect: string;
+}

@@ -71,6 +71,7 @@ export function getAgents(filters?: { status?: string; type?: string }): Agent[]
   }
 
   sql += " ORDER BY name";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (db.query(sql).all(...(params as any[])) as AgentRow[]).map(mapAgent);
 }
 
@@ -107,6 +108,7 @@ export function updateAgentStats(id: string, stats: { taskCount?: number; succes
   if (stats.uptime !== undefined) { sets.push("uptime = ?"); params.push(stats.uptime); }
 
   params.push(id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db.run(`UPDATE agents SET ${sets.join(", ")} WHERE id = ?`, params as any[]);
 }
 

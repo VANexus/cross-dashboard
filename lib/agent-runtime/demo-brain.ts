@@ -163,23 +163,23 @@ const reflectionTemplates: Record<AgentType, string[]> = {
 
 // ========== Variable Substitution ==========
 
-function getTemplateVars(context: AgentContext, config: AgentConfig): Record<string, string> {
-  const highPriority = context.activeTasks.filter((t) => t.priority === "high" || t.priority === "critical").length;
-  const level1 = context.risks.filter((r) => r.level === "level1").length;
+function getTemplateVars(context: AgentContext | undefined, config: AgentConfig): Record<string, string> {
+  const highPriority = (context?.activeTasks ?? []).filter((t) => t.priority === "high" || t.priority === "critical").length;
+  const level1 = (context?.risks ?? []).filter((r) => r.level === "level1").length;
 
   return {
-    onlineAgents: String(context.systemStatus.onlineAgents),
-    busyAgents: String(context.systemStatus.busyAgents),
-    taskQueueLength: String(context.systemStatus.taskQueueLength),
-    errorRate: String(context.systemStatus.errorRate),
-    riskCount: String(context.risks.length),
+    onlineAgents: String(context?.systemStatus.onlineAgents ?? 0),
+    busyAgents: String(context?.systemStatus.busyAgents ?? 0),
+    taskQueueLength: String(context?.systemStatus.taskQueueLength ?? 0),
+    errorRate: String(context?.systemStatus.errorRate ?? 0),
+    riskCount: String((context?.risks ?? []).length),
     level1Count: String(level1),
     completedTasks: String(Math.floor(Math.random() * 5) + 3),
     highPriorityTasks: String(highPriority),
     efficiencyGain: String(Math.floor(Math.random() * 15) + 5),
     parallelTasks: String(Math.floor(Math.random() * 3) + 1),
     timeSaved: String(Math.floor(Math.random() * 20) + 5),
-    predictedAvailable: String(Math.max(1, context.systemStatus.onlineAgents - 1)),
+    predictedAvailable: String(Math.max(1, (context?.systemStatus.onlineAgents ?? 0) - 1)),
     avgLoad: String(Math.floor(Math.random() * 30) + 40),
     inventoryWarnings: String(Math.floor(Math.random() * 5) + 1),
     newOpportunities: String(Math.floor(Math.random() * 3) + 1),
@@ -344,7 +344,7 @@ export class DemoAgentBrain implements AgentBrain {
     const agentType = this.getAgentType(agent);
     const templates = reflectionTemplates[agentType] ?? reflectionTemplates.operations;
     const template = templates[Math.floor(Math.random() * templates.length)];
-    const vars = getTemplateVars({ pendingMessages: [], memories: [], activeTasks: [], risks: [], systemStatus: { onlineAgents: 0, busyAgents: 0, taskQueueLength: 0, errorRate: 0 } }, agent);
+    const vars = getTemplateVars(undefined, agent);
     return fillTemplate(template, vars);
   }
 
