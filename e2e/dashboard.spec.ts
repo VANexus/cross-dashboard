@@ -8,36 +8,49 @@ test.describe("Dashboard Page", () => {
   test("should render Suspense skeleton then load real data", async ({ page }) => {
     const skeleton = page.locator(".skeleton");
     await expect(skeleton.first()).toBeVisible({ timeout: 5000 }).catch(() => {});
-    await expect(page.locator("text=工作流").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("text=工作流状态").first()).toBeVisible({ timeout: 10000 });
     await expect(skeleton).toHaveCount(0);
   });
 
-  test("should display stats cards with data from backend", async ({ page }) => {
-    await expect(page.locator("text=工作流").first()).toBeVisible({ timeout: 10000 });
-    await expect(page.locator("text=Agent").first()).toBeVisible();
-    await expect(page.locator("text=任务").first()).toBeVisible();
-    await expect(page.locator("text=告警").first()).toBeVisible();
+  test("should display KPI stats cards with data from backend", async ({ page }) => {
+    await expect(page.locator("text=运行中工作流").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("text=在线 Agent").first()).toBeVisible();
+    await expect(page.locator("text=已完成任务").first()).toBeVisible();
+    await expect(page.locator("text=风险事件").first()).toBeVisible();
   });
 
-  test("should display workflow status table", async ({ page }) => {
+  test("should display workflow status list with content workflows", async ({ page }) => {
     await expect(page.locator("text=工作流状态").first()).toBeVisible({ timeout: 10000 });
-    await expect(page.locator("text=选品工作流").first()).toBeVisible();
-    await expect(page.locator("text=AI 作图").first()).toBeVisible();
-    await expect(page.locator("text=AI 广告").first()).toBeVisible();
+    await expect(page.locator("text=视频本地化").first()).toBeVisible();
+    await expect(page.locator("text=文案创作").first()).toBeVisible();
+    await expect(page.locator("text=合规审计").first()).toBeVisible();
+  });
+
+  test("should display Agent heartbeat panel", async ({ page }) => {
+    await expect(page.locator("text=Agent 心跳").first()).toBeVisible({ timeout: 10000 });
   });
 
   test("should display alerts list", async ({ page }) => {
     await expect(page.locator("text=最近告警").first()).toBeVisible({ timeout: 10000 });
   });
 
-  test("should display business metrics section", async ({ page }) => {
-    await expect(page.locator("text=近7天销售额").first()).toBeVisible({ timeout: 10000 });
-    await expect(page.locator("text=转化率").first()).toBeVisible();
+  test("should display sales trend area chart", async ({ page }) => {
+    await expect(page.locator("text=销售额").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("svg path").first()).toBeVisible();
   });
 
-  test("should render AnimatedNumber as client component", async ({ page }) => {
-    await expect(page.locator("text=工作流").first()).toBeVisible({ timeout: 10000 });
-    const dashboardClient = page.locator("[data-testid='dashboard-client']");
-    await expect(dashboardClient).toBeVisible().catch(() => {});
+  test("should render AI orchestration panel with steps", async ({ page }) => {
+    await expect(page.locator("text=AI 编排").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("text=选品分析").first()).toBeVisible();
+    await expect(page.locator("text=广告优化").first()).toBeVisible();
+  });
+
+  test("should trigger orchestration on button click", async ({ page }) => {
+    await expect(page.locator("text=AI 编排").first()).toBeVisible({ timeout: 10000 });
+    await page.getByRole("button", { name: "发起编排" }).click();
+    // 重跑后终端出现编排行
+    await expect(
+      page.locator("text=哨兵Agent · 触发编排").first()
+    ).toBeVisible({ timeout: 10000 });
   });
 });

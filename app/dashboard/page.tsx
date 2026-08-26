@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { DashboardShell } from "./dashboard-shell";
 import { StatsIsland } from "./islands/stats-island";
 import { WorkflowsIsland } from "./islands/workflows-island";
 import { HeartbeatIsland } from "./islands/heartbeat-island";
@@ -7,60 +8,24 @@ import { TrendsIsland } from "./islands/trends-island";
 
 function StatsSkeleton() {
   return (
-    <div className="data-grid grid-cols-2 md:grid-cols-4">
+    <div className="dash-kpi-grid">
       {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="flex flex-col gap-1 p-4">
+        <div key={i} className="glass dash-kpi">
           <div className="skeleton h-3 w-16" />
-          <div className="skeleton h-7 w-20 mt-1" />
-          <div className="skeleton h-2 w-12" />
+          <div className="skeleton h-7 w-24 mt-3" />
+          <div className="skeleton h-2 w-20 mt-3" />
         </div>
       ))}
     </div>
   );
 }
 
-function WorkflowsSkeleton() {
+function PanelSkeleton({ rows = 6 }: { rows?: number }) {
   return (
-    <div className="lg:col-span-3 rounded-xl border p-4 space-y-3">
+    <div className="glass dash-panel space-y-3">
       <div className="skeleton h-4 w-32" />
-      {Array.from({ length: 6 }).map((_, i) => (
+      {Array.from({ length: rows }).map((_, i) => (
         <div key={i} className="skeleton h-10 w-full" />
-      ))}
-    </div>
-  );
-}
-
-function HeartbeatSkeleton() {
-  return (
-    <div className="lg:col-span-2 rounded-xl border p-4 space-y-3">
-      <div className="skeleton h-4 w-24" />
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="skeleton h-8 w-full" />
-      ))}
-    </div>
-  );
-}
-
-function AlertsSkeleton() {
-  return (
-    <div className="rounded-xl border p-4 space-y-3">
-      <div className="skeleton h-4 w-20" />
-      {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="skeleton h-10 w-full" />
-      ))}
-    </div>
-  );
-}
-
-function TrendsSkeleton() {
-  return (
-    <div className="grid gap-6 md:grid-cols-3">
-      {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="rounded-xl border p-4 space-y-2">
-          <div className="skeleton h-3 w-20" />
-          <div className="skeleton h-7 w-24" />
-          <div className="skeleton h-8 w-full" />
-        </div>
       ))}
     </div>
   );
@@ -68,29 +33,28 @@ function TrendsSkeleton() {
 
 export default function DashboardPage() {
   return (
-    <div className="space-y-6">
+    <DashboardShell>
       <Suspense fallback={<StatsSkeleton />}>
         <StatsIsland />
       </Suspense>
 
-      <div className="grid gap-6 lg:grid-cols-5">
-        <Suspense fallback={<WorkflowsSkeleton />}>
+      <div className="dash-grid-main">
+        <Suspense fallback={<PanelSkeleton rows={6} />}>
           <WorkflowsIsland />
         </Suspense>
-        <Suspense fallback={<HeartbeatSkeleton />}>
+        <Suspense fallback={<PanelSkeleton rows={6} />}>
           <HeartbeatIsland />
         </Suspense>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Suspense fallback={<AlertsSkeleton />}>
+      <div className="dash-grid-sub">
+        <Suspense fallback={<PanelSkeleton rows={4} />}>
+          <TrendsIsland />
+        </Suspense>
+        <Suspense fallback={<PanelSkeleton rows={3} />}>
           <AlertsIsland />
         </Suspense>
       </div>
-
-      <Suspense fallback={<TrendsSkeleton />}>
-        <TrendsIsland />
-      </Suspense>
-    </div>
+    </DashboardShell>
   );
 }
