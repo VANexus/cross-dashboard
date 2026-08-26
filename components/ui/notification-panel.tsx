@@ -78,19 +78,19 @@ const levelConfig: Record<
   { icon: React.ReactNode; color: string; bg: string }
 > = {
   critical: {
-    icon: <AlertTriangle className="h-4 w-4 text-red-500" />,
-    color: "text-red-500",
-    bg: "bg-red-500/10",
+    icon: <AlertTriangle className="h-4 w-4 text-destructive" />,
+    color: "text-destructive",
+    bg: "bg-destructive/10",
   },
   warning: {
-    icon: <ShieldCheck className="h-4 w-4 text-amber-500" />,
-    color: "text-amber-500",
-    bg: "bg-amber-500/10",
+    icon: <ShieldCheck className="h-4 w-4 text-warning" />,
+    color: "text-warning",
+    bg: "bg-warning/10",
   },
   info: {
-    icon: <Info className="h-4 w-4 text-indigo-400" />,
-    color: "text-indigo-400",
-    bg: "bg-indigo-500/10",
+    icon: <Info className="h-4 w-4 text-info" />,
+    color: "text-info",
+    bg: "bg-info/10",
   },
 };
 
