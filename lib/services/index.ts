@@ -10,3 +10,5 @@ export { EvolutionService } from "./evolution.service";
 export { DashboardService } from "./dashboard.service";
 export { WorkflowService } from "./workflow.service";
 export { CrawlerService } from "./crawler.service";
+export { LocalizeService } from "./localize.service";
+export { ContentService, ContentMCPError } from "./content.service";

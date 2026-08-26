@@ -145,3 +145,52 @@ export const updateIsolationSchema = z.object({
   index: z.number().int().min(0).max(5),
   checked: z.boolean(),
 });
+
+// Workflow: 视频本地化
+export const submitLocalizeBatchSchema = z.object({
+  videoPaths: z.array(z.string().min(1)).min(1),
+  targetLang: z.string().min(2).max(8).optional(),
+  sourceLang: z.string().min(2).max(8).optional(),
+  enableTts: z.boolean().optional(),
+  removeSubtitles: z.boolean().optional(),
+});
+
+// Workflow: 内容创作中心
+const contentPlatform = z.enum(["xhs", "wechat", "douyin"]);
+
+export const contentIdeaSchema = z.object({
+  platform: contentPlatform,
+  subject: z.string().min(1).max(200),
+  count: z.number().int().min(1).max(6).optional(),
+});
+
+export const contentHotSchema = z.object({
+  platform: contentPlatform,
+  refresh: z.boolean().optional(),
+});
+
+export const contentCopySchema = z.object({
+  platform: contentPlatform,
+  subject: z.string().min(1).max(200),
+  angle: z.string().max(100).optional(),
+  tone: z.string().max(200).optional(),
+  keywords: z.array(z.string().max(40)).max(10).optional(),
+});
+
+export const contentAuditSchema = z.object({
+  id: z.string().min(1),
+});
+
+export const contentImageSchema = z.object({
+  draftId: z.string().min(1),
+  platform: contentPlatform,
+  prompt: z.string().min(1).max(2000),
+  count: z.number().int().min(1).max(4).optional(),
+});
+
+export const updateDraftSchema = z.object({
+  title: z.string().max(300).optional(),
+  body: z.string().max(5000).optional(),
+  tags: z.array(z.string().max(40)).max(10).optional(),
+  status: z.enum(["draft", "published", "archived"]).optional(),
+});
