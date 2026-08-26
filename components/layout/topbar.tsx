@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, startTransition } from "react";
 import dynamic from "next/dynamic";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { useWorkflowStatuses } from "@/hooks/use-workflow-status";
+import { useAgents } from "@/hooks/use-agents";
+import { useOrchestratorUI } from "@/components/providers/orchestrator-provider";
 import {
   Search,
   Bell,
@@ -16,6 +17,7 @@ import {
   ChevronDown,
   Bot,
   Workflow,
+  Sparkles,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import {
@@ -41,9 +43,17 @@ export function TopBar() {
   const [cmdOpen, setCmdOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const { data: workflows } = useWorkflowStatuses();
+  const { data: agents } = useAgents();
+  const { open: openAI } = useOrchestratorUI();
+
+  const runningCount = workflows?.filter((w) => w.status === "running").length ?? 0;
+  const onlineCount = agents?.filter((a) => a.status === "online" || a.status === "busy").length ?? 0;
 
   useEffect(() => {
-    setMounted(true);
+    startTransition(() => {
+      setMounted(true);
+    });
   }, []);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -77,17 +87,28 @@ export function TopBar() {
           <div className="hidden md:flex items-center gap-3 ml-2 text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5">
               <Workflow className="h-3 w-3 text-emerald-500" />
-              <span>3 工作流运行中</span>
+              <span>{runningCount} 工作流运行中</span>
             </div>
             <div className="w-px h-3 bg-border" />
             <div className="flex items-center gap-1.5">
               <Bot className="h-3 w-3 text-primary" />
-              <span>6 Agent 在线</span>
+              <span>{onlineCount} Agent 在线</span>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-1.5">
+          {/* AI 助手快捷按钮 */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative h-8 w-8"
+            onClick={openAI}
+            title="AI 助手（⌘⇧A）"
+          >
+            <Sparkles className="h-4 w-4 text-primary" />
+          </Button>
+
           <Button
             variant="ghost"
             size="icon"
@@ -112,8 +133,8 @@ export function TopBar() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="gap-2 ml-1 h-8">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600">
-                  <User className="h-3.5 w-3.5 text-white" />
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/15">
+                  <User className="h-3.5 w-3.5 text-primary" />
                 </div>
                 <span className="hidden sm:inline text-sm">Admin</span>
                 <ChevronDown className="h-3 w-3 text-muted-foreground" />
@@ -132,7 +153,7 @@ export function TopBar() {
         </div>
       </header>
 
-      <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
+      <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} onInvokeAI={openAI} />
       <NotificationPanel open={notifOpen} onClose={() => setNotifOpen(false)} />
     </>
   );
