@@ -44,6 +44,14 @@ API Routes (app/api/)  ←→  Services (lib/services/)  ←→  Repositories (l
 
 两条路径共享同一个 SQLite 数据库（sql.js，存储在 `./data/flowmind.db`）。
 
+## ⚠️ 核心数据约定
+
+- **Repository 读写 JSON**：schema 把数组/嵌套对象存成 TEXT 列（如 `assigned_agents TEXT DEFAULT '[]'`）。每个 Repository 写入时必须 `JSON.stringify()`，读取时用 `parseJsonField()`（`lib/repositories/base.ts`）。列表端点统一用 `paginatedQuery()`，返回 `{ items, pagination: { page, pageSize, total, totalPages } }`。
+- **API 响应 envelope**：所有 API 路由用 `lib/api-response.ts` 的 `success()` 返回 `{ success: true, data, pagination? }`；失败用 `error()/notFound()/badRequest()/methodNotAllowed()`。
+- **Island vs API 数据形态不同**：Island（SSR）直接调 service 并把结果作为 props 传给客户端组件，**不过 HTTP、无 envelope**；客户端组件若要实时刷新再走 `useFetch` 打到对应 API（同样是 `{success, data}`）。两者互补，别在一处用错数据形态。
+- **AI Provider 热切换**：`getAIProvider()` 每次从 `ai_config` 表读配置，仅当配置快照变化才重建 provider（`lib/ai/index.ts`），所以 Settings 改配置可即时生效、无需重启。
+- **demo_mode 决定「真脑 / 假脑」**：`AI_DEMO_MODE=true`（或 `ai_config` 里 `demo_mode`）时，Agent 生命周期用模板驱动的 `DemoAgentBrain`；否则用 `RealAgentBrain` 调 LLM。改这个开关即可切换（`lib/agent-runtime/real-brain.ts` / `demo-brain.ts`）。
+
 ## 关键目录
 
 | 目录 | 说明 |
@@ -63,10 +71,11 @@ API Routes (app/api/)  ←→  Services (lib/services/)  ←→  Repositories (l
 | `lib/api-helpers.ts` | `withDb()` 包装器，确保路由执行前数据库已初始化 |
 | `hooks/` | 客户端 hooks，全部基于 `useFetch<T>` 做 GET，`apiPost`/`apiPatch`/`apiDelete` 做变更 |
 
-## 遗留代码（逐步废弃）
+## 遗留代码（逐步废弃，可安全删除）
 
-- `lib/mock-data-store.ts` — 旧内存 CRUD 存储
-- `lib/workflow-data-store.ts` — 旧内存工作流存储
+- `lib/mock-data-store.ts` — 旧内存 CRUD 存储，**已无任何引用**（种子数据已迁入 `lib/db/seed.ts`）
+- `lib/workflow-data-store.ts` — 旧内存工作流存储，同上
+- `lib/mock-data.ts` — 旧种子源数据（`seed.ts` 已由它迁移而来，仅 legacy store 引用）
 
 ## 页面结构模式
 
@@ -150,6 +159,10 @@ export const GET = withDb(async (request: NextRequest) => { ... });
 
 Zustand 用于全局状态。`next-themes` 用于主题切换。大部分状态通过 hooks（`hooks/use-*.ts`）和 React state 管理，而非全局 store。
 
+## Hooks 约定
+
+客户端数据获取统一基于 `useFetch<T>`（GET，返回 `{ data, loading, error, refetch }`）与 `apiGet/apiPost/apiPatch/apiPut/apiDelete`（变更）；领域 hook 在其上封装并拼 `URLSearchParams`。这些函数假定 API 返回 `{success, data}`，`!success` 时抛错。
+
 ## 配置说明
 
 - Next.js 16.2.6 + React 19
@@ -186,6 +199,12 @@ Agent 具有自主运行时（`lib/agent-runtime/`），数据库初始化时自
 - **目标追踪**：带优先级和进度
 - **日志系统**：thought / decision / observation / reflection 四种类型
 - **事件总线**：进程内事件分发
+- **自主循环**：每个 Agent 一个 `setInterval`（带 ±20% 抖动防同频），DB 初始化后自动启动
+- **实时 SSE**：客户端用原生 `EventSource` 打 `/api/agents/[id]/stream` 订阅事件总线。注意该路由的订阅清理依赖 GC，客户端断开后订阅可能短暂残留（`app/api/agents/[id]/stream/route.ts`）
+
+## RAK 引擎
+
+`lib/rak/`（coordinator / mesh）。Coordinator 负责 Agent 注册表与持久化消息路由（`rak_messages` 表），MeshExecutor 负责 DAG 编排（拓扑分层并行执行）。真实的编排效果经由 `TaskService` 的 `create/update`（建 DAG + 调度）体现。
 
 ## 紫鸟浏览器桥接
 

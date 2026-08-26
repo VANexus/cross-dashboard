@@ -17,7 +17,13 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        launchOptions: {
+          executablePath: "/usr/bin/google-chrome",
+          args: ["--no-sandbox", "--disable-setuid-sandbox"],
+        },
+      },
     },
   ],
 

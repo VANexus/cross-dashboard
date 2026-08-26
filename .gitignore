@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/test-results/
+/.playwright-mcp/
 
 # next.js
 /.next/
@@ -30,6 +32,13 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 bun.lockb
+/debug.log
+
+# runtime database
+/data/*.db
+
+# root-level screenshots
+/*.png
 
 # env files (can opt-in for committing if needed)
 .env*
