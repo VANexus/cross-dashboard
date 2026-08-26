@@ -122,19 +122,19 @@ export class DashboardService {
       operations: {
         productCount: invStats.productCount,
         inventoryTurnover,
-        listingSuccessRate: 94.5, // No listing success data source
+        listingSuccessRate: 0, // No listing success data source
         accountHealth,
       },
       marketing: {
         adSpend,
         adRoi,
         conversionRate,
-        csResponseTime: 2.3, // No customer service data source
+        csResponseTime: 0, // No customer service data source
       },
       finance: {
         revenue: adRevenue,
         profit,
-        cashflow: 15.2, // No cashflow data source
+        cashflow: 0, // No cashflow data source
         costBreakdown: [
           { category: "采购成本", amount: estimatedCost },
           { category: "广告费用", amount: adSpend },
@@ -143,8 +143,8 @@ export class DashboardService {
         ],
       },
       legal: {
-        patentsMonitored: 45, // No legal data source
-        activeContracts: 12,
+        patentsMonitored: 0, // No legal data source
+        activeContracts: 0, // No legal data source
         openDisputes: unresolved,
         complianceScore: accountHealth,
       },

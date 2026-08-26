@@ -2,7 +2,7 @@
  * FlowMind RAK — OpenAI Provider
  * OpenAI-compatible API integration (works with any OpenAI-compatible endpoint)
  */
-import type { AIProvider, GenerateParams, GenerateResult, AnalyzeParams, ImageParams, ImageResult } from "./provider";
+import type { AIProvider, GenerateParams, GenerateResult, AnalyzeParams } from "./provider";
 
 export class OpenAIProvider implements AIProvider {
   readonly name = "openai";

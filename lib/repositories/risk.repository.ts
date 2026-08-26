@@ -90,6 +90,7 @@ export function updateRiskEvent(id: string, data: { resolved?: boolean; resolved
 
   if (sets.length === 0) return getRiskEventById(id);
   params.push(id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db.run(`UPDATE risk_events SET ${sets.join(", ")} WHERE id = ?`, params as any[]);
   return getRiskEventById(id);
 }

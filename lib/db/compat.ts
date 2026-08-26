@@ -36,29 +36,27 @@ export class CompatDatabase {
 
   /** Query API: db.query(sql).get(...params) / .all(...params) */
   query(sql: string): QueryResult {
-    const self = this;
+    const db = this._db;
     return {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      get(...params: unknown[]): any {
-        const stmt = self._db.prepare(sql);
+      get(...params: unknown[]): ReturnType<typeof db.exec>[number]["values"][number] | Record<string, unknown> | null {
+        const stmt = db.prepare(sql);
         try {
-          if (params.length > 0) stmt.bind(params as any[]);
+          if (params.length > 0) stmt.bind(params as Parameters<typeof stmt.bind>[0]);
           if (stmt.step()) {
-            return stmt.getAsObject();
+            return stmt.getAsObject() as Record<string, unknown>;
           }
           return null;
         } finally {
           stmt.free();
         }
       },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      all(...params: unknown[]): any[] {
-        const stmt = self._db.prepare(sql);
-        const rows: any[] = [];
+      all(...params: unknown[]): Array<Record<string, unknown>> {
+        const stmt = db.prepare(sql);
+        const rows: Array<Record<string, unknown>> = [];
         try {
-          if (params.length > 0) stmt.bind(params as any[]);
+          if (params.length > 0) stmt.bind(params as Parameters<typeof stmt.bind>[0]);
           while (stmt.step()) {
-            rows.push(stmt.getAsObject());
+            rows.push(stmt.getAsObject() as Record<string, unknown>);
           }
           return rows;
         } finally {
@@ -71,6 +69,7 @@ export class CompatDatabase {
   /** Run SQL (INSERT/UPDATE/DELETE). Returns { changes } like bun:sqlite */
   run(sql: string, params?: unknown[]): { changes: number } {
     if (params && params.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       this._db.run(sql, params as any[]);
     } else {
       this._db.run(sql);
@@ -85,6 +84,7 @@ export class CompatDatabase {
       run(...params: unknown[]) {
         const stmt = db.prepare(sql);
         try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           stmt.bind(params as any[]);
           stmt.step();
         } finally {

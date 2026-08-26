@@ -10,7 +10,7 @@ import { ClaudeAIProvider } from "./claude";
 import { OpenAIProvider } from "./openai";
 
 export type { AIProvider, AIProviderName } from "./provider";
-export type { GenerateParams, GenerateResult, AnalyzeParams, ImageParams, ImageResult } from "./provider";
+export type { GenerateParams, GenerateResult, AnalyzeParams } from "./provider";
 
 interface AIConfig {
   provider: AIProviderName;

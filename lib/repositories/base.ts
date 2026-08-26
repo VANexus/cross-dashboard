@@ -20,9 +20,11 @@ export function paginatedQuery<T>(
   const db = getDb();
   const offset = (page - 1) * pageSize;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const countRow = db.query(`SELECT COUNT(*) as c FROM ${table} ${where}`).get(...(params as any[])) as { c: number };
   const total = countRow.c;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const items = db.query(`SELECT * FROM ${table} ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`).all(...(params as any[]), pageSize, offset) as T[];
 
   return {

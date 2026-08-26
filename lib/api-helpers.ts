@@ -9,8 +9,8 @@ import { getDbAsync } from "./db";
  * Wrap an API route handler to ensure the database is ready.
  * Preserves the handler's type signature for Next.js compatibility.
  */
-export function withDb<T extends (request: NextRequest, ...args: any[]) => any>(handler: T): T {
-  return (async (request: NextRequest, ...args: any[]) => {
+export function withDb<T extends (request: NextRequest, ...args: never[]) => unknown>(handler: T): T {
+  return (async (request: NextRequest, ...args: never[]) => {
     await getDbAsync();
     return handler(request, ...args);
   }) as unknown as T;

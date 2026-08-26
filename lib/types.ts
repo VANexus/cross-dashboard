@@ -504,6 +504,7 @@ export interface HotTopicsResult {
   source: string;
   endpoint: string;
   degraded: boolean;
+  degradationReason?: string;
   topics: HotTopic[];
   failureCategory?: string;
   retriable?: boolean;

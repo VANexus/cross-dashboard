@@ -278,7 +278,7 @@ export class WorkflowService {
     }
   }
 
-  publishListing(data: {
+  publishListing(_data: {
     title: string;
     bulletPoints: { title: string; desc: string }[];
     description: string;

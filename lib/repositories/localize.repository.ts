@@ -114,6 +114,7 @@ export function updateTaskStatus(
   if (data.finishedAt !== undefined) { sets.push("finished_at = ?"); params.push(data.finishedAt); }
   if (sets.length === 1) return;
   params.push(id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db.run(`UPDATE wf_localize_tasks SET ${sets.join(", ")} WHERE id = ?`, params as any[]);
 }
 

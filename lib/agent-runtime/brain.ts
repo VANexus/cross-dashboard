@@ -2,7 +2,7 @@
  * FlowMind RAK — Agent Brain Interface
  * Defines how agents think, decide, and reflect
  */
-import type { AgentConfig, JournalEntry, MemoryEntry, AgentEvent } from "../types";
+import type { AgentConfig, JournalEntry, MemoryEntry } from "../types";
 
 export interface AgentContext {
   pendingMessages: Array<{ id: string; from: string; type: string; payload: unknown }>;

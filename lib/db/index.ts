@@ -150,7 +150,7 @@ export async function getDbAsync(): Promise<CompatDatabase> {
           (id, batch_id, video_path, target_lang, source_lang, enable_tts, remove_subtitles, status, outputs, error, created_at, started_at, finished_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       );
-      for (const t of demo) stmt.run(...(t as any[]));
+      for (const t of demo) stmt.run(...(t as Array<string | number | null>));
     }
 
     // Ensure video-localization workflow status exists (unconditional, for existing DBs)

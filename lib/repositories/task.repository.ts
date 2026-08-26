@@ -139,6 +139,7 @@ export function updateTask(id: string, data: Partial<Task>): Task | null {
   if (data.assignedAgents !== undefined) { sets.push("assigned_agents = ?"); params.push(JSON.stringify(data.assignedAgents)); }
 
   params.push(id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db.run(`UPDATE tasks SET ${sets.join(", ")} WHERE id = ?`, params as any[]);
   return getTaskById(id);
 }
@@ -166,6 +167,7 @@ export function updateTaskStep(taskId: string, stepId: string, data: Partial<Tas
   if (sets.length === 0) return null;
 
   params.push(taskId, stepId);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db.run(`UPDATE task_steps SET ${sets.join(", ")} WHERE task_id = ? AND id = ?`, params as any[]);
 
   const row = db.query("SELECT * FROM task_steps WHERE task_id = ? AND id = ?").get(taskId, stepId) as StepRow | null;

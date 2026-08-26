@@ -6,6 +6,11 @@
  *
  * 错误语义：MCP 不可达/技能失败抛 ContentMCPError（结构化分类），
  * 由 API route 转 error() envelope；hot_topics 的降级是 SkillResult.ok=True 的正常路径。
+ *
+ * 可靠性：
+ *   - 每个 MCP 调用方法自带降级策略（缓存 / 空结果 / 明确错误）
+ *   - 调用前检查断路器状态，避免无谓等待
+ *   - 落库失败不阻断返回（非关键路径）
  */
 import { ContentMCPClient, ContentMCPError } from "@/lib/content/mcp-client";
 import { PLATFORMS } from "@/lib/content/platforms";
@@ -15,8 +20,8 @@ import {
   clearHotTopics, deleteDraft, getDraft, getDrafts, getHotTopics, getIdeas,
   getRulesByPlatform, insertDraft, insertHotTopic, insertIdea, updateDraft,
 } from "@/lib/repositories/content.repository";
-import type { RuleRow } from "@/lib/repositories/content.repository";
 import { getTasks } from "@/lib/repositories/localize.repository";
+import type { RuleRow } from "@/lib/repositories/content.repository";
 import type {
   AuditResult, ContentIdea, ContentImageResult, ContentPlatform,
   ContentPlatformMeta, ContentWorks, CopyDraft, HotTopic, HotTopicsResult,
@@ -30,6 +35,16 @@ interface Bumpable {
 
 export class ContentService {
   private mcp = new ContentMCPClient();
+
+  /** 暴露 MCP 运行时状态（健康检查端点用）。 */
+  getMCPStatus() {
+    return this.mcp.getStats();
+  }
+
+  /** 探活 MCP 服务（健康检查端点用）。 */
+  async checkMCPHealth(): Promise<boolean> {
+    return this.mcp.ping();
+  }
 
   // ── 只读 ──
 
@@ -98,16 +113,22 @@ export class ContentService {
         platform: input.platform,
         limit: 20,
       });
-      // 落库（每次刷新覆盖旧快照）
-      clearHotTopics(input.platform);
-      for (const t of result.topics) {
-        insertHotTopic({
-          id: `ht-${input.platform}-${Date.now()}-${t.word.slice(0, 8)}`,
-          platform: input.platform,
-          word: t.word, heat: t.heat, delta: t.delta, url: t.url, source: t.source,
-        });
-      }
+      // 落库（每次刷新覆盖旧快照）— 非关键，失败不影响返回
+      this.safePersistHotTopics(input.platform, result.topics);
       return result;
+    } catch (err) {
+      // 热点降级：MCP 不可用时返回缓存（即使过期）+ degraded 标记
+      if (cached.length > 0) {
+        return {
+          platform: input.platform,
+          source: "cache_stale",
+          endpoint: "",
+          degraded: true,
+          degradationReason: err instanceof ContentMCPError ? err.message : "MCP 服务暂时不可用",
+          topics: cached,
+        };
+      }
+      throw err;
     } finally {
       this.bump("hot-topic", "idle");
     }
@@ -151,7 +172,8 @@ export class ContentService {
         body: draft.body,
         tags: draft.tags,
       });
-      updateDraft(input.id, { auditPassed: result.passed, auditResult: result.findings });
+      // 审计结果落库 — 非关键
+      this.safeUpdateDraft(input.id, { auditPassed: result.passed, auditResult: result.findings });
       return result;
     } finally {
       this.bump("compliance-audit", "idle");
@@ -170,18 +192,11 @@ export class ContentService {
         prompt: input.prompt,
         count: input.count ?? 1,
       });
-      // 落库到 wf_generated_images（挂接 draft_id/platform）
-      const db = getDb();
-      const base = `gen-${Date.now()}`;
-      for (const img of result.images) {
-        db.run(
-          `INSERT INTO wf_generated_images (id, type, url, prompt, model, platform, draft_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [`${base}-${img.index}`, "content", img.url, input.prompt, result.backendUsed, input.platform, input.draftId] as unknown[],
-        );
-      }
-      const draft = getDraft(input.draftId);
-      if (draft) updateDraft(input.draftId, { imageCount: (draft.imageCount ?? 0) + result.images.length });
+      // 落库到 wf_generated_images（挂接 draft_id/platform）— 非关键
+      this.safePersistImages(result, input);
+      this.safeUpdateDraft(input.draftId, {
+        imageCount: (getDraft(input.draftId)?.imageCount ?? 0) + result.images.length,
+      });
       return result;
     } finally {
       this.bump("image-gen", "idle");
@@ -199,6 +214,50 @@ export class ContentService {
 
   removeDraft(id: string): boolean {
     return deleteDraft(id);
+  }
+
+  // ── 内部辅助 ──
+
+  /** 安全落库热点（失败不抛）。 */
+  private safePersistHotTopics(platform: ContentPlatform, topics: HotTopic[]): void {
+    try {
+      clearHotTopics(platform);
+      for (const t of topics) {
+        insertHotTopic({
+          id: `ht-${platform}-${Date.now()}-${t.word.slice(0, 8)}`,
+          platform,
+          word: t.word, heat: t.heat, delta: t.delta, url: t.url, source: t.source,
+        });
+      }
+    } catch {
+      // 非关键路径，静默降级
+    }
+  }
+
+  /** 安全更新草稿（失败不抛）。 */
+  private safeUpdateDraft(id: string, data: Record<string, unknown>): void {
+    try {
+      updateDraft(id, data);
+    } catch {
+      // 非关键路径
+    }
+  }
+
+  /** 安全落库图片（失败不抛）。 */
+  private safePersistImages(result: ContentImageResult, input: { draftId: string; platform: ContentPlatform; prompt: string }): void {
+    try {
+      const db = getDb();
+      const base = `gen-${Date.now()}`;
+      for (const img of result.images) {
+        db.run(
+          `INSERT INTO wf_generated_images (id, type, url, prompt, model, platform, draft_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [`${base}-${img.index}`, "content", img.url, input.prompt, result.backendUsed, input.platform, input.draftId] as unknown[],
+        );
+      }
+    } catch {
+      // 非关键路径
+    }
   }
 
   // ── 状态上报（对齐 WorkflowService.bumpWorkflowStatus） ──
