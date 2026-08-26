@@ -50,3 +50,7 @@ bun.lockb
 *.tsbuildinfo
 next-env.d.ts
 
+
+# tool artifacts
+.codegraph/
+.trunk/
