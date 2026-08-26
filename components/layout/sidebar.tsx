@@ -35,7 +35,6 @@ import {
   FileSearch,
 } from "lucide-react";
 import { useServiceRegistry } from "@/lib/discovery";
-import type { WorkflowStatus } from "@/lib/types";
 
 interface NavItem {
   label: string;
@@ -44,7 +43,7 @@ interface NavItem {
   /** 工作流领域色状态点（tailwind bg-* 类，如 bg-wf-product） */
   dot?: string;
   /** 工作流状态（用于服务发现动态项） */
-  wfStatus?: WorkflowStatus;
+  wfStatus?: "running" | "idle" | "warning" | "error";
   /** 来源服务 id（动态技能用） */
   serviceId?: string;
 }
@@ -145,7 +144,7 @@ function categoryIcon(category: string): React.ReactNode {
   return ICON_POOL[idx];
 }
 
-function wfStatusToDot(status?: WorkflowStatus) {
+function wfStatusToDot(status?: "running" | "idle" | "warning" | "error") {
   switch (status) {
     case "running":
       return "success" as const;
@@ -172,7 +171,7 @@ export function Sidebar() {
 
     for (const manifest of Object.values(manifests)) {
       const health = manifest.health;
-      const status: WorkflowStatus =
+      const status: "running" | "idle" | "warning" | "error" =
         health === "connected" ? "running" :
         health === "degraded" ? "warning" :
         health === "unreachable" ? "error" : "idle";
