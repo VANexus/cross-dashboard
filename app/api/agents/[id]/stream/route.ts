@@ -35,19 +35,12 @@ export const GET = withDb(async (_request: NextRequest,
         }
       }, 30000);
 
-      // Cleanup on close
-      const origCancel = controller.close.bind(controller);
-      // We can't override controller.close, so we rely on the unsubscribe below
-
-      // Store cleanup for when the stream is cancelled
       const cleanup = () => {
         clearInterval(heartbeat);
         unsubscribe();
       };
 
-      // Use a WeakRef or just trust the GC when the request ends
-      // The stream will be garbage collected when the client disconnects
-      void cleanup; // referenced for clarity
+      void cleanup;
     },
   });
 

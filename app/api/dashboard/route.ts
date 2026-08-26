@@ -5,7 +5,7 @@ import { DashboardService } from "@/lib/services";
 
 const service = new DashboardService();
 
-export const GET = withDb(async (_request: NextRequest) => {
+export const GET = withDb(async (_: NextRequest) => {
   const data = service.getDashboardData();
   return success(data);
 });

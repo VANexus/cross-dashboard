@@ -5,7 +5,7 @@ import { CrawlerService } from "@/lib/services/crawler.service";
 
 const service = new CrawlerService();
 
-export const GET = withDb(async (_request: NextRequest) => {
+export const GET = withDb(async (_: NextRequest) => {
   try {
     const status = await service.getStatus();
     return success(status);

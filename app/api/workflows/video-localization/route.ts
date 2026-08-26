@@ -5,7 +5,7 @@ import { LocalizeService } from "@/lib/services";
 
 const service = new LocalizeService();
 
-export const GET = withDb(async (_request: NextRequest) => {
+export const GET = withDb(async (_: NextRequest) => {
   const tasks = await service.getTasks();
   return success(tasks);
 });

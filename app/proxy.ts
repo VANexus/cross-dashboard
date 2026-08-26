@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-export function proxy(request: NextRequest) {
+export function proxy(_: NextRequest) {
   const requestId = crypto.randomUUID();
   const response = NextResponse.next();
   response.headers.set("X-Request-Id", requestId);

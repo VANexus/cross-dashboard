@@ -5,7 +5,7 @@ import { WorkflowService } from "@/lib/services";
 
 const service = new WorkflowService();
 
-export const POST = withDb(async (_request: NextRequest) => {
+export const POST = withDb(async (_: NextRequest) => {
   const data = service.exportAdData();
   return success(data);
 });
