@@ -31,18 +31,18 @@ const Sparkline = dynamic(
   { ssr: false }
 );
 
-const stageConfig: Record<EvolutionRecord["stage"], { label: string; color: string; bg: string }> = {
-  identify: { label: "识别", color: "text-blue-500", bg: "bg-blue-500/10" },
-  generate: { label: "生成", color: "text-purple-500", bg: "bg-purple-500/10" },
-  test: { label: "测试", color: "text-amber-500", bg: "bg-amber-500/10" },
-  review: { label: "评审", color: "text-orange-500", bg: "bg-orange-500/10" },
-  reuse: { label: "复用", color: "text-emerald-500", bg: "bg-emerald-500/10" },
+const stageConfig: Record<EvolutionRecord["stage"], { label: string; variant: "info" | "warning" | "danger" | "success" }> = {
+  identify: { label: "识别", variant: "info" },
+  generate: { label: "生成", variant: "warning" },
+  test: { label: "测试", variant: "warning" },
+  review: { label: "评审", variant: "danger" },
+  reuse: { label: "复用", variant: "success" },
 };
 
 const statusConfig = {
-  in_progress: { label: "进行中", icon: Loader2, color: "text-blue-500", bg: "bg-blue-500/10", dot: "info" as const },
-  success: { label: "成功", icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-500/10", dot: "success" as const },
-  failed: { label: "失败", icon: AlertTriangle, color: "text-red-500", bg: "bg-red-500/10", dot: "danger" as const },
+  in_progress: { label: "进行中", icon: Loader2, variant: "info" as const, dot: "info" as const },
+  success: { label: "成功", icon: CheckCircle2, variant: "success" as const, dot: "success" as const },
+  failed: { label: "失败", icon: AlertTriangle, variant: "danger" as const, dot: "danger" as const },
 };
 
 interface EvolutionClientProps {
@@ -168,12 +168,12 @@ export function EvolutionClient({ initialData }: EvolutionClientProps) {
                         <span className="text-xs text-muted-foreground flex items-center gap-1">
                           <Clock className="h-3 w-3" /> {record.startedAt}
                         </span>
-                        <Badge variant="outline" className={cn(stage.color, stage.bg, "border-0 text-[10px] h-4")}>
+                        <Badge variant={stage.variant} className="text-[10px] h-4">
                           {stage.label}
                         </Badge>
                       </div>
                     </div>
-                    <Badge variant="outline" className={cn(status.color, status.bg, "border-0 text-xs")}>
+                    <Badge variant={status.variant} className="text-xs">
                       <StatusIcon className={cn("h-3 w-3 mr-1", record.status === "in_progress" && "animate-spin")} />
                       {status.label}
                     </Badge>
