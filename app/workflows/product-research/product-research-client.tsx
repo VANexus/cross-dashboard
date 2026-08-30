@@ -145,8 +145,8 @@ export function ProductResearchClient({ dataSources, keywords, painPoints, recen
   return (
     <PageTransition className="space-y-4">
       <div className="flex items-center gap-3 mb-2">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-[var(--wf-product)]/20 to-[var(--wf-product)]/5">
-          <Radar className="h-5 w-5 text-[var(--wf-product)]" />
+        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-wf-product/10">
+          <Radar className="h-4 w-4 text-wf-product" />
         </div>
         <div>
           <h1 className="text-lg font-semibold">选品工作流</h1>

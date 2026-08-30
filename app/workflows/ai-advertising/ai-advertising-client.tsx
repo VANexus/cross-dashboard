@@ -150,8 +150,8 @@ export function AiAdvertisingClient({ adKeywords, recentAnalyses = [] }: AiAdver
   return (
     <PageTransition className="space-y-4">
       <div className="flex items-center gap-3 mb-2">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-[var(--wf-ad)]/20 to-[var(--wf-ad)]/5">
-          <BarChart3 className="h-5 w-5 text-[var(--wf-ad)]" />
+        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-wf-ad/10">
+          <BarChart3 className="h-4 w-4 text-wf-ad" />
         </div>
         <div>
           <h1 className="text-lg font-semibold">AI 广告管理</h1>

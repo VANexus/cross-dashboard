@@ -131,8 +131,8 @@ export function CompetitorAdsClient({ keywords, competitors, adPositions, target
   return (
     <PageTransition className="space-y-4">
       <div className="flex items-center gap-3 mb-2">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-[var(--wf-competitor)]/20 to-[var(--wf-competitor)]/5">
-          <Eye className="h-5 w-5 text-[var(--wf-competitor)]" />
+        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-wf-competitor/10">
+          <Eye className="h-4 w-4 text-wf-competitor" />
         </div>
         <div>
           <h1 className="text-lg font-semibold">竞品广告分析</h1>
