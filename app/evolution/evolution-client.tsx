@@ -52,8 +52,27 @@ interface EvolutionClientProps {
 export function EvolutionClient({ initialData }: EvolutionClientProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const evolutionTrend = [45, 52, 58, 63, 68, 72];
-  const evolutionTrendLabels = ["1月", "2月", "3月", "4月", "5月", "6月"];
+  // Compute trend from actual data: group by month, compute avg accuracy
+  const trendMap = new Map<string, { total: number; count: number }>();
+  for (const r of initialData) {
+    if (!r.metrics?.accuracy || !r.startedAt) continue;
+    const month = r.startedAt.slice(0, 7); // YYYY-MM
+    const entry = trendMap.get(month) ?? { total: 0, count: 0 };
+    entry.total += r.metrics.accuracy * 100;
+    entry.count += 1;
+    trendMap.set(month, entry);
+  }
+  const sortedMonths = [...trendMap.keys()].sort();
+  const evolutionTrend = sortedMonths.map((m) => Math.round(trendMap.get(m)!.total / trendMap.get(m)!.count));
+  const evolutionTrendLabels = sortedMonths.map((m) => {
+    const [, mm] = m.split("-");
+    return `${parseInt(mm)}月`;
+  });
+  // Fallback if no data with metrics
+  if (evolutionTrend.length === 0) {
+    evolutionTrend.push(0);
+    evolutionTrendLabels.push("");
+  }
 
   return (
     <PageTransition className="space-y-6">

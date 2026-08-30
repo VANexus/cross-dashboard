@@ -252,34 +252,38 @@ export function CompetitorAdsClient({ keywords, competitors, adPositions, target
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b bg-muted/30 text-muted-foreground">
-                    <th className="text-left px-4 py-2 font-medium">词根</th>
-                    <th className="text-left px-4 py-2 font-medium">分词</th>
-                    <th className="text-left px-4 py-2 font-medium">主打策略</th>
-                    <th className="text-left px-4 py-2 font-medium">增长策略</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {targetingData.map((row) => (
-                    <tr key={row.root} className="border-b hover:bg-muted/50 transition-colors">
-                      <td className="px-4 py-2.5 font-medium">{row.root}</td>
-                      <td className="px-4 py-2.5">{handleTargeting(row)}</td>
-                      <td className="px-4 py-2.5">
-                        <Badge variant="outline" className="text-[10px]">{row.primary}</Badge>
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <Badge variant="outline" className={cn("text-[10px]",
-                          row.growth === "抢量" ? "border-red-500/30 text-red-400" : "border-emerald-500/30 text-emerald-400"
-                        )}>
-                          {row.growth}
-                        </Badge>
-                      </td>
+              {targetingData.length === 0 ? (
+                <p className="text-xs text-muted-foreground p-6 text-center">暂无定向策略数据</p>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b bg-muted/30 text-muted-foreground">
+                      <th className="text-left px-4 py-2 font-medium">词根</th>
+                      <th className="text-left px-4 py-2 font-medium">分词</th>
+                      <th className="text-left px-4 py-2 font-medium">主打策略</th>
+                      <th className="text-left px-4 py-2 font-medium">增长策略</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {targetingData.map((row) => (
+                      <tr key={row.root} className="border-b hover:bg-muted/50 transition-colors">
+                        <td className="px-4 py-2.5 font-medium">{row.root}</td>
+                        <td className="px-4 py-2.5">{handleTargeting(row)}</td>
+                        <td className="px-4 py-2.5">
+                          <Badge variant="outline" className="text-[10px]">{row.primary}</Badge>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <Badge variant="outline" className={cn("text-[10px]",
+                            row.growth === "抢量" ? "border-red-500/30 text-red-400" : "border-emerald-500/30 text-emerald-400"
+                          )}>
+                            {row.growth}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </CardContent>
           </Card>
         </div>

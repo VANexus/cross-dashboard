@@ -69,11 +69,17 @@ export function MemoryClient({ initialData }: MemoryClientProps) {
     });
   }, [initialData, search, typeFilter]);
 
+  const typeCounts = {
+    script: initialData.filter((m) => m.type === "script").length,
+    code: initialData.filter((m) => m.type === "code").length,
+    prompt: initialData.filter((m) => m.type === "prompt").length,
+    skill: initialData.filter((m) => m.type === "skill").length,
+  };
   const usageData = [
-    { name: "事实", count: 12, trend: [8, 9, 10, 11, 12, 11, 12], workflows: ["选品", "风控"] },
-    { name: "洞察", count: 8, trend: [5, 6, 6, 7, 7, 8, 8], workflows: ["广告", "上架"] },
-    { name: "规则", count: 6, trend: [4, 4, 5, 5, 5, 6, 6], workflows: ["全部"] },
-    { name: "模式", count: 4, trend: [2, 2, 3, 3, 3, 4, 4], workflows: ["选品", "广告"] },
+    { name: "脚本", count: typeCounts.script, trend: [0, 0, 0, 0, 0, 0, typeCounts.script] },
+    { name: "代码", count: typeCounts.code, trend: [0, 0, 0, 0, 0, 0, typeCounts.code] },
+    { name: "提示词", count: typeCounts.prompt, trend: [0, 0, 0, 0, 0, 0, typeCounts.prompt] },
+    { name: "技能", count: typeCounts.skill, trend: [0, 0, 0, 0, 0, 0, typeCounts.skill] },
   ];
 
   return (
@@ -95,7 +101,7 @@ export function MemoryClient({ initialData }: MemoryClientProps) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              <Database className="h-3 w-3" /> 事实
+              <Database className="h-3 w-3" /> 脚本
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -105,7 +111,7 @@ export function MemoryClient({ initialData }: MemoryClientProps) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              <Lightbulb className="h-3 w-3" /> 洞察
+              <Lightbulb className="h-3 w-3" /> 代码
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -115,7 +121,7 @@ export function MemoryClient({ initialData }: MemoryClientProps) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              <FileText className="h-3 w-3" /> 规则
+              <FileText className="h-3 w-3" /> 提示词
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -125,7 +131,7 @@ export function MemoryClient({ initialData }: MemoryClientProps) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              <BarChart3 className="h-3 w-3" /> 模式
+              <BarChart3 className="h-3 w-3" /> 技能
             </CardTitle>
           </CardHeader>
           <CardContent>
