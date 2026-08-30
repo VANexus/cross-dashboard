@@ -25,19 +25,19 @@ import Link from "next/link";
 import { updateTask } from "@/hooks/use-tasks";
 import type { Task, Agent, TaskStatus } from "@/lib/types";
 
-const statusConfig: Record<import("@/lib/types").TaskStatus, { label: string; icon: React.ComponentType<{ className?: string }>; color: string; bg: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  completed: { label: "已完成", icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-500/10", variant: "default" },
-  running: { label: "运行中", icon: Loader2, color: "text-blue-500", bg: "bg-blue-500/10", variant: "secondary" },
-  pending: { label: "等待中", icon: Clock, color: "text-muted-foreground", bg: "bg-muted", variant: "outline" },
-  failed: { label: "失败", icon: AlertTriangle, color: "text-red-500", bg: "bg-red-500/10", variant: "destructive" },
-  cancelled: { label: "已取消", icon: Clock, color: "text-amber-500", bg: "bg-amber-500/10", variant: "outline" },
+const statusConfig: Record<import("@/lib/types").TaskStatus, { label: string; icon: React.ComponentType<{ className?: string }>; variant: "success" | "info" | "secondary" | "danger" | "warning" }> = {
+  completed: { label: "已完成", icon: CheckCircle2, variant: "success" },
+  running: { label: "运行中", icon: Loader2, variant: "info" },
+  pending: { label: "等待中", icon: Clock, variant: "secondary" },
+  failed: { label: "失败", icon: AlertTriangle, variant: "danger" },
+  cancelled: { label: "已取消", icon: Clock, variant: "warning" },
 };
 
-const priorityConfig: Record<string, { label: string; color: string; bg: string }> = {
-  high: { label: "高", color: "text-red-500", bg: "bg-red-500/10" },
-  medium: { label: "中", color: "text-amber-500", bg: "bg-amber-500/10" },
-  low: { label: "低", color: "text-blue-500", bg: "bg-blue-500/10" },
-  critical: { label: "紧急", color: "text-red-500", bg: "bg-red-500/10" },
+const priorityConfig: Record<string, { label: string; variant: "danger" | "warning" | "info" }> = {
+  high: { label: "高", variant: "danger" },
+  medium: { label: "中", variant: "warning" },
+  low: { label: "低", variant: "info" },
+  critical: { label: "紧急", variant: "danger" },
 };
 
 interface TasksClientProps {
@@ -175,7 +175,7 @@ export function TasksClient({ initialTasks, agents }: TasksClientProps) {
                       <p className="text-sm font-medium truncate">{task.title}</p>
                       <p className="text-xs text-muted-foreground truncate">{task.description}</p>
                     </div>
-                    <Badge variant="outline" className={cn("text-xs", priorityConfig[task.priority]?.color, priorityConfig[task.priority]?.bg, "border-0")}>
+                    <Badge variant={priorityConfig[task.priority]?.variant || "secondary"} className="text-xs">
                       {priorityConfig[task.priority]?.label || task.priority}
                     </Badge>
                     {agent && (

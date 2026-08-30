@@ -27,11 +27,11 @@ import { useAgentJournal } from "@/hooks/use-agent-journal";
 import { useFetch } from "@/hooks/use-fetch";
 import type { MemoryEntry } from "@/lib/types";
 
-const statusConfig: Record<import("@/lib/types").AgentStatus, { label: string; color: string; bg: string; dot: "success" | "idle" | "warning" | "danger" }> = {
-  online: { label: "在线", color: "text-emerald-500", bg: "bg-emerald-500/10", dot: "success" },
-  busy: { label: "忙碌", color: "text-amber-500", bg: "bg-amber-500/10", dot: "warning" },
-  error: { label: "异常", color: "text-red-500", bg: "bg-red-500/10", dot: "danger" },
-  offline: { label: "离线", color: "text-muted-foreground", bg: "bg-muted", dot: "idle" },
+const statusConfig: Record<import("@/lib/types").AgentStatus, { label: string; variant: "success" | "warning" | "danger" | "secondary"; dot: "success" | "idle" | "warning" | "danger" }> = {
+  online: { label: "在线", variant: "success", dot: "success" },
+  busy: { label: "忙碌", variant: "warning", dot: "warning" },
+  error: { label: "异常", variant: "danger", dot: "danger" },
+  offline: { label: "离线", variant: "secondary", dot: "idle" },
 };
 
 interface AgentDetailClientProps {
@@ -84,7 +84,7 @@ export function AgentDetailClient({ agent, tasks, journal }: AgentDetailClientPr
             energy={displayMood.energy}
             online={agent.status !== "offline"}
           />
-          <Badge variant="outline" className={`${config.color} ${config.bg} border-0`}>
+          <Badge variant={config.variant}>
             {config.label}
           </Badge>
         </div>
