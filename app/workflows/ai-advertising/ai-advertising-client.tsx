@@ -139,7 +139,7 @@ export function AiAdvertisingClient({ adKeywords, recentAnalyses = [] }: AiAdver
 
   const totalSpend = adKeywords.reduce((a, b) => a + b.spend, 0);
   const totalSales = adKeywords.reduce((a, b) => a + b.sales, 0);
-  const avgAcos = ((totalSpend / totalSales) * 100).toFixed(1);
+  const avgAcos = totalSales > 0 ? ((totalSpend / totalSales) * 100).toFixed(1) : "0.0";
 
   const tagGroups = [
     { key: "high-acos", items: highAcos, count: highAcos.length },

@@ -193,7 +193,7 @@ export function TaskDetailClient({ task, agent }: TaskDetailClientProps) {
                 {task.steps.map((step, i) => (
                   <div key={step.id} className="relative flex items-start gap-4 pl-2">
                     <div className={cn("relative z-10 flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium", stepColors[step.status])}>
-                      {stepIcons[step.agentId] || <span>{i + 1}</span>}
+                      {stepIcons[step.id] || <span>{i + 1}</span>}
                     </div>
                     <div className="flex-1 pt-1">
                       <p className="text-sm font-medium">{step.name}</p>
