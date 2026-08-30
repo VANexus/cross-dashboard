@@ -3,11 +3,11 @@ import { cn } from "@/lib/utils";
 type StatusVariant = "success" | "warning" | "danger" | "idle" | "info";
 
 const variantClasses: Record<StatusVariant, string> = {
-  success: "bg-emerald-500 status-glow-success",
-  warning: "bg-amber-500 status-glow-warning",
-  danger: "bg-red-500 status-glow-danger",
-  idle: "bg-zinc-500",
-  info: "bg-indigo-500",
+  success: "bg-success status-glow-success",
+  warning: "bg-warning status-glow-warning",
+  danger: "bg-destructive status-glow-danger",
+  idle: "bg-muted-foreground/40",
+  info: "bg-info",
 };
 
 interface StatusDotProps {
@@ -17,13 +17,14 @@ interface StatusDotProps {
   className?: string;
 }
 
+const sizeMap = { sm: "h-1.5 w-1.5", md: "h-2 w-2", lg: "h-2.5 w-2.5" };
+
 export function StatusDot({ status, pulse = false, size = "md", className }: StatusDotProps) {
-  const sizeClasses = { sm: "h-1.5 w-1.5", md: "h-2 w-2", lg: "h-3 w-3" };
   return (
     <span
       className={cn(
-        "inline-block rounded-full",
-        sizeClasses[size],
+        "inline-block rounded-full shrink-0",
+        sizeMap[size],
         variantClasses[status],
         pulse && "animate-pulse-glow",
         className
