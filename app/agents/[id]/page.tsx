@@ -2,6 +2,10 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { AgentDetailClient } from "./agent-detail-client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { AgentService, TaskService } from "@/lib/services";
+import { getDbAsync } from "@/lib/db";
+import { getEntries } from "@/lib/repositories/journal.repository";
+import type { Task, JournalEntry } from "@/lib/types";
 
 function AgentDetailSkeleton() {
   return (
@@ -53,28 +57,22 @@ function AgentDetailSkeleton() {
 }
 
 async function AgentDetailData({ id }: { id: string }) {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-  const [agentRes, tasksRes, journalRes] = await Promise.all([
-    fetch(`${baseUrl}/api/agents/${id}`, { cache: "no-store" }),
-    fetch(`${baseUrl}/api/tasks`, { cache: "no-store" }),
-    fetch(`${baseUrl}/api/agents/${id}/journal?limit=100`, { cache: "no-store" }),
-  ]);
-  const agentJson = await agentRes.json();
-  const tasksJson = await tasksRes.json();
-  const journalJson = await journalRes.json();
-  if (!agentJson.data) notFound();
+  await getDbAsync();
+  const agentService = new AgentService();
+  const taskService = new TaskService();
 
-  // Filter tasks assigned to this agent
-  const allTasks = tasksJson.data || [];
-  const agentTasks = allTasks.filter((t: { assignedAgents: string[] }) =>
-    t.assignedAgents?.includes(id)
-  );
+  const agent = agentService.getById(id);
+  if (!agent) notFound();
+
+  const allTasks = taskService.list().items;
+  const agentTasks = allTasks.filter((t: Task) => t.assignedAgents?.includes(id));
+  const journal = getEntries(id, 100);
 
   return (
     <AgentDetailClient
-      agent={agentJson.data}
+      agent={agent}
       tasks={agentTasks}
-      journal={journalJson.data || []}
+      journal={journal}
     />
   );
 }

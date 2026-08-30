@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { TaskDetailClient } from "./task-detail-client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { TaskService, AgentService } from "@/lib/services";
+import { getDbAsync } from "@/lib/db";
 
 function TaskDetailSkeleton() {
   return (
@@ -46,16 +48,18 @@ function TaskDetailSkeleton() {
 }
 
 async function TaskDetailData({ id }: { id: string }) {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-  const [taskRes, agentsRes] = await Promise.all([
-    fetch(`${baseUrl}/api/tasks/${id}`, { cache: "no-store" }),
-    fetch(`${baseUrl}/api/agents`, { cache: "no-store" }),
-  ]);
-  const taskJson = await taskRes.json();
-  const agentsJson = await agentsRes.json();
-  if (!taskJson.data) notFound();
-  const agent = (agentsJson.data || []).find((a: { id: string }) => a.id === taskJson.data.assignedAgents?.[0]);
-  return <TaskDetailClient task={taskJson.data} agent={agent} />;
+  await getDbAsync();
+  const taskService = new TaskService();
+  const agentService = new AgentService();
+
+  const task = taskService.getById(id);
+  if (!task) notFound();
+
+  const agent = task.assignedAgents?.[0]
+    ? agentService.getById(task.assignedAgents[0])
+    : undefined;
+
+  return <TaskDetailClient task={task} agent={agent ?? undefined} />;
 }
 
 export default async function TaskDetailPage({
