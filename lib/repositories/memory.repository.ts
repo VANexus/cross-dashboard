@@ -1,8 +1,4 @@
-/**
- * FlowMind RAK — Memory Repository
- * Data access for memory entries
- */
-import { getDb } from "../db";
+import { getSupabase } from "../db";
 import type { MemoryEntry, MemoryUsageStats } from "../types";
 import { paginatedQuery, type PaginatedResult, parseJsonField } from "./base";
 
@@ -35,106 +31,128 @@ function mapMemory(row: MemoryRow): MemoryEntry {
   };
 }
 
-export function getMemoryEntries(filters?: {
+export async function getMemoryEntries(filters?: {
   zone?: string;
   type?: string;
   search?: string;
   agentId?: string;
   page?: number;
   pageSize?: number;
-}): PaginatedResult<MemoryEntry> {
-  let where = "WHERE 1=1";
-  const params: unknown[] = [];
-
-  if (filters?.zone) { where += " AND zone = ?"; params.push(filters.zone); }
-  if (filters?.type) { where += " AND type = ?"; params.push(filters.type); }
-  if (filters?.agentId) { where += " AND agent_id = ?"; params.push(filters.agentId); }
-  if (filters?.search) {
-    where += " AND (title LIKE ? OR content LIKE ? OR tags LIKE ?)";
-    const s = `%${filters.search}%`;
-    params.push(s, s, s);
-  }
-
-  const result = paginatedQuery<MemoryRow>("memory_entries", where, params, filters?.page ?? 1, filters?.pageSize ?? 20);
+}): Promise<PaginatedResult<MemoryEntry>> {
+  const result = await paginatedQuery<MemoryRow>(
+    "memory_entries",
+    (qb) => {
+      let q = qb;
+      if (filters?.zone) q = q.eq("zone", filters.zone);
+      if (filters?.type) q = q.eq("type", filters.type);
+      if (filters?.agentId) q = q.eq("agent_id", filters.agentId);
+      if (filters?.search) {
+        const s = `%${filters.search}%`;
+        q = q.or(`title.ilike.${s},content.ilike.${s},tags.ilike.${s}`);
+      }
+      return q;
+    },
+    filters?.page ?? 1,
+    filters?.pageSize ?? 20,
+    { column: "created_at", ascending: false },
+  );
   return { items: result.items.map(mapMemory), pagination: result.pagination };
 }
 
-export function getMemoryById(id: string): MemoryEntry | null {
-  const db = getDb();
-  const row = db.query("SELECT * FROM memory_entries WHERE id = ?").get(id) as MemoryRow | null;
+export async function getMemoryById(id: string): Promise<MemoryEntry | null> {
+  const sb = getSupabase();
+  const { data } = await sb.from("memory_entries").select("*").eq("id", id).maybeSingle();
+  const row = data as MemoryRow | null;
   return row ? mapMemory(row) : null;
 }
 
-export function createMemory(data: {
+export async function createMemory(data: {
   zone: string;
   title: string;
   content: string;
   type: string;
   tags?: string[];
   agentId?: string;
-}): MemoryEntry {
-  const db = getDb();
+}): Promise<MemoryEntry> {
+  const sb = getSupabase();
   const id = `mem-${Date.now()}`;
-  db.run(
-    `INSERT INTO memory_entries (id, zone, title, content, type, tags, agent_id, version)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
-    [id, data.zone, data.title, data.content, data.type,
-    JSON.stringify(data.tags ?? []),
-    data.agentId ?? null],
-  );
-  return getMemoryById(id)!;
+  const now = new Date().toISOString();
+  const row: MemoryRow = {
+    id,
+    zone: data.zone,
+    title: data.title,
+    content: data.content,
+    type: data.type,
+    version: 1,
+    verified: 0,
+    tags: JSON.stringify(data.tags ?? []),
+    agent_id: data.agentId ?? null,
+    created_at: now,
+    updated_at: now,
+  };
+  await sb.from("memory_entries").insert(row);
+  const entry = await getMemoryById(id);
+  if (!entry) throw new Error(`memory_entries 写入后查询失败（${id}）`);
+  return entry;
 }
 
-export function getMemoriesForAgent(agentId: string, limit = 5): MemoryEntry[] {
-  const db = getDb();
-  const rows = db.query(
-    "SELECT * FROM memory_entries WHERE agent_id = ? ORDER BY created_at DESC LIMIT ?"
-  ).all(agentId, limit) as MemoryRow[];
-  return rows.map(mapMemory);
+export async function getMemoriesForAgent(agentId: string, limit = 5): Promise<MemoryEntry[]> {
+  const sb = getSupabase();
+  const { data } = await sb
+    .from("memory_entries")
+    .select("*")
+    .eq("agent_id", agentId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  return ((data ?? []) as MemoryRow[]).map(mapMemory);
 }
 
-export function getGlobalPresets(): MemoryEntry[] {
-  const db = getDb();
-  const rows = db.query(
-    "SELECT * FROM memory_entries WHERE zone = 'preset' AND verified = 1 ORDER BY created_at DESC"
-  ).all() as MemoryRow[];
-  return rows.map(mapMemory);
+export async function getGlobalPresets(): Promise<MemoryEntry[]> {
+  const sb = getSupabase();
+  const { data } = await sb
+    .from("memory_entries")
+    .select("*")
+    .eq("zone", "preset")
+    .eq("verified", 1)
+    .order("created_at", { ascending: false });
+  return ((data ?? []) as MemoryRow[]).map(mapMemory);
 }
 
-export function updateMemory(id: string, data: Partial<MemoryEntry>): MemoryEntry | null {
-  const db = getDb();
-  const sets: string[] = ["updated_at = datetime('now')"];
-  const params: unknown[] = [];
-
-  if (data.title !== undefined) { sets.push("title = ?"); params.push(data.title); }
+export async function updateMemory(id: string, data: Partial<MemoryEntry>): Promise<MemoryEntry | null> {
+  const sb = getSupabase();
+  const now = new Date().toISOString();
+  const existing = await getMemoryById(id);
+  if (!existing) return null;
+  const update: Record<string, unknown> = { updated_at: now };
+  if (data.title !== undefined) update.title = data.title;
   if (data.content !== undefined) {
-    sets.push("content = ?"); params.push(data.content);
-    sets.push("version = version + 1"); // auto-increment version on content change
+    update.content = data.content;
+    update.version = existing.version + 1;
   }
-  if (data.type !== undefined) { sets.push("type = ?"); params.push(data.type); }
-  if (data.tags !== undefined) { sets.push("tags = ?"); params.push(JSON.stringify(data.tags)); }
-  if (data.verified !== undefined) { sets.push("verified = ?"); params.push(data.verified ? 1 : 0); }
-
-  params.push(id);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  db.run(`UPDATE memory_entries SET ${sets.join(", ")} WHERE id = ?`, params as any[]);
+  if (data.type !== undefined) update.type = data.type;
+  if (data.tags !== undefined) update.tags = JSON.stringify(data.tags);
+  if (data.verified !== undefined) update.verified = data.verified ? 1 : 0;
+  await sb.from("memory_entries").update(update).eq("id", id);
   return getMemoryById(id);
 }
 
-export function deleteMemory(id: string): boolean {
-  const db = getDb();
-  const changes = db.run("DELETE FROM memory_entries WHERE id = ?", [id]).changes;
-  return changes > 0;
+export async function deleteMemory(id: string): Promise<boolean> {
+  const sb = getSupabase();
+  const { data } = await sb.from("memory_entries").delete().eq("id", id).select();
+  return (data?.length ?? 0) > 0;
 }
 
-export function getMemoryUsage(id: string): MemoryUsageStats | null {
-  const db = getDb();
-  const row = db.query("SELECT * FROM memory_entries WHERE id = ?").get(id) as MemoryRow | null;
+export async function getMemoryUsage(id: string): Promise<MemoryUsageStats | null> {
+  const sb = getSupabase();
+  const { data: rowData } = await sb.from("memory_entries").select("*").eq("id", id).maybeSingle();
+  const row = rowData as MemoryRow | null;
   if (!row) return null;
 
-  const totalMemories = (db.query("SELECT COUNT(*) as c FROM memory_entries").get() as { c: number }).c;
+  const { count: totalMemoriesCount } = await sb
+    .from("memory_entries")
+    .select("*", { count: "exact", head: true });
+  const totalMemories = totalMemoriesCount ?? 0;
 
-  // Derive workflow associations from tags
   const tags = parseJsonField<string[]>(row.tags, []);
   const workflowMap: Record<string, string> = {
     "选品": "选品", product: "选品", sourcing: "选品",
@@ -146,14 +164,19 @@ export function getMemoryUsage(id: string): MemoryUsageStats | null {
   const workflows = [...new Set(tags.map((t) => workflowMap[t]).filter(Boolean))];
   if (workflows.length === 0) workflows.push("通用");
 
-  // Trend: count memories created per day over last 7 days
-  const trendRows = db.query(
-    `SELECT DATE(created_at) as day, COUNT(*) as c
-     FROM memory_entries
-     WHERE created_at >= datetime('now', '-7 days')
-     GROUP BY day ORDER BY day`
-  ).all() as Array<{ day: string; c: number }>;
-  const trend = trendRows.length > 0 ? trendRows.map((r) => r.c) : [totalMemories];
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: trendData } = await sb
+    .from("memory_entries")
+    .select("created_at")
+    .gte("created_at", sevenDaysAgo);
+
+  const dayMap: Record<string, number> = {};
+  for (const r of (trendData ?? []) as Array<{ created_at: string }>) {
+    const day = r.created_at.slice(0, 10);
+    dayMap[day] = (dayMap[day] ?? 0) + 1;
+  }
+  const sortedDays = Object.keys(dayMap).sort();
+  const trend = sortedDays.length > 0 ? sortedDays.map((d) => dayMap[d]) : [totalMemories];
 
   return {
     memoryId: id,

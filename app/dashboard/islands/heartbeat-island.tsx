@@ -6,6 +6,6 @@ const agentService = new AgentService();
 
 export async function HeartbeatIsland() {
   await getDbAsync();
-  const agents = agentService.list();
+  const agents = await agentService.list();
   return <DashboardHeartbeat agents={agents} />;
 }

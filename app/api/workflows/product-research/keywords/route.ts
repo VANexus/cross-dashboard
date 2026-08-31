@@ -8,7 +8,7 @@ const service = new WorkflowService();
 export const GET = withDb(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
   const marketplace = searchParams.get("marketplace") ?? undefined;
-  const data = service.getProductKeywords(marketplace);
+  const data = await service.getProductKeywords(marketplace);
   return success(data);
 });
 

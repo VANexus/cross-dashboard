@@ -24,20 +24,20 @@ import type {
 export class WorkflowService {
   // ========== 选品 ==========
 
-  getDataSources(): DataSource[] {
-    return repo.getDataSources();
+  async getDataSources(): Promise<DataSource[]> {
+    return await repo.getDataSources();
   }
 
-  getProductKeywords(marketplace?: string): ProductKeyword[] {
-    return repo.getProductKeywords(marketplace);
+  async getProductKeywords(marketplace?: string): Promise<ProductKeyword[]> {
+    return await repo.getProductKeywords(marketplace);
   }
 
-  getPainPoints(): PainPoint[] {
-    return repo.getPainPoints();
+  async getPainPoints(): Promise<PainPoint[]> {
+    return await repo.getPainPoints();
   }
 
-  getRecentResearchResults(limit?: number) {
-    return repo.getRecentResearchResults(limit);
+  async getRecentResearchResults(limit?: number) {
+    return await repo.getRecentResearchResults(limit);
   }
 
   async executeResearch(data: {
@@ -47,7 +47,7 @@ export class WorkflowService {
     marketplace?: string;
   }): Promise<{ id: string; status: string; estimatedTime: number; result?: unknown }> {
     const id = `research-${Date.now()}`;
-    this.bumpWorkflowStatus("product-research", "running");
+    this.bumpWorkflowStatus("product-research", "running").catch(console.error);
 
     try {
       const crawler = new AmazonCrawler(data.marketplace || "US");
@@ -62,7 +62,7 @@ export class WorkflowService {
         }
       }
 
-      const provider = getAIProvider();
+      const provider = await getAIProvider();
       const { prompt, schema } = productResearchPrompt(data);
       const analysisPrompt = `${prompt}\n\n实际采集数据：\n${JSON.stringify(crawledData, null, 2)}`;
       const result = await provider.analyze({ prompt: analysisPrompt, data: {}, schema });
@@ -71,28 +71,28 @@ export class WorkflowService {
         id, marketplace: data.marketplace ?? "US",
         category: data.category ?? "", keywords: data.keywords ?? [],
         sources: data.sources, resultJson: result,
-      });
+      }).catch(console.error);
 
-      this.bumpWorkflowStatus("product-research", "idle");
+      this.bumpWorkflowStatus("product-research", "idle").catch(console.error);
       return { id, status: "completed", estimatedTime: 0, result };
     } catch (error) {
-      this.bumpWorkflowStatus("product-research", "idle");
+      this.bumpWorkflowStatus("product-research", "idle").catch(console.error);
       throw error;
     }
   }
 
   // ========== AI 制图 ==========
 
-  getImages(type?: string): GeneratedImg[] {
-    return repo.getImages(type);
+  async getImages(type?: string): Promise<GeneratedImg[]> {
+    return await repo.getImages(type);
   }
 
-  updateImage(id: string, data: Partial<GeneratedImg>): GeneratedImg | null {
-    return repo.updateImage(id, data);
+  async updateImage(id: string, data: Partial<GeneratedImg>): Promise<GeneratedImg | null> {
+    return await repo.updateImage(id, data);
   }
 
-  getStoryboardFrames(): StoryboardFrame[] {
-    return repo.getStoryboardFrames();
+  async getStoryboardFrames(): Promise<StoryboardFrame[]> {
+    return await repo.getStoryboardFrames();
   }
 
   async generateImage(data: {
@@ -103,11 +103,12 @@ export class WorkflowService {
     count?: number;
   }): Promise<{ id: string; status: string; estimatedTime: number; result?: unknown }> {
     const id = `gen-${Date.now()}`;
-    this.bumpWorkflowStatus("ai-imaging", "running");
+    this.bumpWorkflowStatus("ai-imaging", "running").catch(console.error);
 
     try {
-      const imageApiKey = process.env.IMAGE_API_KEY || getAIConfig().apiKey;
-      const imageBaseUrl = process.env.IMAGE_BASE_URL || getAIConfig().baseUrl;
+      const aiCfg = await getAIConfig();
+      const imageApiKey = process.env.IMAGE_API_KEY || aiCfg.apiKey;
+      const imageBaseUrl = process.env.IMAGE_BASE_URL || aiCfg.baseUrl;
       const imageModel = process.env.IMAGE_MODEL || data.model;
 
       if (!imageApiKey) {
@@ -128,7 +129,6 @@ export class WorkflowService {
         model: data.model,
       });
 
-      // Persist each generated image to DB
       for (const img of results) {
         repo.insertImage({
           id: `${id}-${results.indexOf(img)}`,
@@ -137,37 +137,37 @@ export class WorkflowService {
           prompt: data.prompt,
           model: img.model || imageModel || "unknown",
           revisedPrompt: img.revisedPrompt,
-        });
+        }).catch(console.error);
       }
 
-      this.bumpWorkflowStatus("ai-imaging", "idle");
+      this.bumpWorkflowStatus("ai-imaging", "idle").catch(console.error);
       return { id, status: "completed", estimatedTime: 0, result: results };
     } catch (error) {
-      this.bumpWorkflowStatus("ai-imaging", "idle");
+      this.bumpWorkflowStatus("ai-imaging", "idle").catch(console.error);
       throw error;
     }
   }
 
   // ========== 广告 ==========
 
-  getAdKeywords(filters?: { type?: string; tag?: string }): AdKeyword[] {
-    return repo.getAdKeywords(filters);
+  async getAdKeywords(filters?: { type?: string; tag?: string }): Promise<AdKeyword[]> {
+    return await repo.getAdKeywords(filters);
   }
 
-  updateAdKeyword(id: string, data: Partial<AdKeyword>): AdKeyword | null {
-    return repo.updateAdKeyword(id, data);
+  async updateAdKeyword(id: string, data: Partial<AdKeyword>): Promise<AdKeyword | null> {
+    return await repo.updateAdKeyword(id, data);
   }
 
-  getAdPositions(): AdPosition[] {
-    return repo.getAdPositions();
+  async getAdPositions(): Promise<AdPosition[]> {
+    return await repo.getAdPositions();
   }
 
   exportAdData(): { url: string; format: string } {
     return { url: "/exports/ad-data.csv", format: "csv" };
   }
 
-  getRecentAdAnalyses(limit?: number) {
-    return repo.getRecentAdAnalyses(limit);
+  async getRecentAdAnalyses(limit?: number) {
+    return await repo.getRecentAdAnalyses(limit);
   }
 
   async analyzeAdKeyword(data: {
@@ -181,22 +181,22 @@ export class WorkflowService {
     };
   }): Promise<{ id: string; status: string; result?: unknown }> {
     const id = `ad-analysis-${Date.now()}`;
-    this.bumpWorkflowStatus("ai-advertising", "running");
+    this.bumpWorkflowStatus("ai-advertising", "running").catch(console.error);
 
     try {
-      const provider = getAIProvider();
+      const provider = await getAIProvider();
       const { prompt, schema } = adKeywordAnalysisPrompt(data);
       const result = await provider.analyze({ prompt, data: {}, schema });
 
       repo.insertAdAnalysis({
         id, keyword: data.keyword,
         currentData: data.currentData, resultJson: result,
-      });
+      }).catch(console.error);
 
-      this.bumpWorkflowStatus("ai-advertising", "idle");
+      this.bumpWorkflowStatus("ai-advertising", "idle").catch(console.error);
       return { id, status: "completed", result };
     } catch (error) {
-      this.bumpWorkflowStatus("ai-advertising", "idle");
+      this.bumpWorkflowStatus("ai-advertising", "idle").catch(console.error);
       throw error;
     }
   }
@@ -208,36 +208,36 @@ export class WorkflowService {
     budget?: number;
   }): Promise<{ id: string; status: string; result?: unknown }> {
     const id = `ad-optimize-${Date.now()}`;
-    this.bumpWorkflowStatus("ai-advertising", "running");
+    this.bumpWorkflowStatus("ai-advertising", "running").catch(console.error);
 
     try {
-      const provider = getAIProvider();
+      const provider = await getAIProvider();
       const { prompt, schema } = adOptimizationPrompt(data);
       const result = await provider.analyze({ prompt, data: {}, schema });
-      this.bumpWorkflowStatus("ai-advertising", "idle");
+      this.bumpWorkflowStatus("ai-advertising", "idle").catch(console.error);
       return { id, status: "completed", result };
     } catch (error) {
-      this.bumpWorkflowStatus("ai-advertising", "idle");
+      this.bumpWorkflowStatus("ai-advertising", "idle").catch(console.error);
       throw error;
     }
   }
 
   // ========== 商品发布 ==========
 
-  getCategoryRecs(): CategoryRec[] {
-    return repo.getCategoryRecs();
+  async getCategoryRecs(): Promise<CategoryRec[]> {
+    return await repo.getCategoryRecs();
   }
 
-  getBulletPoints(): BulletPoint[] {
-    return repo.getBulletPoints();
+  async getBulletPoints(): Promise<BulletPoint[]> {
+    return await repo.getBulletPoints();
   }
 
-  getInfringementWords(): InfringementWord[] {
-    return repo.getInfringementWords();
+  async getInfringementWords(): Promise<InfringementWord[]> {
+    return await repo.getInfringementWords();
   }
 
-  getRecentListingResults(limit?: number) {
-    return repo.getRecentListingResults(limit);
+  async getRecentListingResults(limit?: number) {
+    return await repo.getRecentListingResults(limit);
   }
 
   async generateListing(data: {
@@ -247,14 +247,13 @@ export class WorkflowService {
     language?: string;
   }): Promise<{ id: string; status: string; estimatedTime: number; result?: unknown }> {
     const id = `listing-${Date.now()}`;
-    this.bumpWorkflowStatus("ai-listing", "running");
+    this.bumpWorkflowStatus("ai-listing", "running").catch(console.error);
 
     try {
-      const provider = getAIProvider();
+      const provider = await getAIProvider();
       const { prompt, schema } = listingGenerationPrompt(data);
       const result = await provider.analyze({ prompt, data: {}, schema });
 
-      // Persist listing result
       const r = result as Record<string, unknown>;
       repo.insertListingResult({
         id,
@@ -268,12 +267,12 @@ export class WorkflowService {
         seoScore: (r.seoScore as number) ?? 0,
         estimatedCtr: (r.estimatedCTR as string) ?? "",
         resultJson: result,
-      });
+      }).catch(console.error);
 
-      this.bumpWorkflowStatus("ai-listing", "idle");
+      this.bumpWorkflowStatus("ai-listing", "idle").catch(console.error);
       return { id, status: "completed", estimatedTime: 0, result };
     } catch (error) {
-      this.bumpWorkflowStatus("ai-listing", "idle");
+      this.bumpWorkflowStatus("ai-listing", "idle").catch(console.error);
       throw error;
     }
   }
@@ -293,25 +292,25 @@ export class WorkflowService {
 
   // ========== 库存 ==========
 
-  getInventoryItems(filters?: {
+  async getInventoryItems(filters?: {
     status?: string;
     page?: number;
     pageSize?: number;
-  }): { items: InventoryItem[]; pagination: Pagination } {
-    return repo.getInventoryItems(filters);
+  }): Promise<{ items: InventoryItem[]; pagination: Pagination }> {
+    return await repo.getInventoryItems(filters);
   }
 
-  getRestockSuggestions(): RestockSuggestion[] {
-    return repo.getRestockSuggestions();
+  async getRestockSuggestions(): Promise<RestockSuggestion[]> {
+    return await repo.getRestockSuggestions();
   }
 
   async generateRestockSuggestions(): Promise<{ id: string; status: string; result?: unknown }> {
     const id = `restock-${Date.now()}`;
-    this.bumpWorkflowStatus("inventory", "running");
+    this.bumpWorkflowStatus("inventory", "running").catch(console.error);
 
     try {
-      const provider = getAIProvider();
-      const inventory = repo.getInventoryItems({ status: "warning" });
+      const provider = await getAIProvider();
+      const inventory = await repo.getInventoryItems({ status: "warning" });
       const prompt = `基于以下库存数据，生成补货建议：
 ${JSON.stringify(inventory.items, null, 2)}
 
@@ -328,40 +327,40 @@ ${JSON.stringify(inventory.items, null, 2)}
       }`;
 
       const result = await provider.analyze({ prompt, data: {}, schema });
-      this.bumpWorkflowStatus("inventory", "idle");
+      this.bumpWorkflowStatus("inventory", "idle").catch(console.error);
       return { id, status: "completed", result };
     } catch (error) {
-      this.bumpWorkflowStatus("inventory", "idle");
+      this.bumpWorkflowStatus("inventory", "idle").catch(console.error);
       throw error;
     }
   }
 
-  getRecentRestockOrders(limit?: number) {
-    return repo.getRecentRestockOrders(limit);
+  async getRecentRestockOrders(limit?: number) {
+    return await repo.getRecentRestockOrders(limit);
   }
 
-  createRestockOrder(items: {
+  async createRestockOrder(items: {
     sku: string;
     quantity: number;
     shipMethod: string;
-  }[]): { orderId: string; status: string; items: number } {
+  }[]): Promise<{ orderId: string; status: string; items: number }> {
     const orderId = `PO-${Date.now()}`;
-    repo.insertRestockOrder({ id: orderId, items, status: "created" });
+    repo.insertRestockOrder({ id: orderId, items, status: "created" }).catch(console.error);
     return { orderId, status: "created", items: items.length };
   }
 
   // ========== 竞品分析 ==========
 
-  getCompetitorKeywords(type?: string): KeywordItem[] {
-    return repo.getCompetitorKeywords(type);
+  async getCompetitorKeywords(type?: string): Promise<KeywordItem[]> {
+    return await repo.getCompetitorKeywords(type);
   }
 
-  getCompetitors(): CompetitorEntry[] {
-    return repo.getCompetitors();
+  async getCompetitors(): Promise<CompetitorEntry[]> {
+    return await repo.getCompetitors();
   }
 
-  getRecentCompetitorAnalyses(limit?: number) {
-    return repo.getRecentCompetitorAnalyses(limit);
+  async getRecentCompetitorAnalyses(limit?: number) {
+    return await repo.getRecentCompetitorAnalyses(limit);
   }
 
   async analyzeCompetitor(data: {
@@ -370,10 +369,10 @@ ${JSON.stringify(inventory.items, null, 2)}
     keywords?: string[];
   }): Promise<{ id: string; status: string; estimatedTime: number; result?: unknown }> {
     const id = `analysis-${Date.now()}`;
-    this.bumpWorkflowStatus("competitor-ads", "running");
+    this.bumpWorkflowStatus("competitor-ads", "running").catch(console.error);
 
     try {
-      const provider = getAIProvider();
+      const provider = await getAIProvider();
       const { prompt, schema } = competitorAnalysisPrompt(data);
       const result = await provider.analyze({ prompt, data: {}, schema });
 
@@ -382,27 +381,27 @@ ${JSON.stringify(inventory.items, null, 2)}
         marketplace: data.marketplace ?? "US",
         keywords: data.keywords ?? [],
         resultJson: result,
-      });
+      }).catch(console.error);
 
-      this.bumpWorkflowStatus("competitor-ads", "idle");
+      this.bumpWorkflowStatus("competitor-ads", "idle").catch(console.error);
       return { id, status: "completed", estimatedTime: 0, result };
     } catch (error) {
-      this.bumpWorkflowStatus("competitor-ads", "idle");
+      this.bumpWorkflowStatus("competitor-ads", "idle").catch(console.error);
       throw error;
     }
   }
 
   // ========== 工作流状态 ==========
 
-  getWorkflowStatuses(): WorkflowStatus[] {
-    return repo.getWorkflowStatuses();
+  async getWorkflowStatuses(): Promise<WorkflowStatus[]> {
+    return await repo.getWorkflowStatuses();
   }
 
-  private bumpWorkflowStatus(workflowId: string, status: "running" | "idle") {
+  private async bumpWorkflowStatus(workflowId: string, status: "running" | "idle") {
     try {
-      const current = repo.getWorkflowStatuses().find((w) => w.id === workflowId);
+      const current = (await repo.getWorkflowStatuses()).find((w) => w.id === workflowId);
       const newRuns = (current?.runs ?? 0) + (status === "idle" ? 1 : 0);
-      repo.updateWorkflowStatus(workflowId, {
+      await repo.updateWorkflowStatus(workflowId, {
         status,
         lastRun: status === "idle" ? new Date().toISOString() : undefined,
         runCount: newRuns,

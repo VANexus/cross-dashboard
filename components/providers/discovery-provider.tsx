@@ -64,12 +64,11 @@ export function useDiscovery(): DiscoveryContextValue {
 
 export function DiscoveryProvider({ children }: { children: ReactNode }) {
   const registry = useServiceRegistry;
-  const { initialized, discovering, manifests, healthyCount } = registry((s) => ({
-    initialized: s.initialized,
-    discovering: s.discovering,
-    manifests: s.manifests,
-    healthyCount: s.getHealthyCount(),
-  }));
+  // 逐字段订阅：zustand v5 的 selector 若每次返回新对象会触发无限重渲染
+  const initialized = useServiceRegistry((s) => s.initialized);
+  const discovering = useServiceRegistry((s) => s.discovering);
+  const manifests = useServiceRegistry((s) => s.manifests);
+  const healthyCount = useServiceRegistry((s) => s.getHealthyCount());
 
   // 派生：所有技能
   const allSkills = useMemo(() => {

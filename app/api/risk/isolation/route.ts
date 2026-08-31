@@ -7,14 +7,14 @@ import { RiskService } from "@/lib/services";
 const service = new RiskService();
 
 export const GET = withDb(async (_: NextRequest) => {
-  const items = service.getIsolationItems();
+  const items = await service.getIsolationItems();
   return success(items);
 });
 
 export const PATCH = withDb(async (request: NextRequest) => {
   const parsed = parseBody(updateIsolationSchema, await request.json());
   if (!parsed.success) return badRequest(parsed.error);
-  const ok = service.updateIsolation(parsed.data.index, parsed.data.checked);
+  const ok = await service.updateIsolation(parsed.data.index, parsed.data.checked);
   if (!ok) return badRequest("Isolation item not found");
   return success({ updated: true });
 });

@@ -2,9 +2,9 @@
  * FlowMind RAK — Evolution Repository
  * Data access for evolution records and trends
  */
-import { getDb } from "../db";
+import { getSupabase } from "../db";
 import type { EvolutionRecord } from "../types";
-import { paginatedQuery, type PaginatedResult, parseJsonField } from "./base";
+import { type PaginatedResult, parseJsonField } from "./base";
 
 interface EvolutionRow {
   id: string;
@@ -33,25 +33,43 @@ function mapEvolution(row: EvolutionRow): EvolutionRecord {
   };
 }
 
-export function getEvolutionRecords(filters?: {
+export async function getEvolutionRecords(filters?: {
   stage?: string;
   status?: string;
   page?: number;
   pageSize?: number;
-}): PaginatedResult<EvolutionRecord> {
-  let where = "WHERE 1=1";
-  const params: unknown[] = [];
+}): Promise<PaginatedResult<EvolutionRecord>> {
+  const sb = getSupabase();
+  const page = filters?.page ?? 1;
+  const pageSize = filters?.pageSize ?? 20;
+  const offset = (page - 1) * pageSize;
 
-  if (filters?.stage) { where += " AND stage = ?"; params.push(filters.stage); }
-  if (filters?.status) { where += " AND status = ?"; params.push(filters.status); }
+  let query = sb.from("evolution_records").select("*", { count: "exact" });
+  if (filters?.stage) query = query.eq("stage", filters.stage);
+  if (filters?.status) query = query.eq("status", filters.status);
 
-  const result = paginatedQuery<EvolutionRow>("evolution_records", where, params, filters?.page ?? 1, filters?.pageSize ?? 20);
-  return { items: result.items.map(mapEvolution), pagination: result.pagination };
+  const { data, count } = await query
+    .order("created_at", { ascending: false })
+    .range(offset, offset + pageSize - 1);
+
+  const rows = (data as EvolutionRow[] ?? []);
+  const total = count ?? 0;
+
+  return {
+    items: rows.map(mapEvolution),
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    },
+  };
 }
 
-export function getEvolutionById(id: string): (EvolutionRecord & { beforeMetrics?: EvolutionRecord["metrics"] }) | null {
-  const db = getDb();
-  const row = db.query("SELECT * FROM evolution_records WHERE id = ?").get(id) as EvolutionRow | null;
+export async function getEvolutionById(id: string): Promise<(EvolutionRecord & { beforeMetrics?: EvolutionRecord["metrics"] }) | null> {
+  const sb = getSupabase();
+  const { data } = await sb.from("evolution_records").select("*").eq("id", id).maybeSingle();
+  const row = data as EvolutionRow | null;
   if (!row) return null;
 
   return {
@@ -60,83 +78,99 @@ export function getEvolutionById(id: string): (EvolutionRecord & { beforeMetrics
   };
 }
 
-export function createEvolution(data: {
+export async function createEvolution(data: {
   stage: string;
   title: string;
   description?: string;
   agentId: string;
-}): EvolutionRecord {
-  const db = getDb();
+}): Promise<EvolutionRecord> {
+  const sb = getSupabase();
   const id = `evo-${Date.now()}`;
-  db.run(
-    `INSERT INTO evolution_records (id, stage, title, description, agent_id, status)
-     VALUES (?, ?, ?, ?, ?, 'in_progress')`,
-    [id, data.stage, data.title, data.description ?? "", data.agentId],
-  );
-  return getEvolutionById(id)!;
+  await sb.from("evolution_records").insert({
+    id,
+    stage: data.stage,
+    title: data.title,
+    description: data.description ?? "",
+    agent_id: data.agentId,
+    status: "in_progress",
+  });
+  return (await getEvolutionById(id))!;
 }
 
-export function updateEvolution(id: string, data: Partial<EvolutionRecord>): EvolutionRecord | null {
-  const db = getDb();
-  const sets: string[] = [];
-  const params: unknown[] = [];
+export async function updateEvolution(id: string, data: Partial<EvolutionRecord>): Promise<EvolutionRecord | null> {
+  const sb = getSupabase();
+  const updateData: Record<string, unknown> = {};
 
   if (data.status !== undefined) {
-    sets.push("status = ?"); params.push(data.status);
+    updateData.status = data.status;
     if (data.status === "success" || data.status === "failed") {
-      // Save current metrics as before_metrics before updating
-      const current = db.query("SELECT metrics FROM evolution_records WHERE id = ?").get(id) as { metrics: string | null } | null;
-      if (current?.metrics) {
-        sets.push("before_metrics = ?");
-        params.push(current.metrics);
+      const { data: current } = await sb
+        .from("evolution_records")
+        .select("metrics")
+        .eq("id", id)
+        .maybeSingle();
+      const currentRow = current as { metrics: string | null } | null;
+      if (currentRow?.metrics) {
+        updateData.before_metrics = currentRow.metrics;
       }
-      sets.push("completed_at = datetime('now')");
+      updateData.completed_at = new Date().toISOString();
     }
   }
-  if (data.metrics !== undefined) { sets.push("metrics = ?"); params.push(JSON.stringify(data.metrics)); }
-  if (data.completedAt !== undefined) { sets.push("completed_at = ?"); params.push(data.completedAt); }
+  if (data.metrics !== undefined) updateData.metrics = JSON.stringify(data.metrics);
+  if (data.completedAt !== undefined) updateData.completed_at = data.completedAt;
 
-  if (sets.length === 0) return getEvolutionById(id);
-  params.push(id);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  db.run(`UPDATE evolution_records SET ${sets.join(", ")} WHERE id = ?`, params as any[]);
+  if (Object.keys(updateData).length === 0) return getEvolutionById(id);
+  await sb.from("evolution_records").update(updateData).eq("id", id);
   return getEvolutionById(id);
 }
 
-export function getEvolutionTrend(months = 6): { labels: string[]; data: number[] } {
-  const db = getDb();
+export async function getEvolutionTrend(months = 6): Promise<{ labels: string[]; data: number[] }> {
+  const sb = getSupabase();
 
-  // Query monthly success rates from completed records
-  const rows = db.query(
-    `SELECT
-       strftime('%Y-%m', completed_at) as month,
-       COUNT(*) as total,
-       SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as success
-     FROM evolution_records
-     WHERE completed_at IS NOT NULL
-     GROUP BY month
-     ORDER BY month`
-  ).all() as Array<{ month: string; total: number; success: number }>;
+  const { data } = await sb
+    .from("evolution_records")
+    .select("completed_at, status")
+    .not("completed_at", "is", null);
 
-  const monthlyRates = new Map<string, number>();
+  const rows = (data as Array<{ completed_at: string; status: string }> ?? []);
+
+  const monthlyCounts = new Map<string, { total: number; success: number }>();
   for (const row of rows) {
-    monthlyRates.set(row.month, row.total > 0 ? Math.round((row.success / row.total) * 100) : 0);
+    const d = new Date(row.completed_at);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    if (!monthlyCounts.has(key)) {
+      monthlyCounts.set(key, { total: 0, success: 0 });
+    }
+    const entry = monthlyCounts.get(key)!;
+    entry.total++;
+    if (row.status === "success") entry.success++;
   }
 
-  // Fallback: overall average rate for months with no data
-  const total = (db.query("SELECT COUNT(*) as c FROM evolution_records").get() as { c: number }).c;
-  const success = (db.query("SELECT COUNT(*) as c FROM evolution_records WHERE status = 'success'").get() as { c: number }).c;
+  const monthlyRates = new Map<string, number>();
+  for (const [key, val] of monthlyCounts) {
+    monthlyRates.set(key, val.total > 0 ? Math.round((val.success / val.total) * 100) : 0);
+  }
+
+  const { count: totalCount } = await sb
+    .from("evolution_records")
+    .select("*", { count: "exact", head: true });
+  const { count: successCount } = await sb
+    .from("evolution_records")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "success");
+  const total = totalCount ?? 0;
+  const success = successCount ?? 0;
   const fallbackRate = total > 0 ? Math.round((success / total) * 100) : 0;
 
   const labels: string[] = [];
-  const data: number[] = [];
+  const dataArr: number[] = [];
   for (let i = months - 1; i >= 0; i--) {
     const d = new Date();
     d.setMonth(d.getMonth() - i);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     labels.push(`${d.getMonth() + 1}月`);
-    data.push(monthlyRates.get(key) ?? fallbackRate);
+    dataArr.push(monthlyRates.get(key) ?? fallbackRate);
   }
 
-  return { labels, data };
+  return { labels, data: dataArr };
 }

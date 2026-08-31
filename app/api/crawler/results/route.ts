@@ -8,7 +8,7 @@ const service = new CrawlerService();
 export const GET = withDb(async (request: NextRequest) => {
   const url = new URL(request.url);
   const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit")) || 20));
-  const results = service.getRecentResults(limit);
+  const results = await service.getRecentResults(limit);
   return success(results);
 });
 

@@ -5,7 +5,7 @@ import { ContentService } from "@/lib/services";
 const service = new ContentService();
 
 export const GET = withDb(async () => {
-  return success(service.getPlatforms());
+  return success(await service.getPlatforms());
 });
 
 export { methodNotAllowed as POST };

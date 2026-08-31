@@ -9,31 +9,30 @@ import type { Agent, SubAgent } from "../types";
 export class AgentService {
   private rak = getRAKEngine();
 
-  list(filters?: { status?: string; type?: string }): Agent[] {
-    return repo.getAgents(filters);
+  async list(filters?: { status?: string; type?: string }): Promise<Agent[]> {
+    return await repo.getAgents(filters);
   }
 
-  getById(id: string): (Agent & { subAgents: SubAgent[] }) | null {
-    return repo.getAgentById(id);
+  async getById(id: string): Promise<(Agent & { subAgents: SubAgent[] }) | null> {
+    return await repo.getAgentById(id);
   }
 
-  heartbeat(id: string): void {
-    repo.updateAgentHeartbeat(id);
+  async heartbeat(id: string): Promise<void> {
+    repo.updateAgentHeartbeat(id).catch(console.error);
     this.rak.coordinator.heartbeat(id);
   }
 
-  updateStatus(id: string, status: string): Agent | null {
-    repo.updateAgentStatus(id, status);
-    return repo.getAgentById(id) as Agent | null;
+  async updateStatus(id: string, status: string): Promise<Agent | null> {
+    repo.updateAgentStatus(id, status).catch(console.error);
+    return await repo.getAgentById(id) as Agent | null;
   }
 
-  spawnSubAgent(parentId: string, name: string, taskDescription: string): SubAgent | null {
-    const parent = repo.getAgentById(parentId);
+  async spawnSubAgent(parentId: string, name: string, taskDescription: string): Promise<SubAgent | null> {
+    const parent = await repo.getAgentById(parentId);
     if (!parent) return null;
 
-    const sub = repo.createSubAgent({ parentId, name, taskDescription });
+    const sub = await repo.createSubAgent({ parentId, name, taskDescription });
 
-    // Notify parent agent via RAK
     this.rak.coordinator.sendMessage("system", parentId, "sub_agent_spawned", {
       subAgentId: sub.id,
       task: taskDescription,

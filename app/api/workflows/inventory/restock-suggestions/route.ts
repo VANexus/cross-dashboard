@@ -6,7 +6,7 @@ import { WorkflowService } from "@/lib/services";
 const service = new WorkflowService();
 
 export const GET = withDb(async (_: NextRequest) => {
-  const data = service.getRestockSuggestions();
+  const data = await service.getRestockSuggestions();
   return success(data);
 });
 

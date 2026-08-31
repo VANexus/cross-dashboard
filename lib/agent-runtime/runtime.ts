@@ -2,10 +2,12 @@
  * FlowMind RAK — Agent Runtime Engine
  * Per-agent setInterval loops: wake → context → think → journal → decide → mood → emit
  */
-import { getDb } from "../db";
+import { getSupabase } from "../db";
 import * as agentRepo from "../repositories/agent.repository";
 import * as journalRepo from "../repositories/journal.repository";
 import * as memoryRepo from "../repositories/memory.repository";
+import * as rakRepo from "../repositories/rak.repository";
+import * as taskRepo from "../repositories/task.repository";
 import { agentEventBus } from "./event-bus";
 import { assembleContext } from "./context";
 import { RealAgentBrain } from "./real-brain";
@@ -51,8 +53,8 @@ class AgentRuntime {
   private running = new Map<string, boolean>();
   private cycleCount = new Map<string, number>();
 
-  start(): void {
-    const agents = agentRepo.getAgents();
+  async start(): Promise<void> {
+    const agents = await agentRepo.getAgents();
     for (const agent of agents) {
       if (agent.config?.cycleConfig?.enabled !== false) {
         this.startAgent(agent.id);
@@ -71,10 +73,10 @@ class AgentRuntime {
     console.log("[AgentRuntime] Stopped all agent cycles");
   }
 
-  startAgent(agentId: string): void {
+  async startAgent(agentId: string): Promise<void> {
     if (this.timers.has(agentId)) return;
 
-    const agent = agentRepo.getAgentById(agentId);
+    const agent = await agentRepo.getAgentById(agentId);
     const interval = agent?.config?.cycleConfig?.intervalMs ?? 45000;
     // Add jitter (±20%) to avoid all agents firing simultaneously
     const jitter = interval * (0.8 + Math.random() * 0.4);
@@ -82,7 +84,7 @@ class AgentRuntime {
     this.running.set(agentId, false);
     this.cycleCount.set(agentId, 0);
 
-    const timer = setInterval(() => this.runCycle(agentId), jitter);
+    const timer = setInterval(() => void this.runCycle(agentId).catch(console.error), jitter);
     this.timers.set(agentId, timer);
   }
 
@@ -102,7 +104,7 @@ class AgentRuntime {
     this.running.set(agentId, true);
 
     try {
-      const agent = agentRepo.getAgentById(agentId);
+      const agent = await agentRepo.getAgentById(agentId);
       if (!agent?.config?.persona?.expertise) {
         this.running.set(agentId, false);
         return;
@@ -113,10 +115,10 @@ class AgentRuntime {
       this.cycleCount.set(agentId, cycles);
 
       // 1. Wake: update heartbeat
-      agentRepo.updateAgentHeartbeat(agentId);
+      agentRepo.updateAgentHeartbeat(agentId).catch(console.error);
 
       // 2. Assemble context
-      const context = assembleContext(agentId);
+      const context = await assembleContext(agentId);
 
       // 3. Think
       const thought = await brain.think(config, context);
@@ -128,7 +130,7 @@ class AgentRuntime {
         content: thought.content,
         context: { confidence: thought.confidence, cycle: cycles },
         moodAt: config.mood.state,
-      });
+      }).catch(console.error);
 
       // Emit thought event
       this.emit(agentId, {
@@ -147,7 +149,7 @@ class AgentRuntime {
           content: `${decision.action}: ${decision.reason}`,
           context: { action: decision.action, target: decision.target },
           moodAt: config.mood.state,
-        });
+        }).catch(console.error);
 
         this.emit(agentId, {
           type: "decision",
@@ -157,7 +159,7 @@ class AgentRuntime {
         });
 
         // Execute side effects based on action
-        this.executeAction(agentId, decision.action, decision.target);
+        void this.executeAction(agentId, decision.action, decision.target);
       }
 
       // 6. Update mood
@@ -177,11 +179,11 @@ class AgentRuntime {
 
       // 7. Save updated config (mood + goal progress nudge)
       const nudgedConfig = this.nudgeGoalProgress(updatedConfig, cycles);
-      agentRepo.updateAgentConfig(agentId, nudgedConfig);
+      agentRepo.updateAgentConfig(agentId, nudgedConfig).catch(console.error);
 
       // 8. Every 10th cycle: reflect + consolidate memories
       if (cycles % 10 === 0) {
-        const recentJournal = journalRepo.getEntries(agentId, 10);
+        const recentJournal = await journalRepo.getEntries(agentId, 10);
         const reflection = await brain.reflect(config, recentJournal);
         journalRepo.addEntry({
           agentId,
@@ -189,7 +191,7 @@ class AgentRuntime {
           content: reflection,
           context: { cycle: cycles },
           moodAt: config.mood.state,
-        });
+        }).catch(console.error);
 
         this.emit(agentId, {
           type: "reflection",
@@ -206,7 +208,7 @@ class AgentRuntime {
           type: "insight",
           tags: ["auto-generated", agent.name],
           agentId,
-        });
+        }).catch(console.error);
 
         this.emit(agentId, {
           type: "memory_created",
@@ -222,24 +224,35 @@ class AgentRuntime {
     }
   }
 
-  private executeAction(agentId: string, action: string, target?: string): void {
-    const db = getDb();
+  private async executeAction(agentId: string, action: string, target?: string): Promise<void> {
+    const sb = getSupabase();
 
     // Send message to other agents based on action
     if (action === "send_alert" || action === "escalate_risk") {
       const dispatchId = "dispatch-001";
       if (dispatchId !== agentId) {
-        db.run(
-          "INSERT INTO rak_messages (id, from_agent, to_agent, type, payload, status) VALUES (?, ?, ?, ?, ?, ?)",
-          [`msg-${Date.now()}`, agentId, dispatchId, "notification",
-           JSON.stringify({ action, target, timestamp: new Date().toISOString() }), "pending"]
-        );
+        rakRepo.saveMessage({
+          id: `msg-${Date.now()}`,
+          from: agentId,
+          to: dispatchId,
+          type: "event",
+          protocol: "runtime",
+          payload: { action, data: { target, timestamp: new Date().toISOString() } },
+          ttl: 3600,
+        }).catch(console.error);
       }
     }
 
     // Update task priority if requested
     if (action === "update_priority" && target) {
-      db.run("UPDATE tasks SET priority = 'high', updated_at = datetime('now') WHERE id = ?", [target]);
+      try {
+        await sb
+          .from("tasks")
+          .update({ priority: "high", updated_at: new Date().toISOString() })
+          .eq("id", target);
+      } catch (e) {
+        console.error("[AgentRuntime] update_priority failed:", e);
+      }
     }
   }
 

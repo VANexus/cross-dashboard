@@ -6,10 +6,10 @@ import { getRecentResearchResults } from "@/lib/repositories/workflow.repository
 export async function ProductResearchIsland() {
   await getDbAsync();
   const service = new WorkflowService();
-  const dataSources = service.getDataSources();
-  const keywords = service.getProductKeywords();
-  const painPoints = service.getPainPoints();
-  const recentResults = getRecentResearchResults(5);
+  const dataSources = await service.getDataSources();
+  const keywords = await service.getProductKeywords();
+  const painPoints = await service.getPainPoints();
+  const recentResults = await getRecentResearchResults(5);
 
   return (
     <ProductResearchClient

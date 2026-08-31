@@ -7,7 +7,7 @@ const service = new AgentService();
 
 export const GET = withDb(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
-  const data = service.list({
+  const data = await service.list({
     status: searchParams.get("status") ?? undefined,
     type: searchParams.get("type") ?? undefined,
   });

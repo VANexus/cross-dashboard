@@ -31,4 +31,4 @@ export interface AIProvider {
   analyze<T>(params: AnalyzeParams): Promise<T>;
 }
 
-export type AIProviderName = "mock" | "claude" | "openai";
+export type AIProviderName = "claude" | "openai";

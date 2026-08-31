@@ -9,7 +9,7 @@ const service = new WorkflowService();
 export const POST = withDb(async (request: NextRequest) => {
   const parsed = parseBody(createRestockOrderSchema, await request.json());
   if (!parsed.success) return badRequest(parsed.error);
-  const result = service.createRestockOrder(parsed.data.items);
+  const result = await service.createRestockOrder(parsed.data.items);
   return success(result);
 });
 

@@ -6,7 +6,7 @@ import { WorkflowService } from "@/lib/services";
 const service = new WorkflowService();
 
 export const GET = withDb(async (_: NextRequest) => {
-  const data = service.getInfringementWords();
+  const data = await service.getInfringementWords();
   return success(data);
 });
 

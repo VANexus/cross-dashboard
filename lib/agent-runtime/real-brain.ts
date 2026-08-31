@@ -1,13 +1,10 @@
 /**
  * FlowMind RAK — Real AI Brain
- * Uses LLM for agent reasoning with demo fallback
+ * Uses LLM for agent reasoning；无 LLM 配置时抛 AIConfigError（由 runtime 捕获，不出假决策）。
  */
-import { getAIProvider, isDemoMode } from "../ai";
+import { getAIProvider } from "../ai";
 import type { AgentBrain, AgentContext, AgentThought, AgentDecision } from "./brain";
 import type { AgentConfig, JournalEntry } from "../types";
-import { DemoAgentBrain } from "./demo-brain";
-
-const demo = new DemoAgentBrain();
 
 function buildThinkPrompt(agent: AgentConfig, context: AgentContext): { system: string; data: unknown } {
   const { persona, goals, mood } = agent;
@@ -86,53 +83,35 @@ function buildReflectPrompt(agent: AgentConfig, recentJournal: JournalEntry[]): 
 
 export class RealAgentBrain implements AgentBrain {
   async think(agent: AgentConfig, context: AgentContext): Promise<AgentThought> {
-    if (isDemoMode()) return demo.think(agent, context);
-
-    try {
-      const { system, data } = buildThinkPrompt(agent, context);
-      const result = await getAIProvider().analyze<AgentThought>({
-        prompt: `${system}\n\n当前状态：\n${JSON.stringify(data, null, 2)}`,
-        data: {},
-      });
-      return {
-        content: result.content || "（思考中断）",
-        type: result.type === "observation" ? "observation" : "thought",
-        confidence: Math.max(0, Math.min(1, result.confidence ?? 0.8)),
-      };
-    } catch {
-      return demo.think(agent, context);
-    }
+    const { system, data } = buildThinkPrompt(agent, context);
+    const result = await (await getAIProvider()).analyze<AgentThought>({
+      prompt: `${system}\n\n当前状态：\n${JSON.stringify(data, null, 2)}`,
+      data: {},
+    });
+    return {
+      content: result.content || "（思考中断）",
+      type: result.type === "observation" ? "observation" : "thought",
+      confidence: Math.max(0, Math.min(1, result.confidence ?? 0.8)),
+    };
   }
 
   async decide(agent: AgentConfig, context: AgentContext): Promise<AgentDecision | null> {
-    if (isDemoMode()) return demo.decide(agent, context);
-
-    try {
-      const { system, data } = buildDecidePrompt(agent, context);
-      const result = await getAIProvider().analyze<AgentDecision | null>({
-        prompt: `${system}\n\n当前状态：\n${JSON.stringify(data, null, 2)}`,
-        data: {},
-      });
-      if (!result || !result.action) return null;
-      return { action: result.action, reason: result.reason || "", target: result.target };
-    } catch {
-      return demo.decide(agent, context);
-    }
+    const { system, data } = buildDecidePrompt(agent, context);
+    const result = await (await getAIProvider()).analyze<AgentDecision | null>({
+      prompt: `${system}\n\n当前状态：\n${JSON.stringify(data, null, 2)}`,
+      data: {},
+    });
+    if (!result || !result.action) return null;
+    return { action: result.action, reason: result.reason || "", target: result.target };
   }
 
   async reflect(agent: AgentConfig, recentJournal: JournalEntry[]): Promise<string> {
-    if (isDemoMode()) return demo.reflect(agent, recentJournal);
-
-    try {
-      const { system, data } = buildReflectPrompt(agent, recentJournal);
-      const result = await getAIProvider().generate({
-        prompt: `${system}\n\n${JSON.stringify(data, null, 2)}`,
-        maxTokens: 200,
-        temperature: 0.7,
-      });
-      return result.content || "（反思中断）";
-    } catch {
-      return demo.reflect(agent, recentJournal);
-    }
+    const { system, data } = buildReflectPrompt(agent, recentJournal);
+    const result = await (await getAIProvider()).generate({
+      prompt: `${system}\n\n${JSON.stringify(data, null, 2)}`,
+      maxTokens: 200,
+      temperature: 0.7,
+    });
+    return result.content || "（反思中断）";
   }
 }

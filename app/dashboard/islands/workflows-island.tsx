@@ -6,6 +6,6 @@ import type { WorkflowStatus } from "@/lib/types";
 export async function WorkflowsIsland() {
   await getDbAsync();
   const service = new WorkflowService();
-  const workflows: WorkflowStatus[] = service.getWorkflowStatuses();
+  const workflows: WorkflowStatus[] = await service.getWorkflowStatuses();
   return <DashboardWorkflows workflows={workflows} />;
 }

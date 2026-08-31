@@ -7,7 +7,7 @@ export async function TasksIsland() {
   await getDbAsync();
   const taskService = new TaskService();
   const agentService = new AgentService();
-  const tasks: Task[] = taskService.list().items;
-  const agents: Agent[] = agentService.list();
+  const tasks: Task[] = (await taskService.list()).items;
+  const agents: Agent[] = await agentService.list();
   return <TasksClient initialTasks={tasks} agents={agents} />;
 }

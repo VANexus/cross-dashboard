@@ -1,14 +1,13 @@
 /**
  * FlowMind — 能力中心客户端（通用技能页入口）
  *
- * 运行时从 flowmind 后端发现技能；后端不可达时回退到演示清单，
- * 保证「通用技能页」始终能渲染出多样、丰富的模块组合。
+ * 运行时从 flowmind 后端发现技能；后端不可达时展示结构化错误（无演示回退）。
  */
 "use client";
 
 import { useMemo, useState } from "react";
 import { useSkillDiscovery } from "@/hooks/use-skill-discovery";
-import { getDemoSkills, getDemoSkill, domainStyle, type DemoSkill } from "@/lib/skills/demo-manifest";
+import { domainStyle } from "@/lib/skills/domain-style";
 import { SkillPage, type SkillPageSkill } from "@/components/skills/SkillPage";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -26,9 +25,8 @@ const DOMAIN_ICON: Record<string, React.ReactNode> = {
   localize: <Sparkles className="h-4 w-4" />,
 };
 
-/** 把发现的技能 + 演示技能合并为可渲染的统一形态 */
-function toPageSkill(s: DiscoveredSkill, demo?: DemoSkill): SkillPageSkill {
-  return { ...s, domain: demo?.domain, demoOutput: demo?.demoOutput };
+function toPageSkill(s: DiscoveredSkill): SkillPageSkill {
+  return { ...s };
 }
 
 export function SkillsClient() {
@@ -36,14 +34,7 @@ export function SkillsClient() {
   const [selected, setSelected] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
-  // 后端返回空或出错 → 演示模式
-  const isDemo = skills.length === 0;
-  const list: SkillPageSkill[] = useMemo(() => {
-    if (isDemo) {
-      return getDemoSkills().map((s) => toPageSkill(s, s));
-    }
-    return skills.map((s) => toPageSkill(s, getDemoSkill(s.id)));
-  }, [skills, isDemo]);
+  const list: SkillPageSkill[] = useMemo(() => skills.map(toPageSkill), [skills]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -82,8 +73,8 @@ export function SkillsClient() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant={isDemo ? "warning" : "success"}>
-            {isDemo ? "演示数据" : "实时发现"}
+          <Badge variant={error ? "warning" : "success"}>
+            {error ? "服务不可达" : "实时发现"}
           </Badge>
           <button
             type="button"
@@ -115,9 +106,9 @@ export function SkillsClient() {
           ))}
         </div>
       )}
-      {error && isDemo && (
+      {error && (
         <p className="rounded-lg bg-warning/10 px-4 py-2 text-sm text-warning">
-          技能发现服务不可达（{error}），当前展示演示清单。
+          技能发现服务不可达（{error}），请确认 flowmind 后端已启动后点击刷新。
         </p>
       )}
 

@@ -16,8 +16,8 @@ export class RAKEngine {
 
   // ========== System status ==========
 
-  getSystemStatus() {
-    const agents = this.coordinator.getAvailableAgents();
+  async getSystemStatus() {
+    const agents = await this.coordinator.getAvailableAgents();
     return {
       onlineAgents: agents.length,
       agentTypes: [...new Set(agents.map((a) => a.type))],

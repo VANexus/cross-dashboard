@@ -20,7 +20,8 @@ export default defineConfig({
       use: {
         ...devices["Desktop Chrome"],
         launchOptions: {
-          executablePath: "/usr/bin/google-chrome",
+          // Linux CI/容器使用系统 Chrome；其余平台交给 Playwright 托管浏览器
+          ...(process.platform === "linux" ? { executablePath: "/usr/bin/google-chrome" } : {}),
           args: ["--no-sandbox", "--disable-setuid-sandbox"],
         },
       },

@@ -10,7 +10,7 @@ const service = new AgentService();
 export const GET = withDb(async (_request: NextRequest,
   { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
-  const agent = service.getById(id);
+  const agent = await service.getById(id);
   if (!agent) return notFound("Agent");
   return success(agent);
 });
@@ -18,7 +18,7 @@ export const GET = withDb(async (_request: NextRequest,
 export const PATCH = withDb(async (request: NextRequest,
   { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
-  const agent = agentRepo.getAgentById(id);
+  const agent = await agentRepo.getAgentById(id);
   if (!agent) return notFound("Agent");
 
   try {
@@ -33,7 +33,7 @@ export const PATCH = withDb(async (request: NextRequest,
       cycleConfig: { ...current.cycleConfig, ...body.cycleConfig },
     };
 
-    agentRepo.updateAgentConfig(id, updated);
+    await agentRepo.updateAgentConfig(id, updated);
     return success(updated);
   } catch {
     return badRequest("Invalid request body");

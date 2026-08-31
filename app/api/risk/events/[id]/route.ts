@@ -11,7 +11,7 @@ export const PATCH = withDb(async (request: NextRequest,
   const { id } = await params;
   const parsed = parseBody(updateRiskEventSchema, await request.json());
   if (!parsed.success) return badRequest(parsed.error);
-  const event = service.resolveEvent(id, parsed.data.resolvedAt);
+  const event = await service.resolveEvent(id, parsed.data.resolvedAt);
   if (!event) return notFound("Risk event");
   return success(event);
 });

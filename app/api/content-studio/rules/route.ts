@@ -9,7 +9,7 @@ const service = new ContentService();
 export const GET = withDb(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
   const platform = searchParams.get("platform") ?? undefined;
-  return success(service.getRules(platform as never));
+  return success(await service.getRules(platform as never));
 });
 
 export { methodNotAllowed as POST };

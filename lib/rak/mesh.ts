@@ -9,9 +9,9 @@ import type { DAGDefinition } from "./protocol";
 export class MeshExecutor {
   // ========== DAG Management ==========
 
-  createDAG(taskId: string, definition: DAGDefinition): DAGNode[] {
+  async createDAG(taskId: string, definition: DAGDefinition): Promise<DAGNode[]> {
     // Create start node
-    rakRepo.saveDAGNode({
+    await rakRepo.saveDAGNode({
       id: `${taskId}-start`,
       taskId,
       name: "开始",
@@ -25,7 +25,7 @@ export class MeshExecutor {
         .filter((e) => e.to === node.id)
         .map((e) => `${taskId}-${e.from}`);
 
-      rakRepo.saveDAGNode({
+      await rakRepo.saveDAGNode({
         id: `${taskId}-${node.id}`,
         taskId,
         name: node.name,
@@ -44,7 +44,7 @@ export class MeshExecutor {
       endDeps.push(`${taskId}-${definition.nodes[definition.nodes.length - 1]?.id ?? "start"}`);
     }
 
-    rakRepo.saveDAGNode({
+    await rakRepo.saveDAGNode({
       id: `${taskId}-end`,
       taskId,
       name: "完成",
@@ -55,14 +55,14 @@ export class MeshExecutor {
     return rakRepo.getDAGForTask(taskId);
   }
 
-  getDAG(taskId: string): DAGNode[] {
+  async getDAG(taskId: string): Promise<DAGNode[]> {
     return rakRepo.getDAGForTask(taskId);
   }
 
   // ========== Execution ==========
 
-  getReadyNodes(taskId: string): DAGNode[] {
-    const nodes = rakRepo.getDAGForTask(taskId);
+  async getReadyNodes(taskId: string): Promise<DAGNode[]> {
+    const nodes = await rakRepo.getDAGForTask(taskId);
     return nodes.filter((n) => {
       if (n.status !== "pending") return false;
       // All dependencies must be completed
@@ -73,39 +73,39 @@ export class MeshExecutor {
     });
   }
 
-  startNode(nodeId: string, taskId: string): void {
-    rakRepo.updateDAGNodeStatus(nodeId, taskId, "running");
+  async startNode(nodeId: string, taskId: string): Promise<void> {
+    await rakRepo.updateDAGNodeStatus(nodeId, taskId, "running");
   }
 
-  completeNode(nodeId: string, taskId: string, result?: unknown): void {
-    rakRepo.updateDAGNodeStatus(nodeId, taskId, "completed", result);
+  async completeNode(nodeId: string, taskId: string, result?: unknown): Promise<void> {
+    await rakRepo.updateDAGNodeStatus(nodeId, taskId, "completed", result);
   }
 
-  failNode(nodeId: string, taskId: string, error: unknown): void {
-    rakRepo.updateDAGNodeStatus(nodeId, taskId, "failed", { error });
+  async failNode(nodeId: string, taskId: string, error: unknown): Promise<void> {
+    await rakRepo.updateDAGNodeStatus(nodeId, taskId, "failed", { error });
   }
 
-  skipNode(nodeId: string, taskId: string): void {
-    rakRepo.updateDAGNodeStatus(nodeId, taskId, "skipped");
+  async skipNode(nodeId: string, taskId: string): Promise<void> {
+    await rakRepo.updateDAGNodeStatus(nodeId, taskId, "skipped");
   }
 
   // ========== DAG Analysis ==========
 
-  isComplete(taskId: string): boolean {
-    const nodes = rakRepo.getDAGForTask(taskId);
+  async isComplete(taskId: string): Promise<boolean> {
+    const nodes = await rakRepo.getDAGForTask(taskId);
     return nodes.every((n) =>
       n.status === "completed" || n.status === "skipped" || n.type === "end",
     );
   }
 
-  hasFailures(taskId: string): boolean {
-    const nodes = rakRepo.getDAGForTask(taskId);
+  async hasFailures(taskId: string): Promise<boolean> {
+    const nodes = await rakRepo.getDAGForTask(taskId);
     return nodes.some((n) => n.status === "failed");
   }
 
-  getExecutionOrder(taskId: string): string[][] {
+  async getExecutionOrder(taskId: string): Promise<string[][]> {
     // Topological sort with parallel grouping
-    const nodes = rakRepo.getDAGForTask(taskId);
+    const nodes = await rakRepo.getDAGForTask(taskId);
     const levels: string[][] = [];
     const visited = new Set<string>();
 

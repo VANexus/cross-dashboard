@@ -63,7 +63,7 @@ export const TOOL_REGISTRY: ToolDefinition[] = [
     ],
     execute: async (params) => {
       const svc = getWorkflowService();
-      const keywords = svc.getAdKeywords({
+      const keywords = await svc.getAdKeywords({
         type: params.type ? String(params.type) : undefined,
         tag: params.tag ? String(params.tag) : undefined,
       });
@@ -120,7 +120,7 @@ export const TOOL_REGISTRY: ToolDefinition[] = [
     parameters: [],
     execute: async () => {
       const svc = getWorkflowService();
-      const recs = svc.getCategoryRecs();
+      const recs = await svc.getCategoryRecs();
       return { recommendations: recs, count: recs.length } as unknown as Record<string, unknown>;
     },
   },
@@ -133,7 +133,7 @@ export const TOOL_REGISTRY: ToolDefinition[] = [
     ],
     execute: async (params) => {
       const svc = getWorkflowService();
-      const words = svc.getInfringementWords();
+      const words = await svc.getInfringementWords();
       const text = String(params.text).toLowerCase();
       const hits = words.filter((w) => text.includes(w.word.toLowerCase()));
       return {

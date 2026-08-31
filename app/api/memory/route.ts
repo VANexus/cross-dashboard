@@ -10,7 +10,7 @@ export const GET = withDb(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
   const pagination = paginationSchema.safeParse({ page: searchParams.get("page"), pageSize: searchParams.get("pageSize") });
   if (!pagination.success) return badRequest("Invalid pagination parameters");
-  const result = service.list({
+  const result = await service.list({
     zone: searchParams.get("zone") ?? undefined,
     type: searchParams.get("type") ?? undefined,
     search: searchParams.get("search") ?? undefined,
@@ -23,6 +23,6 @@ export const GET = withDb(async (request: NextRequest) => {
 export const POST = withDb(async (request: NextRequest) => {
   const parsed = parseBody(createMemorySchema, await request.json());
   if (!parsed.success) return badRequest(parsed.error);
-  const entry = service.create(parsed.data);
+  const entry = await service.create(parsed.data);
   return success(entry);
 });

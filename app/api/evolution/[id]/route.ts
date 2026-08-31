@@ -9,7 +9,7 @@ const service = new EvolutionService();
 export const GET = withDb(async (_request: NextRequest,
   { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
-  const record = service.getById(id);
+  const record = await service.getById(id);
   if (!record) return notFound("Evolution record");
   return success(record);
 });
@@ -19,7 +19,7 @@ export const PATCH = withDb(async (request: NextRequest,
   const { id } = await params;
   const parsed = parseBody(updateEvolutionSchema, await request.json());
   if (!parsed.success) return badRequest(parsed.error);
-  const record = service.update(id, parsed.data);
+  const record = await service.update(id, parsed.data);
   if (!record) return notFound("Evolution record");
   return success(record);
 });

@@ -194,3 +194,76 @@ export const updateDraftSchema = z.object({
   tags: z.array(z.string().max(40)).max(10).optional(),
   status: z.enum(["draft", "published", "archived"]).optional(),
 });
+
+// Workflow: B端运营工作台
+const b2bTrendPlatform = z.enum(["tiktok", "instagram", "alibaba"]);
+const b2bPreference = z.enum(["social", "alibaba", "mix"]);
+
+export const b2bKeywordTrendSchema = z.object({
+  platform: b2bTrendPlatform,
+  industryId: z.number().int().positive().optional(),
+  keyword: z.string().max(100).optional(),
+  refresh: z.boolean().optional(),
+});
+
+export const b2bChannelLoginSchema = z.object({
+  platform: z.enum(["tiktok", "instagram"]),
+});
+
+export const b2bLongtailSchema = z.object({
+  industry: z.string().min(1).max(100),
+  seedKeywords: z.array(z.string().max(100)).max(20).optional(),
+  limit: z.number().int().min(1).max(50).optional(),
+});
+
+export const b2bProductsSchema = z.object({
+  refresh: z.boolean().optional(),
+});
+
+export const b2bRecommendSchema = z.object({
+  preference: b2bPreference,
+  trendKeywords: z.array(z.record(z.string(), z.unknown())).optional(),
+  longtailKeywords: z.array(z.record(z.string(), z.unknown())).optional(),
+});
+
+export const b2bListingGenerateSchema = z.object({
+  productId: z.string().min(1),
+  subject: z.string().max(200).optional(),
+  keyword: z.string().max(100).optional(),
+  preference: b2bPreference.default("alibaba"),
+});
+
+export const b2bListingPublishSchema = z.object({
+  listingId: z.string().min(1),
+});
+
+export const b2bImageSkillTemplateType = z.enum(["", "主图", "详情页", "社媒", "其他"]);
+
+export const b2bImageSkillCreateSchema = z.object({
+  name: z.string().min(1).max(100),
+  coverUrl: z.string().max(2000).default(""),
+  reversedPrompt: z.string().min(1).max(4000),
+  styleTags: z.array(z.string().max(40)).max(20).default([]),
+  aspectRatio: z.string().max(10).default("1:1"),
+  platform: z.string().max(40).optional(),
+  templateType: b2bImageSkillTemplateType.default(""),
+  isBuiltin: z.boolean().default(false),
+});
+
+export const b2bImageSkillUpdateSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  reversedPrompt: z.string().min(1).max(4000).optional(),
+  styleTags: z.array(z.string().max(40)).max(20).optional(),
+  aspectRatio: z.string().max(10).optional(),
+  templateType: b2bImageSkillTemplateType.optional(),
+});
+
+export const b2bReversePromptSchema = z.object({
+  imageUrl: z.string().min(1).max(2000),
+  hint: z.string().max(500).optional(),
+});
+
+export const b2bImageGenSchema = z.object({
+  skillId: z.string().min(1),
+  prompt: z.string().max(2000).optional(),
+});

@@ -2,7 +2,7 @@
  * FlowMind RAK — RAK Repository
  * Data access for RAK engine persistence (messages, conflicts, consensus, DAG)
  */
-import { getDb } from "../db";
+import { getSupabase } from "../db";
 import { parseJsonField } from "./base";
 
 // ========== Messages ==========
@@ -48,37 +48,40 @@ function mapMessage(row: RAKMessageRow): RAKMessage {
   };
 }
 
-export function saveMessage(msg: Omit<RAKMessage, "createdAt" | "status">): RAKMessage {
-  const db = getDb();
-  db.run(
-    `INSERT INTO rak_messages (id, from_agent, to_agent, type, protocol, payload, status, ttl)
-     VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)`,
-    [msg.id, msg.from, msg.to, msg.type, msg.protocol,
-    JSON.stringify(msg.payload), msg.ttl],
-  );
-  const row = db.query("SELECT * FROM rak_messages WHERE id = ?").get(msg.id) as RAKMessageRow;
-  return mapMessage(row);
+export async function saveMessage(msg: Omit<RAKMessage, "createdAt" | "status">): Promise<RAKMessage> {
+  const sb = getSupabase();
+  await sb.from("rak_messages").insert({
+    id: msg.id,
+    from_agent: msg.from,
+    to_agent: msg.to,
+    type: msg.type,
+    protocol: msg.protocol,
+    payload: JSON.stringify(msg.payload),
+    status: "pending",
+    ttl: msg.ttl,
+  });
+  const { data } = await sb.from("rak_messages").select("*").eq("id", msg.id).maybeSingle();
+  return mapMessage(data as RAKMessageRow);
 }
 
-export function getMessagesForAgent(agentId: string, status?: string): RAKMessage[] {
-  const db = getDb();
-  let sql = "SELECT * FROM rak_messages WHERE (to_agent = ? OR to_agent = '*')";
-  const params: unknown[] = [agentId];
-  if (status) { sql += " AND status = ?"; params.push(status); }
-  sql += " ORDER BY created_at DESC LIMIT 100";
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (db.query(sql).all(...(params as any[])) as RAKMessageRow[]).map(mapMessage);
+export async function getMessagesForAgent(agentId: string, status?: string): Promise<RAKMessage[]> {
+  const sb = getSupabase();
+  let query = sb
+    .from("rak_messages")
+    .select("*")
+    .or(`to_agent.eq.${agentId},to_agent.eq.*`);
+  if (status) query = query.eq("status", status);
+  const { data } = await query
+    .order("created_at", { ascending: false })
+    .limit(100);
+  return (data as RAKMessageRow[] ?? []).map(mapMessage);
 }
 
-export function updateMessageStatus(id: string, status: string): void {
-  const db = getDb();
-  const sets = ["status = ?"];
-  const params: unknown[] = [status];
-  if (status === "delivered") { sets.push("delivered_at = datetime('now')"); }
-  params.push(id);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  db.run(`UPDATE rak_messages SET ${sets.join(", ")} WHERE id = ?`, params as any[]);
+export async function updateMessageStatus(id: string, status: string): Promise<void> {
+  const sb = getSupabase();
+  const updateData: Record<string, unknown> = { status };
+  if (status === "delivered") updateData.delivered_at = new Date().toISOString();
+  await sb.from("rak_messages").update(updateData).eq("id", id);
 }
 
 // ========== DAG Nodes ==========
@@ -97,7 +100,37 @@ export interface DAGNode {
   completedAt?: string;
 }
 
-export function saveDAGNode(data: {
+interface DAGNodeRow {
+  id: string;
+  task_id: string;
+  name: string;
+  type: string;
+  status: string;
+  assigned_agent: string | null;
+  dependencies: string;
+  config: string;
+  result: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+function mapDAGNode(row: DAGNodeRow): DAGNode {
+  return {
+    id: row.id,
+    taskId: row.task_id,
+    name: row.name,
+    type: row.type,
+    status: row.status,
+    assignedAgent: row.assigned_agent ?? undefined,
+    dependencies: parseJsonField<string[]>(row.dependencies, []),
+    config: parseJsonField(row.config, {}),
+    result: row.result ? JSON.parse(row.result) : undefined,
+    startedAt: row.started_at ?? undefined,
+    completedAt: row.completed_at ?? undefined,
+  };
+}
+
+export async function saveDAGNode(data: {
   id: string;
   taskId: string;
   name: string;
@@ -105,61 +138,48 @@ export function saveDAGNode(data: {
   assignedAgent?: string;
   dependencies?: string[];
   config?: unknown;
-}): DAGNode {
-  const db = getDb();
-  db.run(
-    `INSERT INTO rak_dag_nodes (id, task_id, name, type, assigned_agent, dependencies, config)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [data.id, data.taskId, data.name, data.type ?? "task",
-    data.assignedAgent ?? null, JSON.stringify(data.dependencies ?? []),
-    JSON.stringify(data.config ?? {})],
-  );
-  return getDAGNode(data.id, data.taskId)!;
+}): Promise<DAGNode> {
+  const sb = getSupabase();
+  await sb.from("rak_dag_nodes").insert({
+    id: data.id,
+    task_id: data.taskId,
+    name: data.name,
+    type: data.type ?? "task",
+    assigned_agent: data.assignedAgent ?? null,
+    dependencies: JSON.stringify(data.dependencies ?? []),
+    config: JSON.stringify(data.config ?? {}),
+  });
+  return (await getDAGNode(data.id, data.taskId))!;
 }
 
-export function getDAGNode(id: string, taskId: string): DAGNode | null {
-  const db = getDb();
-  const row = db.query("SELECT * FROM rak_dag_nodes WHERE id = ? AND task_id = ?").get(id, taskId) as {
-    id: string; task_id: string; name: string; type: string; status: string;
-    assigned_agent: string | null; dependencies: string; config: string;
-    result: string | null; started_at: string | null; completed_at: string | null;
-  } | null;
+export async function getDAGNode(id: string, taskId: string): Promise<DAGNode | null> {
+  const sb = getSupabase();
+  const { data } = await sb
+    .from("rak_dag_nodes")
+    .select("*")
+    .eq("id", id)
+    .eq("task_id", taskId)
+    .maybeSingle();
+  const row = data as DAGNodeRow | null;
   if (!row) return null;
-  return {
-    id: row.id, taskId: row.task_id, name: row.name, type: row.type,
-    status: row.status, assignedAgent: row.assigned_agent ?? undefined,
-    dependencies: parseJsonField<string[]>(row.dependencies, []),
-    config: parseJsonField(row.config, {}),
-    result: row.result ? JSON.parse(row.result) : undefined,
-    startedAt: row.started_at ?? undefined, completedAt: row.completed_at ?? undefined,
-  };
+  return mapDAGNode(row);
 }
 
-export function getDAGForTask(taskId: string): DAGNode[] {
-  const db = getDb();
-  const rows = db.query("SELECT * FROM rak_dag_nodes WHERE task_id = ? ORDER BY id").all(taskId) as Array<{
-    id: string; task_id: string; name: string; type: string; status: string;
-    assigned_agent: string | null; dependencies: string; config: string;
-    result: string | null; started_at: string | null; completed_at: string | null;
-  }>;
-  return rows.map((r) => ({
-    id: r.id, taskId: r.task_id, name: r.name, type: r.type,
-    status: r.status, assignedAgent: r.assigned_agent ?? undefined,
-    dependencies: parseJsonField<string[]>(r.dependencies, []),
-    config: parseJsonField(r.config, {}),
-    result: r.result ? JSON.parse(r.result) : undefined,
-    startedAt: r.started_at ?? undefined, completedAt: r.completed_at ?? undefined,
-  }));
+export async function getDAGForTask(taskId: string): Promise<DAGNode[]> {
+  const sb = getSupabase();
+  const { data } = await sb
+    .from("rak_dag_nodes")
+    .select("*")
+    .eq("task_id", taskId)
+    .order("id", { ascending: true });
+  return (data as DAGNodeRow[] ?? []).map(mapDAGNode);
 }
 
-export function updateDAGNodeStatus(id: string, taskId: string, status: string, result?: unknown): void {
-  const db = getDb();
-  const sets = ["status = ?"];
-  const params: unknown[] = [status];
-  if (status === "running") sets.push("started_at = datetime('now')");
-  if (status === "completed" || status === "failed") sets.push("completed_at = datetime('now')");
-  if (result !== undefined) { sets.push("result = ?"); params.push(JSON.stringify(result)); }
-  params.push(id, taskId);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  db.run(`UPDATE rak_dag_nodes SET ${sets.join(", ")} WHERE id = ? AND task_id = ?`, params as any[]);
+export async function updateDAGNodeStatus(id: string, taskId: string, status: string, result?: unknown): Promise<void> {
+  const sb = getSupabase();
+  const updateData: Record<string, unknown> = { status };
+  if (status === "running") updateData.started_at = new Date().toISOString();
+  if (status === "completed" || status === "failed") updateData.completed_at = new Date().toISOString();
+  if (result !== undefined) updateData.result = JSON.stringify(result);
+  await sb.from("rak_dag_nodes").update(updateData).eq("id", id).eq("task_id", taskId);
 }

@@ -20,7 +20,7 @@ export const POST = withDb(async (request: NextRequest) => {
     }
 
     // Save to DB
-    service.saveResult(result);
+    service.saveResult(result).catch(console.error);
     return success(result);
   } catch (err) {
     return error(err instanceof Error ? err.message : "Extraction failed", 502);

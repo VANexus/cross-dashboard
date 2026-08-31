@@ -6,7 +6,7 @@ import { RiskService } from "@/lib/services";
 const service = new RiskService();
 
 export const GET = withDb(async (_: NextRequest) => {
-  const data = service.getHealth();
+  const data = await service.getHealth();
   return success(data);
 });
 

@@ -6,6 +6,6 @@ import type { Agent } from "@/lib/types";
 export async function AgentsIsland() {
   await getDbAsync();
   const service = new AgentService();
-  const agents: Agent[] = service.list();
+  const agents: Agent[] = await service.list();
   return <AgentsClient initialData={agents} />;
 }

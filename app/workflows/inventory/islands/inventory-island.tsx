@@ -5,9 +5,9 @@ import { getDbAsync } from "@/lib/db";
 export async function InventoryIsland() {
   await getDbAsync();
   const service = new WorkflowService();
-  const inventoryItems = service.getInventoryItems().items;
-  const restockSuggestions = service.getRestockSuggestions();
-  const recentOrders = service.getRecentRestockOrders(5);
+  const inventoryItems = (await service.getInventoryItems()).items;
+  const restockSuggestions = await service.getRestockSuggestions();
+  const recentOrders = await service.getRecentRestockOrders(5);
 
   return (
     <InventoryClient

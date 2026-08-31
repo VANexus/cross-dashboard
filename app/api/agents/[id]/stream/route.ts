@@ -8,7 +8,7 @@ import type { AgentEvent } from "@/lib/types";
 export const GET = withDb(async (_request: NextRequest,
   { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
-  const agent = agentRepo.getAgentById(id);
+  const agent = await agentRepo.getAgentById(id);
   if (!agent) return notFound("Agent");
 
   const encoder = new TextEncoder();

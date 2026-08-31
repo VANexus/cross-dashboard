@@ -3,7 +3,7 @@
  * Aggregated dashboard data from all domains
  */
 import os from "os";
-import { getDb } from "../db";
+import { getSupabase } from "../db";
 import * as agentRepo from "../repositories/agent.repository";
 import * as taskRepo from "../repositories/task.repository";
 import * as riskRepo from "../repositories/risk.repository";
@@ -15,10 +15,10 @@ import type {
 import * as workflowRepo from "../repositories/workflow.repository";
 
 export class DashboardService {
-  getStats(): DashboardStats {
-    const agents = agentRepo.getAgents();
-    const tasks = taskRepo.getTasks({ pageSize: 10000 });
-    const risks = riskRepo.getRiskEvents({});
+  async getStats(): Promise<DashboardStats> {
+    const agents = await agentRepo.getAgents();
+    const tasks = await taskRepo.getTasks({ pageSize: 10000 });
+    const risks = await riskRepo.getRiskEvents({});
 
     return {
       totalAgents: agents.length,
@@ -35,106 +35,103 @@ export class DashboardService {
     };
   }
 
-  getSystemMetrics(): SystemMetrics {
-    const db = getDb();
+  async getSystemMetrics(): Promise<SystemMetrics> {
+    const sb = getSupabase();
 
-    // CPU: 1-minute load average normalized to percentage (assuming single core)
-    const cpuRaw = os.loadavg()[0];
-    const cpuCores = os.cpus().length;
+    const cpuRaw = (os.loadavg() || [0])[0];
+    const cpuCores = Math.max(1, os.cpus?.()?.length || 1);
     const cpu = Math.min(100, Math.round((cpuRaw / cpuCores) * 100));
 
-    // Memory usage
-    const totalMem = os.totalmem();
-    const freeMem = os.freemem();
+    let totalMem = 16 * 1024 * 1024 * 1024;
+    let freeMem = 8 * 1024 * 1024 * 1024;
+    try {
+      totalMem = os.totalmem?.() || totalMem;
+      freeMem = os.freemem?.() || freeMem;
+    } catch {}
     const memory = Math.round(((totalMem - freeMem) / totalMem) * 100);
 
-    // Task-based metrics
-    const taskStats = db.query(
-      `SELECT
-        COUNT(*) as total,
-        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
-        SUM(CASE WHEN status IN ('pending', 'running') THEN 1 ELSE 0 END) as queued,
-        SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed
-       FROM tasks`
-    ).get() as { total: number; completed: number; queued: number; failed: number };
+    const { count: totalCount } = await sb.from("tasks").select("*", { count: "exact", head: true });
+    const { count: completedCount } = await sb.from("tasks").select("*", { count: "exact", head: true }).eq("status", "completed");
+    const { count: queuedCount } = await sb.from("tasks").select("*", { count: "exact", head: true }).in("status", ["pending", "running"]);
+    const { count: failedCount } = await sb.from("tasks").select("*", { count: "exact", head: true }).eq("status", "failed");
+    const { count: onlineAgentCount } = await sb.from("agents").select("*", { count: "exact", head: true }).in("status", ["online", "busy"]);
 
-    const onlineAgents = (db.query(
-      "SELECT COUNT(*) as c FROM agents WHERE status = 'online' OR status = 'busy'"
-    ).get() as { c: number }).c;
+    const total = totalCount ?? 0;
+    const completed = completedCount ?? 0;
+    const queued = queuedCount ?? 0;
+    const failed = failedCount ?? 0;
+    const onlineAgents = onlineAgentCount ?? 0;
 
     return {
       cpu,
       memory,
-      disk: 0, // No disk API in Node.js
-      responseTime: 0, // No APM data source
-      throughput: taskStats.completed,
+      disk: 0,
+      responseTime: 0,
+      throughput: completed,
       activeConnections: onlineAgents,
-      taskQueueLength: taskStats.queued,
-      errorRate: taskStats.total > 0 ? Math.round((taskStats.failed / taskStats.total) * 1000) / 10 : 0,
+      taskQueueLength: queued,
+      errorRate: total > 0 ? Math.round((failed / total) * 1000) / 10 : 0,
     };
   }
 
-  getBusinessMetrics(): BusinessMetrics {
-    const db = getDb();
+  async getBusinessMetrics(): Promise<BusinessMetrics> {
+    const sb = getSupabase();
 
-    // Operations: inventory stats
-    const invStats = db.query(
-      `SELECT
-        COUNT(*) as productCount,
-        SUM(daily_sales) as totalDailySales,
-        SUM(stock) as totalStock,
-        SUM(stock * avg_cost) as inventoryValue
-       FROM wf_inventory`
-    ).get() as { productCount: number; totalDailySales: number; totalStock: number; inventoryValue: number };
+    const { data: invRows } = await sb.from("wf_inventory").select("daily_sales, stock, avg_cost");
+    let productCount = 0;
+    let totalDailySales = 0;
+    let totalStock = 0;
+    let inventoryValue = 0;
+    for (const r of (invRows ?? []) as Array<{ daily_sales: number | null; stock: number | null; avg_cost: number | null }>) {
+      productCount += 1;
+      totalDailySales += r.daily_sales ?? 0;
+      totalStock += r.stock ?? 0;
+      inventoryValue += (r.stock ?? 0) * (r.avg_cost ?? 0);
+    }
 
-    const inventoryTurnover = invStats.totalStock > 0
-      ? Math.round((invStats.totalDailySales * 365 / invStats.totalStock) * 10) / 10
+    const inventoryTurnover = totalStock > 0
+      ? Math.round((totalDailySales * 365 / totalStock) * 10) / 10
       : 0;
 
-    // Account health from risk events
-    const unresolved = (db.query(
-      "SELECT COUNT(*) as c FROM risk_events WHERE resolved = 0"
-    ).get() as { c: number }).c;
-    const level1 = (db.query(
-      "SELECT COUNT(*) as c FROM risk_events WHERE level = 'level1' AND resolved = 0"
-    ).get() as { c: number }).c;
-    const accountHealth = Math.max(0, 100 - unresolved * 5 - level1 * 15);
+    const { count: unresolved } = await sb.from("risk_events").select("*", { count: "exact", head: true }).eq("resolved", false);
+    const { count: level1 } = await sb.from("risk_events").select("*", { count: "exact", head: true }).eq("level", "level1").eq("resolved", false);
+    const accountHealth = Math.max(0, 100 - (unresolved ?? 0) * 5 - (level1 ?? 0) * 15);
 
-    // Marketing: ad stats from wf_ad_keywords
-    const adStats = db.query(
-      `SELECT
-        SUM(spend) as totalSpend,
-        SUM(sales) as totalSales,
-        AVG(conversion) as avgConversion
-       FROM wf_ad_keywords`
-    ).get() as { totalSpend: number; totalSales: number; avgConversion: number };
-
-    const adSpend = Math.round(adStats.totalSpend || 0);
-    const adRevenue = Math.round(adStats.totalSales || 0);
+    const { data: adRows } = await sb.from("wf_ad_keywords").select("spend, sales, conversion");
+    let totalSpend = 0;
+    let totalSales = 0;
+    let convSum = 0;
+    let convCount = 0;
+    for (const r of (adRows ?? []) as Array<{ spend: number | null; sales: number | null; conversion: number | null }>) {
+      totalSpend += r.spend ?? 0;
+      totalSales += r.sales ?? 0;
+      if (r.conversion != null) { convSum += r.conversion; convCount += 1; }
+    }
+    const adSpend = Math.round(totalSpend);
+    const adRevenue = Math.round(totalSales);
     const adRoi = adSpend > 0 ? Math.round((adRevenue / adSpend) * 10) / 10 : 0;
-    const conversionRate = Math.round((adStats.avgConversion || 0) * 10) / 10;
+    const conversionRate = convCount > 0 ? Math.round((convSum / convCount) * 10) / 10 : 0;
 
-    // Finance: rough estimates from available data
-    const estimatedCost = Math.round(invStats.inventoryValue || 0);
+    const estimatedCost = Math.round(inventoryValue || 0);
     const profit = Math.max(0, adRevenue - adSpend - Math.round(estimatedCost * 0.3));
 
     return {
       operations: {
-        productCount: invStats.productCount,
+        productCount,
         inventoryTurnover,
-        listingSuccessRate: 0, // No listing success data source
+        listingSuccessRate: 0,
         accountHealth,
       },
       marketing: {
         adSpend,
         adRoi,
         conversionRate,
-        csResponseTime: 0, // No customer service data source
+        csResponseTime: 0,
       },
       finance: {
         revenue: adRevenue,
         profit,
-        cashflow: 0, // No cashflow data source
+        cashflow: 0,
         costBreakdown: [
           { category: "采购成本", amount: estimatedCost },
           { category: "广告费用", amount: adSpend },
@@ -143,16 +140,16 @@ export class DashboardService {
         ],
       },
       legal: {
-        patentsMonitored: 0, // No legal data source
-        activeContracts: 0, // No legal data source
-        openDisputes: unresolved,
+        patentsMonitored: 0,
+        activeContracts: 0,
+        openDisputes: unresolved ?? 0,
         complianceScore: accountHealth,
       },
     };
   }
 
-  getAlerts(): Alert[] {
-    const risks = riskRepo.getRiskEvents({ resolved: false });
+  async getAlerts(): Promise<Alert[]> {
+    const risks = await riskRepo.getRiskEvents({ resolved: false });
     return risks.items.slice(0, 5).map((r) => ({
       id: r.id,
       level: r.level === "level1" ? "danger" : r.level === "level2" ? "warning" : "info",
@@ -162,32 +159,28 @@ export class DashboardService {
     }));
   }
 
-  getWorkflowStatuses(): WorkflowStatus[] {
-    return workflowRepo.getWorkflowStatuses();
+  async getWorkflowStatuses(): Promise<WorkflowStatus[]> {
+    return await workflowRepo.getWorkflowStatuses();
   }
 
-  getTrends() {
-    const db = getDb();
+  async getTrends() {
+    const sb = getSupabase();
     const DAYS = 7;
 
-    // Read all ad keywords with their trend arrays and actual metrics
-    const rows = db.query(
-      "SELECT trend, sales, spend, conversion FROM wf_ad_keywords"
-    ).all() as Array<{ trend: string; sales: number; spend: number; conversion: number }>;
+    const { data: rows } = await sb.from("wf_ad_keywords").select("trend, sales, spend, conversion");
+    const typedRows = (rows ?? []) as Array<{ trend: string | null; sales: number | null; spend: number | null; conversion: number | null }>;
 
-    if (rows.length === 0) {
+    if (typedRows.length === 0) {
       return { sales: Array(DAYS).fill(0), acos: Array(DAYS).fill(0), conversion: Array(DAYS).fill(0) };
     }
 
-    // Parse trend arrays and compute normalization
-    const keywords = rows.map((r) => {
+    const keywords = typedRows.map((r) => {
       const trendFull = parseJsonField<number[]>(r.trend, []);
-      const trend = trendFull.slice(-DAYS); // last 7 data points
+      const trend = trendFull.slice(-DAYS);
       const avg = trend.length > 0 ? trend.reduce((a, b) => a + b, 0) / trend.length : 1;
-      return { trend, avg, sales: r.sales, spend: r.spend, conversion: r.conversion };
+      return { trend, avg, sales: r.sales ?? 0, spend: r.spend ?? 0, conversion: r.conversion ?? 0 };
     });
 
-    // Normalize sales: distribute each keyword's actual sales across days by trend weight
     const sales = Array(DAYS).fill(0);
     const spend = Array(DAYS).fill(0);
     const conversionWeighted = Array(DAYS).fill(0);
@@ -204,7 +197,6 @@ export class DashboardService {
       }
     }
 
-    // Round and compute acos
     const salesRounded = sales.map((v) => Math.round(v));
     const acos = sales.map((s, i) => s > 0 ? Math.round((spend[i] / s) * 1000) / 10 : 0);
     const conversion = conversionWeighted.map((v, i) =>
@@ -214,14 +206,15 @@ export class DashboardService {
     return { sales: salesRounded, acos, conversion };
   }
 
-  getDashboardData() {
-    return {
-      stats: this.getStats(),
-      systemMetrics: this.getSystemMetrics(),
-      businessMetrics: this.getBusinessMetrics(),
-      alerts: this.getAlerts(),
-      workflows: this.getWorkflowStatuses(),
-      trends: this.getTrends(),
-    };
+  async getDashboardData() {
+    const [stats, systemMetrics, businessMetrics, alerts, workflows, trends] = await Promise.all([
+      this.getStats(),
+      this.getSystemMetrics(),
+      this.getBusinessMetrics(),
+      this.getAlerts(),
+      this.getWorkflowStatuses(),
+      this.getTrends(),
+    ]);
+    return { stats, systemMetrics, businessMetrics, alerts, workflows, trends };
   }
 }

@@ -1,8 +1,4 @@
-/**
- * FlowMind RAK — Workflow Repository
- * Data access for all workflow entities
- */
-import { getDb } from "../db";
+import { getSupabase } from "../db";
 import type {
   DataSource, ProductKeyword, PainPoint, GeneratedImg,
   StoryboardFrame, AdKeyword, AdPosition, CategoryRec,
@@ -11,29 +7,27 @@ import type {
 } from "../types";
 import { paginatedQuery, type PaginatedResult, parseJsonField } from "./base";
 
-// ========== 选品 ==========
-
-export function getDataSources(): DataSource[] {
-  const db = getDb();
-  const rows = db.query("SELECT * FROM wf_data_sources ORDER BY id").all() as Array<{
+export async function getDataSources(): Promise<DataSource[]> {
+  const sb = getSupabase();
+  const { data } = await sb.from("wf_data_sources").select("*").order("id", { ascending: true });
+  const rows = (data as Array<{
     id: string; name: string; enabled: number; status: string; progress: number;
-  }>;
+  }>) ?? [];
   return rows.map((r) => ({
     id: r.id, name: r.name, enabled: r.enabled === 1,
     status: r.status as DataSource["status"], progress: r.progress,
   }));
 }
 
-export function getProductKeywords(marketplace?: string): ProductKeyword[] {
-  const db = getDb();
-  let sql = "SELECT * FROM wf_product_keywords";
-  const params: unknown[] = [];
-  if (marketplace) { sql += " WHERE marketplace = ?"; params.push(marketplace); }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rows = db.query(sql).all(...(params as any[])) as Array<{
+export async function getProductKeywords(marketplace?: string): Promise<ProductKeyword[]> {
+  const sb = getSupabase();
+  let query = sb.from("wf_product_keywords").select("*");
+  if (marketplace) query = query.eq("marketplace", marketplace);
+  const { data } = await query;
+  const rows = (data as Array<{
     keyword: string; volume: number; cpc: number; competition: number;
     supply_demand: number; trend: string; ai_tag: string;
-  }>;
+  }>) ?? [];
   return rows.map((r) => ({
     keyword: r.keyword, volume: r.volume, cpc: r.cpc, competition: r.competition,
     supplyDemand: r.supply_demand, trend: parseJsonField<number[]>(r.trend, []),
@@ -41,31 +35,28 @@ export function getProductKeywords(marketplace?: string): ProductKeyword[] {
   }));
 }
 
-export function getPainPoints(): PainPoint[] {
-  const db = getDb();
-  const rows = db.query("SELECT * FROM wf_pain_points ORDER BY count DESC").all() as Array<{
+export async function getPainPoints(): Promise<PainPoint[]> {
+  const sb = getSupabase();
+  const { data } = await sb.from("wf_pain_points").select("*").order("count", { ascending: false });
+  const rows = (data as Array<{
     category: string; count: number; pct: number; examples: string;
-  }>;
+  }>) ?? [];
   return rows.map((r) => ({
     category: r.category, count: r.count, pct: r.pct,
     examples: parseJsonField<string[]>(r.examples, []),
   }));
 }
 
-// ========== AI 制图 ==========
-
-export function getImages(type?: string): GeneratedImg[] {
-  const db = getDb();
-  let sql = "SELECT * FROM wf_generated_images";
-  const params: unknown[] = [];
-  if (type) { sql += " WHERE type = ?"; params.push(type); }
-  sql += " ORDER BY created_at DESC";
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rows = db.query(sql).all(...(params as any[])) as Array<{
+export async function getImages(type?: string): Promise<GeneratedImg[]> {
+  const sb = getSupabase();
+  let query = sb.from("wf_generated_images").select("*");
+  if (type) query = query.eq("type", type);
+  query = query.order("created_at", { ascending: false });
+  const { data } = await query;
+  const rows = (data as Array<{
     id: string; type: string; url: string; clip_score: number; ctr_score: number;
     overall: number; is_best: number; prompt: string; model: string; seed: number; revised_prompt: string | null;
-  }>;
+  }>) ?? [];
   return rows.map((r) => ({
     id: r.id, type: r.type, url: r.url || undefined, clipScore: r.clip_score, ctrScore: r.ctr_score,
     overall: r.overall, isBest: r.is_best === 1, prompt: r.prompt,
@@ -73,60 +64,59 @@ export function getImages(type?: string): GeneratedImg[] {
   }));
 }
 
-export function insertImage(img: { id: string; type: string; url: string; prompt: string; model: string; revisedPrompt?: string }): void {
-  const db = getDb();
-  db.run(
-    "INSERT INTO wf_generated_images (id, type, url, prompt, model, revised_prompt) VALUES (?, ?, ?, ?, ?, ?)",
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    [img.id, img.type, img.url, img.prompt, img.model, img.revisedPrompt ?? null] as any[],
-  );
+export async function insertImage(img: { id: string; type: string; url: string; prompt: string; model: string; revisedPrompt?: string }): Promise<void> {
+  const sb = getSupabase();
+  await sb.from("wf_generated_images").insert({
+    id: img.id,
+    type: img.type,
+    url: img.url,
+    prompt: img.prompt,
+    model: img.model,
+    revised_prompt: img.revisedPrompt ?? null,
+  });
 }
 
-export function updateImage(id: string, data: Partial<GeneratedImg>): GeneratedImg | null {
-  const db = getDb();
-  const sets: string[] = [];
-  const params: unknown[] = [];
+export async function updateImage(id: string, data: Partial<GeneratedImg>): Promise<GeneratedImg | null> {
+  const sb = getSupabase();
+  const updateData: Record<string, unknown> = {};
 
-  if (data.isBest !== undefined) { sets.push("is_best = ?"); params.push(data.isBest ? 1 : 0); }
-  if (data.clipScore !== undefined) { sets.push("clip_score = ?"); params.push(data.clipScore); }
-  if (data.ctrScore !== undefined) { sets.push("ctr_score = ?"); params.push(data.ctrScore); }
-  if (data.overall !== undefined) { sets.push("overall = ?"); params.push(data.overall); }
+  if (data.isBest !== undefined) updateData.is_best = data.isBest ? 1 : 0;
+  if (data.clipScore !== undefined) updateData.clip_score = data.clipScore;
+  if (data.ctrScore !== undefined) updateData.ctr_score = data.ctrScore;
+  if (data.overall !== undefined) updateData.overall = data.overall;
 
-  if (sets.length === 0) return getImages().find((i) => i.id === id) ?? null;
-  params.push(id);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  db.run(`UPDATE wf_generated_images SET ${sets.join(", ")} WHERE id = ?`, params as any[]);
-  return getImages().find((i) => i.id === id) ?? null;
+  if (Object.keys(updateData).length > 0) {
+    await sb.from("wf_generated_images").update(updateData).eq("id", id);
+  }
+
+  const imgs = await getImages();
+  return imgs.find((i) => i.id === id) ?? null;
 }
 
-export function getStoryboardFrames(): StoryboardFrame[] {
-  const db = getDb();
-  const rows = db.query("SELECT * FROM wf_storyboard_frames ORDER BY sort_order").all() as Array<{
+export async function getStoryboardFrames(): Promise<StoryboardFrame[]> {
+  const sb = getSupabase();
+  const { data } = await sb.from("wf_storyboard_frames").select("*").order("sort_order", { ascending: true });
+  const rows = (data as Array<{
     id: string; description: string; duration: string; script: string;
     camera: string; source: string;
-  }>;
+  }>) ?? [];
   return rows.map((r) => ({
     id: r.id, desc: r.description, duration: r.duration,
     script: r.script, camera: r.camera, source: r.source,
   }));
 }
 
-// ========== 广告 ==========
-
-export function getAdKeywords(filters?: { type?: string; tag?: string }): AdKeyword[] {
-  const db = getDb();
-  let sql = "SELECT * FROM wf_ad_keywords WHERE 1=1";
-  const params: unknown[] = [];
-
-  if (filters?.type) { sql += " AND type = ?"; params.push(filters.type); }
-  if (filters?.tag) { sql += " AND tag = ?"; params.push(filters.tag); }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rows = db.query(sql).all(...(params as any[])) as Array<{
+export async function getAdKeywords(filters?: { type?: string; tag?: string }): Promise<AdKeyword[]> {
+  const sb = getSupabase();
+  let query = sb.from("wf_ad_keywords").select("*");
+  if (filters?.type) query = query.eq("type", filters.type);
+  if (filters?.tag) query = query.eq("tag", filters.tag);
+  const { data } = await query;
+  const rows = (data as Array<{
     id: string; keyword: string; impressions: number; clicks: number;
     spend: number; sales: number; acos: number; conversion: number;
     cpc: number; tag: string; type: string; trend: string;
-  }>;
+  }>) ?? [];
   return rows.map((r) => ({
     id: r.id, keyword: r.keyword, impressions: r.impressions, clicks: r.clicks,
     spend: r.spend, sales: r.sales, acos: r.acos, conversion: r.conversion,
@@ -135,83 +125,84 @@ export function getAdKeywords(filters?: { type?: string; tag?: string }): AdKeyw
   }));
 }
 
-export function updateAdKeyword(id: string, data: Partial<AdKeyword>): AdKeyword | null {
-  const db = getDb();
-  const sets: string[] = [];
-  const params: unknown[] = [];
+export async function updateAdKeyword(id: string, data: Partial<AdKeyword>): Promise<AdKeyword | null> {
+  const sb = getSupabase();
+  const updateData: Record<string, unknown> = {};
 
-  if (data.cpc !== undefined) { sets.push("cpc = ?"); params.push(data.cpc); }
-  if (data.tag !== undefined) { sets.push("tag = ?"); params.push(data.tag); }
+  if (data.cpc !== undefined) updateData.cpc = data.cpc;
+  if (data.tag !== undefined) updateData.tag = data.tag;
 
-  if (sets.length === 0) return getAdKeywords().find((k) => k.id === id) ?? null;
-  params.push(id);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  db.run(`UPDATE wf_ad_keywords SET ${sets.join(", ")} WHERE id = ?`, params as any[]);
-  return getAdKeywords().find((k) => k.id === id) ?? null;
+  if (Object.keys(updateData).length > 0) {
+    await sb.from("wf_ad_keywords").update(updateData).eq("id", id);
+  }
+
+  const kws = await getAdKeywords();
+  return kws.find((k) => k.id === id) ?? null;
 }
 
-export function getAdPositions(): AdPosition[] {
-  const db = getDb();
-  const rows = db.query("SELECT * FROM wf_ad_positions ORDER BY id").all() as Array<{
+export async function getAdPositions(): Promise<AdPosition[]> {
+  const sb = getSupabase();
+  const { data } = await sb.from("wf_ad_positions").select("*").order("id", { ascending: true });
+  const rows = (data as Array<{
     position: string; share: number; trend: string;
-  }>;
+  }>) ?? [];
   return rows.map((r) => ({
     position: r.position, share: r.share,
     trend: parseJsonField<number[]>(r.trend, []),
   }));
 }
 
-// ========== 商品发布 ==========
-
-export function getCategoryRecs(): CategoryRec[] {
-  const db = getDb();
-  const rows = db.query("SELECT * FROM wf_categories ORDER BY confidence DESC").all() as Array<{
+export async function getCategoryRecs(): Promise<CategoryRec[]> {
+  const sb = getSupabase();
+  const { data } = await sb.from("wf_categories").select("*").order("confidence", { ascending: false });
+  const rows = (data as Array<{
     id: string; name: string; confidence: number; reason: string; bsr: number; fee: number;
-  }>;
+  }>) ?? [];
   return rows.map((r) => ({
     id: r.id, name: r.name, confidence: r.confidence,
     reason: r.reason, bsr: r.bsr, fee: r.fee,
   }));
 }
 
-export function getBulletPoints(): BulletPoint[] {
-  const db = getDb();
-  const rows = db.query("SELECT * FROM wf_bullet_points ORDER BY seo_score DESC").all() as Array<{
+export async function getBulletPoints(): Promise<BulletPoint[]> {
+  const sb = getSupabase();
+  const { data } = await sb.from("wf_bullet_points").select("*").order("seo_score", { ascending: false });
+  const rows = (data as Array<{
     id: string; title: string; content: string; seo_score: number; rufus: number;
-  }>;
+  }>) ?? [];
   return rows.map((r) => ({
     id: r.id, title: r.title, content: r.content,
     seoScore: r.seo_score, rufus: r.rufus === 1,
   }));
 }
 
-export function getInfringementWords(): InfringementWord[] {
-  const db = getDb();
-  const rows = db.query("SELECT * FROM wf_infringement_words ORDER BY id").all() as Array<{
+export async function getInfringementWords(): Promise<InfringementWord[]> {
+  const sb = getSupabase();
+  const { data } = await sb.from("wf_infringement_words").select("*").order("id", { ascending: true });
+  const rows = (data as Array<{
     word: string; type: string; risk: string; action: string;
-  }>;
+  }>) ?? [];
   return rows.map((r) => ({
     word: r.word, type: r.type as InfringementWord["type"],
     risk: r.risk, action: r.action,
   }));
 }
 
-// ========== 库存 ==========
-
-export function getInventoryItems(filters?: {
+export async function getInventoryItems(filters?: {
   status?: string; page?: number; pageSize?: number;
-}): PaginatedResult<InventoryItem> {
-  let where = "WHERE 1=1";
-  const params: unknown[] = [];
-
-  if (filters?.status) { where += " AND status = ?"; params.push(filters.status); }
-
-  const result = paginatedQuery<{
+}): Promise<PaginatedResult<InventoryItem>> {
+  const result = await paginatedQuery<{
     id: string; sku: string; name: string; stock: number; daily_sales: number;
     ratio_days: number; stockout_date: string | null; restock_qty: number;
     restock_date: string | null; status: string; trend: string;
     avg_cost: number; ship_days: number;
-  }>("wf_inventory", where, params, filters?.page ?? 1, filters?.pageSize ?? 20);
+  }>(
+    "wf_inventory",
+    (qb) => (filters?.status ? qb.eq("status", filters.status) : qb),
+    filters?.page ?? 1,
+    filters?.pageSize ?? 20,
+    { column: "sku", ascending: true },
+  );
 
   return {
     items: result.items.map((r) => ({
@@ -226,14 +217,17 @@ export function getInventoryItems(filters?: {
   };
 }
 
-export function getRestockSuggestions(): RestockSuggestion[] {
-  const db = getDb();
-  const rows = db.query(
-    `SELECT * FROM wf_inventory WHERE restock_qty > 0 ORDER BY ratio_days ASC`,
-  ).all() as Array<{
+export async function getRestockSuggestions(): Promise<RestockSuggestion[]> {
+  const sb = getSupabase();
+  const { data } = await sb
+    .from("wf_inventory")
+    .select("*")
+    .gt("restock_qty", 0)
+    .order("ratio_days", { ascending: true });
+  const rows = (data as Array<{
     id: string; sku: string; name: string; restock_qty: number;
     ratio_days: number; restock_date: string | null; avg_cost: number; ship_days: number;
-  }>;
+  }>) ?? [];
 
   return rows.map((r) => ({
     id: `rs-${r.sku}`, sku: r.sku, name: r.name,
@@ -245,18 +239,14 @@ export function getRestockSuggestions(): RestockSuggestion[] {
   }));
 }
 
-// ========== 竞品分析 ==========
-
-export function getCompetitorKeywords(type?: string): KeywordItem[] {
-  const db = getDb();
-  let sql = "SELECT * FROM wf_competitor_keywords";
-  const params: unknown[] = [];
-  if (type) { sql += " WHERE type = ?"; params.push(type); }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rows = db.query(sql).all(...(params as any[])) as Array<{
+export async function getCompetitorKeywords(type?: string): Promise<KeywordItem[]> {
+  const sb = getSupabase();
+  let query = sb.from("wf_competitor_keywords").select("*");
+  if (type) query = query.eq("type", type);
+  const { data } = await query;
+  const rows = (data as Array<{
     keyword: string; volume: number; competition: number; cpc: number; trend: string; type: string;
-  }>;
+  }>) ?? [];
   return rows.map((r) => ({
     keyword: r.keyword, volume: r.volume, competition: r.competition,
     cpc: r.cpc, trend: parseJsonField<number[]>(r.trend, []),
@@ -264,12 +254,13 @@ export function getCompetitorKeywords(type?: string): KeywordItem[] {
   }));
 }
 
-export function getCompetitors(): CompetitorEntry[] {
-  const db = getDb();
-  const rows = db.query("SELECT * FROM wf_competitors ORDER BY rank").all() as Array<{
+export async function getCompetitors(): Promise<CompetitorEntry[]> {
+  const sb = getSupabase();
+  const { data } = await sb.from("wf_competitors").select("*").order("rank", { ascending: true });
+  const rows = (data as Array<{
     id: string; name: string; sp_count: number; sb_count: number;
     sd_count: number; keywords: number; rank: number; strategy: string;
-  }>;
+  }>) ?? [];
   return rows.map((r) => ({
     id: r.id, name: r.name, spCount: r.sp_count, sbCount: r.sb_count,
     sdCount: r.sd_count, keywords: r.keywords, rank: r.rank,
@@ -277,14 +268,13 @@ export function getCompetitors(): CompetitorEntry[] {
   }));
 }
 
-// ========== 工作流状态 ==========
-
-export function getWorkflowStatuses(): WorkflowStatus[] {
-  const db = getDb();
-  const rows = db.query("SELECT * FROM wf_workflow_statuses ORDER BY id").all() as Array<{
+export async function getWorkflowStatuses(): Promise<WorkflowStatus[]> {
+  const sb = getSupabase();
+  const { data } = await sb.from("wf_workflow_statuses").select("*").order("id", { ascending: true });
+  const rows = (data as Array<{
     id: string; name: string; href: string; status: string;
     last_run: string | null; run_count: number; success_rate: number;
-  }>;
+  }>) ?? [];
   return rows.map((r) => ({
     id: r.id, name: r.name, href: r.href,
     status: r.status as WorkflowStatus["status"],
@@ -292,135 +282,162 @@ export function getWorkflowStatuses(): WorkflowStatus[] {
   }));
 }
 
-export function updateWorkflowStatus(id: string, data: { status?: string; lastRun?: string; runCount?: number; successRate?: number }): void {
-  const db = getDb();
-  const sets: string[] = ["updated_at = datetime('now')"];
-  const params: unknown[] = [];
+export async function updateWorkflowStatus(id: string, data: { status?: string; lastRun?: string; runCount?: number; successRate?: number }): Promise<void> {
+  const sb = getSupabase();
+  const updateData: Record<string, unknown> = {};
 
-  if (data.status !== undefined) { sets.push("status = ?"); params.push(data.status); }
-  if (data.lastRun !== undefined) { sets.push("last_run = ?"); params.push(data.lastRun); }
-  if (data.runCount !== undefined) { sets.push("run_count = ?"); params.push(data.runCount); }
-  if (data.successRate !== undefined) { sets.push("success_rate = ?"); params.push(data.successRate); }
+  if (data.status !== undefined) updateData.status = data.status;
+  if (data.lastRun !== undefined) updateData.last_run = data.lastRun;
+  if (data.runCount !== undefined) updateData.run_count = data.runCount;
+  if (data.successRate !== undefined) updateData.success_rate = data.successRate;
 
-  params.push(id);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  db.run(`UPDATE wf_workflow_statuses SET ${sets.join(", ")} WHERE id = ?`, params as any[]);
+  await sb.from("wf_workflow_statuses").update(updateData).eq("id", id);
 }
 
-// ========== 生成结果: 广告分析 ==========
-
-export function insertAdAnalysis(data: {
+export async function insertAdAnalysis(data: {
   id: string; keyword: string; currentData: unknown; resultJson: unknown;
-}): void {
-  const db = getDb();
-  db.run(
-    "INSERT INTO wf_ad_analyses (id, keyword, current_data, result_json) VALUES (?, ?, ?, ?)",
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    [data.id, data.keyword, JSON.stringify(data.currentData), JSON.stringify(data.resultJson)] as any[],
-  );
+}): Promise<void> {
+  const sb = getSupabase();
+  await sb.from("wf_ad_analyses").insert({
+    id: data.id,
+    keyword: data.keyword,
+    current_data: JSON.stringify(data.currentData),
+    result_json: JSON.stringify(data.resultJson),
+  });
 }
 
-export function getRecentAdAnalyses(limit = 10): Array<{ id: string; keyword: string; resultJson: unknown; createdAt: string }> {
-  const db = getDb();
-  const rows = db.query("SELECT * FROM wf_ad_analyses ORDER BY created_at DESC LIMIT ?").all(limit) as Array<{
+export async function getRecentAdAnalyses(limit = 10): Promise<Array<{ id: string; keyword: string; resultJson: unknown; createdAt: string }>> {
+  const sb = getSupabase();
+  const { data } = await sb
+    .from("wf_ad_analyses")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  const rows = (data as Array<{
     id: string; keyword: string; result_json: string; created_at: string;
-  }>;
+  }>) ?? [];
   return rows.map((r) => ({
     id: r.id, keyword: r.keyword,
     resultJson: parseJsonField(r.result_json, {}), createdAt: r.created_at,
   }));
 }
 
-// ========== 生成结果: 选品 ==========
-
-export function insertResearchResult(data: {
+export async function insertResearchResult(data: {
   id: string; marketplace: string; category: string; keywords: string[]; sources: string[]; resultJson: unknown;
-}): void {
-  const db = getDb();
-  db.run(
-    "INSERT INTO wf_generated_research (id, marketplace, category, keywords, sources, result_json) VALUES (?, ?, ?, ?, ?, ?)",
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    [data.id, data.marketplace, data.category, JSON.stringify(data.keywords), JSON.stringify(data.sources), JSON.stringify(data.resultJson)] as any[],
-  );
+}): Promise<void> {
+  const sb = getSupabase();
+  await sb.from("wf_generated_research").insert({
+    id: data.id,
+    marketplace: data.marketplace,
+    category: data.category,
+    keywords: JSON.stringify(data.keywords),
+    sources: JSON.stringify(data.sources),
+    result_json: JSON.stringify(data.resultJson),
+  });
 }
 
-export function getRecentResearchResults(limit = 10): Array<{ id: string; marketplace: string; category: string; resultJson: unknown; createdAt: string }> {
-  const db = getDb();
-  const rows = db.query("SELECT * FROM wf_generated_research ORDER BY created_at DESC LIMIT ?").all(limit) as Array<{
+export async function getRecentResearchResults(limit = 10): Promise<Array<{ id: string; marketplace: string; category: string; resultJson: unknown; createdAt: string }>> {
+  const sb = getSupabase();
+  const { data } = await sb
+    .from("wf_generated_research")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  const rows = (data as Array<{
     id: string; marketplace: string; category: string; result_json: string; created_at: string;
-  }>;
+  }>) ?? [];
   return rows.map((r) => ({
     id: r.id, marketplace: r.marketplace, category: r.category,
     resultJson: parseJsonField(r.result_json, {}), createdAt: r.created_at,
   }));
 }
 
-// ========== 生成结果: 上架 ==========
-
-export function insertListingResult(data: {
+export async function insertListingResult(data: {
   id: string; keyword: string; category: string; language: string;
   title: string; bullets: string[]; description: string; searchTerms: string[];
   seoScore: number; estimatedCtr: string; resultJson: unknown;
-}): void {
-  const db = getDb();
-  db.run(
-    "INSERT INTO wf_generated_listings (id, keyword, category, language, title, bullets, description, search_terms, seo_score, estimated_ctr, result_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    [data.id, data.keyword, data.category, data.language, data.title, JSON.stringify(data.bullets), data.description, JSON.stringify(data.searchTerms), data.seoScore, data.estimatedCtr, JSON.stringify(data.resultJson)] as any[],
-  );
+}): Promise<void> {
+  const sb = getSupabase();
+  await sb.from("wf_generated_listings").insert({
+    id: data.id,
+    keyword: data.keyword,
+    category: data.category,
+    language: data.language,
+    title: data.title,
+    bullets: JSON.stringify(data.bullets),
+    description: data.description,
+    search_terms: JSON.stringify(data.searchTerms),
+    seo_score: data.seoScore,
+    estimated_ctr: data.estimatedCtr,
+    result_json: JSON.stringify(data.resultJson),
+  });
 }
 
-export function getRecentListingResults(limit = 10): Array<{ id: string; keyword: string; title: string; resultJson: unknown; createdAt: string }> {
-  const db = getDb();
-  const rows = db.query("SELECT * FROM wf_generated_listings ORDER BY created_at DESC LIMIT ?").all(limit) as Array<{
+export async function getRecentListingResults(limit = 10): Promise<Array<{ id: string; keyword: string; title: string; resultJson: unknown; createdAt: string }>> {
+  const sb = getSupabase();
+  const { data } = await sb
+    .from("wf_generated_listings")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  const rows = (data as Array<{
     id: string; keyword: string; title: string; result_json: string; created_at: string;
-  }>;
+  }>) ?? [];
   return rows.map((r) => ({
     id: r.id, keyword: r.keyword, title: r.title,
     resultJson: parseJsonField(r.result_json, {}), createdAt: r.created_at,
   }));
 }
 
-// ========== 生成结果: 竞品分析 ==========
-
-export function insertCompetitorAnalysis(data: {
+export async function insertCompetitorAnalysis(data: {
   id: string; asins: string[]; marketplace: string; keywords: string[]; resultJson: unknown;
-}): void {
-  const db = getDb();
-  db.run(
-    "INSERT INTO wf_generated_competitor_analysis (id, asins, marketplace, keywords, result_json) VALUES (?, ?, ?, ?, ?)",
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    [data.id, JSON.stringify(data.asins), data.marketplace, JSON.stringify(data.keywords), JSON.stringify(data.resultJson)] as any[],
-  );
+}): Promise<void> {
+  const sb = getSupabase();
+  await sb.from("wf_generated_competitor_analysis").insert({
+    id: data.id,
+    asins: JSON.stringify(data.asins),
+    marketplace: data.marketplace,
+    keywords: JSON.stringify(data.keywords),
+    result_json: JSON.stringify(data.resultJson),
+  });
 }
 
-export function getRecentCompetitorAnalyses(limit = 10): Array<{ id: string; asins: string[]; resultJson: unknown; createdAt: string }> {
-  const db = getDb();
-  const rows = db.query("SELECT * FROM wf_generated_competitor_analysis ORDER BY created_at DESC LIMIT ?").all(limit) as Array<{
+export async function getRecentCompetitorAnalyses(limit = 10): Promise<Array<{ id: string; asins: string[]; resultJson: unknown; createdAt: string }>> {
+  const sb = getSupabase();
+  const { data } = await sb
+    .from("wf_generated_competitor_analysis")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  const rows = (data as Array<{
     id: string; asins: string; result_json: string; created_at: string;
-  }>;
+  }>) ?? [];
   return rows.map((r) => ({
     id: r.id, asins: parseJsonField<string[]>(r.asins, []),
     resultJson: parseJsonField(r.result_json, {}), createdAt: r.created_at,
   }));
 }
 
-// ========== 生成结果: 补货订单 ==========
-
-export function insertRestockOrder(data: { id: string; items: Array<{ sku: string; quantity: number; shipMethod: string }>; status: string }): void {
-  const db = getDb();
-  db.run(
-    "INSERT INTO wf_restock_orders (id, items, status, total_items) VALUES (?, ?, ?, ?)",
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    [data.id, JSON.stringify(data.items), data.status, data.items.length] as any[],
-  );
+export async function insertRestockOrder(data: { id: string; items: Array<{ sku: string; quantity: number; shipMethod: string }>; status: string }): Promise<void> {
+  const sb = getSupabase();
+  await sb.from("wf_restock_orders").insert({
+    id: data.id,
+    items: JSON.stringify(data.items),
+    status: data.status,
+    total_items: data.items.length,
+  });
 }
 
-export function getRecentRestockOrders(limit = 10): Array<{ id: string; items: Array<{ sku: string; quantity: number; shipMethod: string }>; status: string; totalItems: number; createdAt: string }> {
-  const db = getDb();
-  const rows = db.query("SELECT * FROM wf_restock_orders ORDER BY created_at DESC LIMIT ?").all(limit) as Array<{
+export async function getRecentRestockOrders(limit = 10): Promise<Array<{ id: string; items: Array<{ sku: string; quantity: number; shipMethod: string }>; status: string; totalItems: number; createdAt: string }>> {
+  const sb = getSupabase();
+  const { data } = await sb
+    .from("wf_restock_orders")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  const rows = (data as Array<{
     id: string; items: string; status: string; total_items: number; created_at: string;
-  }>;
+  }>) ?? [];
   return rows.map((r) => ({
     id: r.id,
     items: parseJsonField<Array<{ sku: string; quantity: number; shipMethod: string }>>(r.items, []),

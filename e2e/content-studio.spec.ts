@@ -22,12 +22,13 @@ test.describe("Content Studio", () => {
     ).toBeVisible({ timeout: 5000 });
   });
 
-  test("hot topics radar renders seeded data", async ({ page }) => {
+  test("hot topics radar renders empty state without mock data", async ({ page }) => {
     await page.goto("/content-studio");
-    // DB 种子热点（小红书）：至少一个热词可见
+    // 热点雷达区块可见；无 seed 演示词
     await expect(
-      page.locator("text=通勤好物").first()
+      page.locator("text=热点雷达").first()
     ).toBeVisible({ timeout: 15000 });
+    await expect(page.locator("text=通勤好物")).toHaveCount(0);
   });
 
   test("一键生成 with empty subject shows validation hint", async ({ page }) => {
@@ -44,7 +45,7 @@ test.describe("Content Studio", () => {
     await expect(
       page.locator("text=最近成果").first()
     ).toBeVisible({ timeout: 15000 });
-    // 视频本地化种子（lt-demo）应出现在成果库
+    // 成果库区块结构可见（真实数据为空时展示空态）
     await expect(
       page.locator("text=本地化视频").first()
     ).toBeVisible({ timeout: 15000 });

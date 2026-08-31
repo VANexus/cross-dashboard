@@ -2,27 +2,36 @@
  * FlowMind RAK — Context Assembler
  * Gathers all data needed for an agent's "worldview"
  */
-import { getDb } from "../db";
+import { getSupabase } from "../db";
 import * as memoryRepo from "../repositories/memory.repository";
 import type { AgentContext } from "./brain";
 
-export function assembleContext(agentId: string): AgentContext {
-  const db = getDb();
+export async function assembleContext(agentId: string): Promise<AgentContext> {
+  const sb = getSupabase();
 
   // Pending messages for this agent
-  const messages = db.query(
-    "SELECT id, from_agent, type, payload FROM rak_messages WHERE (to_agent = ? OR to_agent = '*') AND status = 'pending' ORDER BY created_at DESC LIMIT 10"
-  ).all(agentId) as Array<{ id: string; from_agent: string; type: string; payload: string }>;
+  const { data: msgRows } = await sb
+    .from("rak_messages")
+    .select("id, from_agent, type, payload, created_at")
+    .or(`to_agent.eq.${agentId},to_agent.eq.*`)
+    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(10);
+  const messages = (msgRows ?? []) as Array<{ id: string; from_agent: string; type: string; payload: string }>;
 
   // Memories: agent's private + global presets
-  const privateMemories = memoryRepo.getMemoriesForAgent(agentId, 5);
-  const globalPresets = memoryRepo.getGlobalPresets();
+  const [privateMemories, globalPresets] = await Promise.all([
+    memoryRepo.getMemoriesForAgent(agentId, 5),
+    memoryRepo.getGlobalPresets(),
+  ]);
   const memories = [...privateMemories, ...globalPresets];
 
   // Active tasks assigned to this agent
-  const allTasks = db.query(
-    "SELECT id, title, status, priority, assigned_agents FROM tasks WHERE status IN ('running', 'pending')"
-  ).all() as Array<{ id: string; title: string; status: string; priority: string; assigned_agents: string }>;
+  const { data: taskRows } = await sb
+    .from("tasks")
+    .select("id, title, status, priority, assigned_agents")
+    .in("status", ["running", "pending"]);
+  const allTasks = (taskRows ?? []) as Array<{ id: string; title: string; status: string; priority: string; assigned_agents: string }>;
 
   const activeTasks = allTasks
     .filter((t) => {
@@ -31,16 +40,26 @@ export function assembleContext(agentId: string): AgentContext {
     .map((t) => ({ id: t.id, title: t.title, status: t.status, priority: t.priority }));
 
   // Unresolved risk events
-  const risks = db.query(
-    "SELECT id, level, title, resolved FROM risk_events WHERE resolved = 0 ORDER BY timestamp DESC LIMIT 10"
-  ).all() as Array<{ id: string; level: string; title: string; resolved: number }>;
+  const { data: riskRows } = await sb
+    .from("risk_events")
+    .select("id, level, title, resolved, timestamp")
+    .eq("resolved", false)
+    .order("timestamp", { ascending: false })
+    .limit(10);
+  const risks = (riskRows ?? []) as Array<{ id: string; level: string; title: string; resolved: boolean | number }>;
 
   // System status
-  const onlineAgents = (db.query("SELECT COUNT(*) as c FROM agents WHERE status = 'online'").get() as { c: number }).c;
-  const busyAgents = (db.query("SELECT COUNT(*) as c FROM agents WHERE status = 'busy'").get() as { c: number }).c;
-  const taskQueueLength = (db.query("SELECT COUNT(*) as c FROM tasks WHERE status IN ('pending', 'running')").get() as { c: number }).c;
-  const totalTasks = (db.query("SELECT COUNT(*) as c FROM tasks").get() as { c: number }).c;
-  const failedTasks = (db.query("SELECT COUNT(*) as c FROM tasks WHERE status = 'failed'").get() as { c: number }).c;
+  const { count: onlineAgentCount } = await sb.from("agents").select("*", { count: "exact", head: true }).eq("status", "online");
+  const { count: busyAgentCount } = await sb.from("agents").select("*", { count: "exact", head: true }).eq("status", "busy");
+  const { count: queuedCount } = await sb.from("tasks").select("*", { count: "exact", head: true }).in("status", ["pending", "running"]);
+  const { count: totalCount } = await sb.from("tasks").select("*", { count: "exact", head: true });
+  const { count: failedCount } = await sb.from("tasks").select("*", { count: "exact", head: true }).eq("status", "failed");
+
+  const onlineAgents = onlineAgentCount ?? 0;
+  const busyAgents = busyAgentCount ?? 0;
+  const taskQueueLength = queuedCount ?? 0;
+  const totalTasks = totalCount ?? 0;
+  const failedTasks = failedCount ?? 0;
   const errorRate = totalTasks > 0 ? Math.round((failedTasks / totalTasks) * 1000) / 10 : 0;
 
   return {
@@ -52,7 +71,7 @@ export function assembleContext(agentId: string): AgentContext {
     })),
     memories,
     activeTasks,
-    risks: risks.map((r) => ({ ...r, resolved: r.resolved === 1 })),
+    risks: risks.map((r) => ({ ...r, resolved: r.resolved === 1 || r.resolved === true })),
     systemStatus: { onlineAgents, busyAgents, taskQueueLength, errorRate },
   };
 }

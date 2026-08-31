@@ -6,14 +6,14 @@ export async function StatsIsland() {
   await getDbAsync();
   const dashboardService = new DashboardService();
   const workflowService = new WorkflowService();
-  const dashboard = dashboardService.getDashboardData();
-  const workflows = workflowService.getWorkflowStatuses();
+  const dashboard = await dashboardService.getDashboardData();
+  const workflows = await workflowService.getWorkflowStatuses();
   const runningCount = workflows.filter((w) => w.status === "running").length;
   const warningCount = workflows.filter((w) => w.status === "warning").length;
 
   return (
     <DashboardStatsCards
-      stats={dashboard.stats}
+      stats={dashboard.stats ?? { totalAgents: 0, onlineAgents: 0, busyAgents: 0, errorAgents: 0, offlineAgents: 0, totalTasks: 0, runningTasks: 0, completedTasks: 0, failedTasks: 0, riskEvents24h: 0, activeCircuitBreakers: 0 }}
       workflowCount={workflows.length}
       runningCount={runningCount}
       warningCount={warningCount}

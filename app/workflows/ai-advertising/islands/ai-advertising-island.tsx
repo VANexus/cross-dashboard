@@ -5,10 +5,10 @@ import { getDbAsync } from "@/lib/db";
 export async function AiAdvertisingIsland() {
   await getDbAsync();
   const service = new WorkflowService();
-  const recentAnalyses = service.getRecentAdAnalyses(5);
+  const recentAnalyses = await service.getRecentAdAnalyses(5);
   return (
     <AiAdvertisingClient
-      adKeywords={service.getAdKeywords()}
+      adKeywords={await service.getAdKeywords()}
       recentAnalyses={recentAnalyses}
     />
   );

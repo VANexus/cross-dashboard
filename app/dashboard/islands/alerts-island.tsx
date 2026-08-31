@@ -6,7 +6,7 @@ import type { Alert } from "@/lib/types";
 export async function AlertsIsland() {
   await getDbAsync();
   const service = new DashboardService();
-  const dashboard = service.getDashboardData();
+  const dashboard = await service.getDashboardData();
   const alerts: Alert[] = dashboard.alerts ?? [];
   return <DashboardAlerts alerts={alerts} />;
 }

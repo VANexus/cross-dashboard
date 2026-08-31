@@ -11,7 +11,7 @@ export const PATCH = withDb(async (request: NextRequest,
   const { id } = await params;
   const parsed = parseBody(updateImageSchema, await request.json());
   if (!parsed.success) return badRequest(parsed.error);
-  const img = service.updateImage(id, parsed.data);
+  const img = await service.updateImage(id, parsed.data);
   if (!img) return notFound("Image");
   return success(img);
 });

@@ -6,19 +6,19 @@ import { getRecentCompetitorAnalyses } from "@/lib/repositories/workflow.reposit
 export async function CompetitorAdsIsland() {
   await getDbAsync();
   const service = new WorkflowService();
-  const allKeywords = service.getCompetitorKeywords();
+  const allKeywords = await service.getCompetitorKeywords();
   const keywords = {
     core: allKeywords.filter((k) => k.type === "core"),
     longtail: allKeywords.filter((k) => k.type === "longtail"),
     competitor: allKeywords.filter((k) => k.type === "competitor"),
   };
-  const recentAnalyses = getRecentCompetitorAnalyses(5);
+  const recentAnalyses = await getRecentCompetitorAnalyses(5);
 
   return (
     <CompetitorAdsClient
       keywords={keywords}
-      competitors={service.getCompetitors()}
-      adPositions={service.getAdPositions()}
+      competitors={await service.getCompetitors()}
+      adPositions={await service.getAdPositions()}
       targetingData={[]}
       recentAnalyses={recentAnalyses}
     />

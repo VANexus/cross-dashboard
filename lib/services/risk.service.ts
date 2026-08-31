@@ -6,42 +6,42 @@ import * as repo from "../repositories/risk.repository";
 import type { RiskEvent, HealthDimension, RiskIndicator, Pagination } from "../types";
 
 export class RiskService {
-  listEvents(filters?: {
+  async listEvents(filters?: {
     level?: string;
     resolved?: boolean;
     page?: number;
     pageSize?: number;
-  }): { items: RiskEvent[]; pagination: Pagination } {
-    return repo.getRiskEvents(filters);
+  }): Promise<{ items: RiskEvent[]; pagination: Pagination }> {
+    return await repo.getRiskEvents(filters);
   }
 
-  createEvent(data: {
+  async createEvent(data: {
     level: string;
     title: string;
     description?: string;
     source?: string;
     actions?: string[];
-  }): RiskEvent {
-    return repo.createRiskEvent(data);
+  }): Promise<RiskEvent> {
+    return await repo.createRiskEvent(data);
   }
 
-  resolveEvent(id: string, resolvedAt?: string): RiskEvent | null {
-    return repo.updateRiskEvent(id, { resolved: true, resolvedAt });
+  async resolveEvent(id: string, resolvedAt?: string): Promise<RiskEvent | null> {
+    return await repo.updateRiskEvent(id, { resolved: true, resolvedAt });
   }
 
-  getHealth(): {
+  async getHealth(): Promise<{
     score: number;
     dimensions: HealthDimension[];
     indicators: RiskIndicator[];
-  } {
-    return repo.getHealthData();
+  }> {
+    return await repo.getHealthData();
   }
 
-  getIsolationItems() {
-    return repo.getIsolationItems();
+  async getIsolationItems() {
+    return await repo.getIsolationItems();
   }
 
-  updateIsolation(index: number, checked: boolean): boolean {
-    return repo.updateIsolationItem(index, checked);
+  async updateIsolation(index: number, checked: boolean): Promise<boolean> {
+    return await repo.updateIsolationItem(index, checked);
   }
 }

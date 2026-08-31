@@ -78,6 +78,14 @@ const STATIC_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: "B端运营",
+    items: [
+      { label: "关键词趋势", href: "/b2b/keyword-trends", icon: <TrendingUp className="h-4 w-4" /> },
+      { label: "一键上架", href: "/b2b/listing", icon: <Package className="h-4 w-4" /> },
+      { label: "生图 Skill 库", href: "/b2b/image-skills", icon: <Palette className="h-4 w-4" /> },
+    ],
+  },
+  {
     label: "内容与采集",
     items: [
       { label: "内容创作中心", href: "/content-studio", icon: <PenLine className="h-4 w-4" /> },
@@ -111,22 +119,22 @@ const STATIC_GROUPS: NavGroup[] = [
  * 图标池 —— 动态、开放、零维护
  * 新 category 自动确定性分配图标，无需前端改代码
  */
-const ICON_POOL: React.ReactNode[] = [
-  <Workflow className="h-4 w-4" />,
-  <Palette className="h-4 w-4" />,
-  <Megaphone className="h-4 w-4" />,
-  <ShoppingCart className="h-4 w-4" />,
-  <Package className="h-4 w-4" />,
-  <BarChart3 className="h-4 w-4" />,
-  <TrendingUp className="h-4 w-4" />,
-  <Globe className="h-4 w-4" />,
-  <Brain className="h-4 w-4" />,
-  <Sparkles className="h-4 w-4" />,
-  <Shield className="h-4 w-4" />,
-  <Video className="h-4 w-4" />,
-  <FileSearch className="h-4 w-4" />,
-  <Bot className="h-4 w-4" />,
-  <Plug className="h-4 w-4" />,
+const ICON_POOL: { key: string; icon: React.ReactNode }[] = [
+  { key: "workflow", icon: <Workflow className="h-4 w-4" /> },
+  { key: "palette", icon: <Palette className="h-4 w-4" /> },
+  { key: "megaphone", icon: <Megaphone className="h-4 w-4" /> },
+  { key: "cart", icon: <ShoppingCart className="h-4 w-4" /> },
+  { key: "package", icon: <Package className="h-4 w-4" /> },
+  { key: "chart", icon: <BarChart3 className="h-4 w-4" /> },
+  { key: "trend", icon: <TrendingUp className="h-4 w-4" /> },
+  { key: "globe", icon: <Globe className="h-4 w-4" /> },
+  { key: "brain", icon: <Brain className="h-4 w-4" /> },
+  { key: "sparkles", icon: <Sparkles className="h-4 w-4" /> },
+  { key: "shield", icon: <Shield className="h-4 w-4" /> },
+  { key: "video", icon: <Video className="h-4 w-4" /> },
+  { key: "file-search", icon: <FileSearch className="h-4 w-4" /> },
+  { key: "bot", icon: <Bot className="h-4 w-4" /> },
+  { key: "plug", icon: <Plug className="h-4 w-4" /> },
 ];
 
 /** FNV-1a 字符串哈希 */
@@ -141,7 +149,7 @@ function hashString(s: string): number {
 
 function categoryIcon(category: string): React.ReactNode {
   const idx = hashString(category) % ICON_POOL.length;
-  return ICON_POOL[idx];
+  return <span key={ICON_POOL[idx].key}>{ICON_POOL[idx].icon}</span>;
 }
 
 function wfStatusToDot(status?: "running" | "idle" | "warning" | "error") {

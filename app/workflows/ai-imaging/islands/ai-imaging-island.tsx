@@ -7,9 +7,9 @@ export async function AiImagingIsland() {
   const service = new WorkflowService();
   return (
     <AiImagingClient
-      mainImages={service.getImages("main")}
-      sceneImages={service.getImages("scene")}
-      storyboardFrames={service.getStoryboardFrames()}
+      mainImages={await service.getImages("main")}
+      sceneImages={await service.getImages("scene")}
+      storyboardFrames={await service.getStoryboardFrames()}
     />
   );
 }

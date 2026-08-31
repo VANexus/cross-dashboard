@@ -6,6 +6,6 @@ import type { MemoryEntry } from "@/lib/types";
 export async function MemoryIsland() {
   await getDbAsync();
   const service = new MemoryService();
-  const entries: MemoryEntry[] = service.list().items;
+  const entries: MemoryEntry[] = (await service.list()).items;
   return <MemoryClient initialData={entries} />;
 }

@@ -9,7 +9,7 @@ const service = new MemoryService();
 export const GET = withDb(async (_request: NextRequest,
   { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
-  const entry = service.getById(id);
+  const entry = await service.getById(id);
   if (!entry) return notFound("Memory entry");
   return success(entry);
 });
@@ -19,7 +19,7 @@ export const PATCH = withDb(async (request: NextRequest,
   const { id } = await params;
   const parsed = parseBody(updateMemorySchema, await request.json());
   if (!parsed.success) return badRequest(parsed.error);
-  const entry = service.update(id, parsed.data);
+  const entry = await service.update(id, parsed.data);
   if (!entry) return notFound("Memory entry");
   return success(entry);
 });
@@ -27,7 +27,7 @@ export const PATCH = withDb(async (request: NextRequest,
 export const DELETE = withDb(async (_request: NextRequest,
   { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
-  const ok = service.delete(id);
+  const ok = await service.delete(id);
   if (!ok) return notFound("Memory entry");
   return success({ deleted: true });
 });

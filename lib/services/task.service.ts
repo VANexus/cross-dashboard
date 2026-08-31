@@ -13,28 +13,27 @@ import type { Task, TaskStep, Pagination } from "../types";
 export class TaskService {
   private rak = getRAKEngine();
 
-  list(filters?: {
+  async list(filters?: {
     status?: string;
     priority?: string;
     page?: number;
     pageSize?: number;
-  }): { items: Task[]; pagination: Pagination } {
-    return repo.getTasks(filters);
+  }): Promise<{ items: Task[]; pagination: Pagination }> {
+    return await repo.getTasks(filters);
   }
 
-  getById(id: string): Task | null {
-    return repo.getTaskById(id);
+  async getById(id: string): Promise<Task | null> {
+    return await repo.getTaskById(id);
   }
 
-  create(data: {
+  async create(data: {
     title: string;
     description?: string;
     priority?: string;
     assignedAgents?: string[];
-  }): Task {
-    const task = repo.createTask(data);
+  }): Promise<Task> {
+    const task = await repo.createTask(data);
 
-    // Create RAK DAG for the task
     const definition = {
       nodes: task.steps.map((step) => ({
         id: step.id,
@@ -50,7 +49,6 @@ export class TaskService {
 
     this.rak.mesh.createDAG(task.id, definition);
 
-    // Dispatch to agents
     if (data.assignedAgents?.length) {
       this.rak.coordinator.dispatchTask(task.id, data.assignedAgents);
     }
@@ -58,43 +56,39 @@ export class TaskService {
     return task;
   }
 
-  update(id: string, data: Partial<Task>): Task | null {
-    const task = repo.updateTask(id, data);
+  async update(id: string, data: Partial<Task>): Promise<Task | null> {
+    const task = await repo.updateTask(id, data);
 
-    // If status changed to running, start DAG execution
     if (data.status === "running" && task) {
-      const readyNodes = this.rak.mesh.getReadyNodes(id);
+      const readyNodes = await this.rak.mesh.getReadyNodes(id);
       for (const node of readyNodes) {
         if (node.type !== "start" && node.type !== "end") {
-          this.rak.mesh.startNode(node.id, id);
+          await this.rak.mesh.startNode(node.id, id);
         }
       }
     }
 
-    // If completed, mark all DAG nodes as complete + feedback loop
     if (data.status === "completed" && task) {
-      const dag = this.rak.mesh.getDAG(id);
+      const dag = await this.rak.mesh.getDAG(id);
       for (const node of dag) {
         if (node.status === "pending" || node.status === "running") {
-          this.rak.mesh.completeNode(node.id, id);
+          await this.rak.mesh.completeNode(node.id, id);
         }
       }
 
-      // Feedback loop: update agent stats, write journal, create memory
-      this.onTaskCompleted(task);
+      this.onTaskCompleted(task).catch(console.error);
     }
 
     return task;
   }
 
-  delete(id: string): boolean {
-    return repo.deleteTask(id);
+  async delete(id: string): Promise<boolean> {
+    return await repo.deleteTask(id);
   }
 
-  updateStep(taskId: string, stepId: string, data: Partial<TaskStep>): TaskStep | null {
-    const step = repo.updateTaskStep(taskId, stepId, data);
+  async updateStep(taskId: string, stepId: string, data: Partial<TaskStep>): Promise<TaskStep | null> {
+    const step = await repo.updateTaskStep(taskId, stepId, data);
 
-    // Sync with RAK DAG
     if (step && data.status) {
       const dagNodeId = `${taskId}-${stepId}`;
       if (data.status === "running") this.rak.mesh.startNode(dagNodeId, taskId);
@@ -105,24 +99,22 @@ export class TaskService {
     return step;
   }
 
-  private onTaskCompleted(task: Task): void {
+  private async onTaskCompleted(task: Task): Promise<void> {
     const agents = task.assignedAgents ?? [];
     const now = new Date().toISOString();
 
     for (const agentId of agents) {
-      // Update agent stats
       try {
-        const agent = agentRepo.getAgentById(agentId);
+        const agent = await agentRepo.getAgentById(agentId);
         if (agent) {
           const totalTasks = agent.taskCount + 1;
           const successRate = Math.round(((agent.successRate * agent.taskCount + 100) / totalTasks) * 10) / 10;
-          agentRepo.updateAgentStats(agentId, { taskCount: totalTasks, successRate });
+          await agentRepo.updateAgentStats(agentId, { taskCount: totalTasks, successRate });
         }
       } catch { /* agent may not exist */ }
 
-      // Write journal entry
       try {
-        journalRepo.addEntry({
+        await journalRepo.addEntry({
           agentId,
           type: "decision",
           content: `完成任务「${task.title}」`,
@@ -130,9 +122,8 @@ export class TaskService {
         });
       } catch { /* non-critical */ }
 
-      // Create auto-memory
       try {
-        memoryRepo.createMemory({
+        await memoryRepo.createMemory({
           zone: "agent",
           title: `完成: ${task.title}`,
           content: task.description || `任务「${task.title}」已成功完成`,
@@ -142,7 +133,6 @@ export class TaskService {
         });
       } catch { /* non-critical */ }
 
-      // Emit event
       agentEventBus.emit(agentId, {
         type: "decision",
         agentId,

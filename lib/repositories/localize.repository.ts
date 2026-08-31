@@ -2,7 +2,7 @@
  * FlowMind — 视频本地化 Repository
  * 数据访问层：wf_localize_tasks 表
  */
-import { getDb } from "../db";
+import { getSupabase } from "../db";
 import type { LocalizeTask, LocalizeTaskStatus } from "../types";
 import { parseJsonField } from "./base";
 
@@ -31,8 +31,6 @@ function rowToTask(r: LocalizeRow): LocalizeTask {
   const finished = r.finished_at;
   let durationSeconds: number | null = null;
   if (started && finished) {
-    // naive 时间戳（无时区后缀）按本地时间解析——VL 的 started_at/finished_at 是本地时间。
-    // 仅完成态任务计算时长；进行中任务不调 Date.now()（保持 SSR 确定性，兼容 cacheComponents）
     const s = new Date(started.replace(" ", "T")).getTime();
     const e = new Date(finished.replace(" ", "T")).getTime();
     if (!Number.isNaN(s) && !Number.isNaN(e)) durationSeconds = Math.max(0, (e - s) / 1000);
@@ -43,8 +41,8 @@ function rowToTask(r: LocalizeRow): LocalizeTask {
     videoPath: r.video_path,
     targetLang: r.target_lang,
     sourceLang: r.source_lang,
-    enableTts: r.enable_tts === 1,
-    removeSubtitles: r.remove_subtitles === 1,
+    enableTts: !!r.enable_tts,
+    removeSubtitles: !!r.remove_subtitles,
     status,
     outputs: parseJsonField<Record<string, string>>(r.outputs, {}),
     error: r.error,
@@ -58,7 +56,7 @@ function rowToTask(r: LocalizeRow): LocalizeTask {
   };
 }
 
-export function insertTask(task: {
+export async function insertTask(task: {
   id: string;
   batchId: string;
   videoPath: string;
@@ -67,34 +65,43 @@ export function insertTask(task: {
   enableTts: boolean;
   removeSubtitles: boolean;
   status?: string;
-}): void {
-  const db = getDb();
-  db.run(
-    `INSERT OR IGNORE INTO wf_localize_tasks
-      (id, batch_id, video_path, target_lang, source_lang, enable_tts, remove_subtitles, status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-    [
-      task.id, task.batchId, task.videoPath, task.targetLang, task.sourceLang,
-      task.enableTts ? 1 : 0, task.removeSubtitles ? 1 : 0, task.status ?? "queued",
-    ] as unknown[],
-  );
+}): Promise<void> {
+  const sb = getSupabase();
+  const row = {
+    id: task.id,
+    batch_id: task.batchId,
+    video_path: task.videoPath,
+    target_lang: task.targetLang,
+    source_lang: task.sourceLang,
+    enable_tts: task.enableTts ? 1 : 0,
+    remove_subtitles: task.removeSubtitles ? 1 : 0,
+    status: task.status ?? "queued",
+    created_at: new Date().toISOString(),
+  };
+  const { error } = await sb.from("wf_localize_tasks").upsert(row, { onConflict: "id", ignoreDuplicates: true });
+  if (error) throw error;
 }
 
-export function getTasks(): LocalizeTask[] {
-  const db = getDb();
-  const rows = db.query(
-    "SELECT * FROM wf_localize_tasks ORDER BY created_at DESC, rowid DESC",
-  ).all() as unknown as LocalizeRow[];
-  return rows.map(rowToTask);
+export async function getTasks(): Promise<LocalizeTask[]> {
+  const sb = getSupabase();
+  const { data, error } = await sb
+    .from("wf_localize_tasks")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false });
+  if (error) throw error;
+  return (data as LocalizeRow[]).map(rowToTask);
 }
 
-export function getTask(id: string): LocalizeTask | null {
-  const db = getDb();
-  const row = db.query("SELECT * FROM wf_localize_tasks WHERE id = ?").get(id) as unknown as LocalizeRow | undefined;
+export async function getTask(id: string): Promise<LocalizeTask | null> {
+  const sb = getSupabase();
+  const { data, error } = await sb.from("wf_localize_tasks").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  const row = data as LocalizeRow | null;
   return row ? rowToTask(row) : null;
 }
 
-export function updateTaskStatus(
+export async function updateTaskStatus(
   id: string,
   data: {
     status?: string;
@@ -103,26 +110,42 @@ export function updateTaskStatus(
     startedAt?: string | null;
     finishedAt?: string | null;
   },
-): void {
-  const db = getDb();
-  const sets: string[] = ["updated_at = datetime('now')"];
-  const params: unknown[] = [];
-  if (data.status !== undefined) { sets.push("status = ?"); params.push(data.status); }
-  if (data.outputs !== undefined) { sets.push("outputs = ?"); params.push(JSON.stringify(data.outputs)); }
-  if (data.error !== undefined) { sets.push("error = ?"); params.push(data.error); }
-  if (data.startedAt !== undefined) { sets.push("started_at = ?"); params.push(data.startedAt); }
-  if (data.finishedAt !== undefined) { sets.push("finished_at = ?"); params.push(data.finishedAt); }
-  if (sets.length === 1) return;
-  params.push(id);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  db.run(`UPDATE wf_localize_tasks SET ${sets.join(", ")} WHERE id = ?`, params as any[]);
+): Promise<void> {
+  const sb = getSupabase();
+  const sets: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (data.status !== undefined) sets["status"] = data.status;
+  if (data.outputs !== undefined) sets["outputs"] = JSON.stringify(data.outputs);
+  if (data.error !== undefined) sets["error"] = data.error;
+  if (data.startedAt !== undefined) sets["started_at"] = data.startedAt;
+  if (data.finishedAt !== undefined) sets["finished_at"] = data.finishedAt;
+  if (Object.keys(sets).length === 1) return;
+  const { error } = await sb.from("wf_localize_tasks").update(sets).eq("id", id);
+  if (error) throw error;
 }
 
-export function getRecentBatches(limit = 10): Array<{ id: string; count: number; submittedAt: string }> {
-  const db = getDb();
-  const rows = db.query(
-    `SELECT batch_id as id, COUNT(*) as count, MAX(created_at) as submittedAt
-     FROM wf_localize_tasks WHERE batch_id != '' GROUP BY batch_id ORDER BY submittedAt DESC LIMIT ?`,
-  ).all(limit) as Array<{ id: string; count: number; submittedAt: string }>;
+export async function getRecentBatches(limit = 10): Promise<Array<{ id: string; count: number; submittedAt: string }>> {
+  const sb = getSupabase();
+  const { data, error } = await sb
+    .from("wf_localize_tasks")
+    .select("batch_id, created_at")
+    .neq("batch_id", "")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+
+  const batchMap = new Map<string, { count: number; submittedAt: string }>();
+  for (const r of data as Array<{ batch_id: string; created_at: string }>) {
+    const existing = batchMap.get(r.batch_id);
+    if (!existing) {
+      batchMap.set(r.batch_id, { count: 1, submittedAt: r.created_at });
+    } else {
+      existing.count++;
+      if (r.created_at > existing.submittedAt) existing.submittedAt = r.created_at;
+    }
+  }
+
+  const rows = Array.from(batchMap.entries())
+    .map(([id, v]) => ({ id, count: v.count, submittedAt: v.submittedAt }))
+    .sort((a, b) => (a.submittedAt < b.submittedAt ? 1 : -1))
+    .slice(0, limit);
   return rows;
 }

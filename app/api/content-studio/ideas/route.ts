@@ -9,7 +9,7 @@ const service = new ContentService();
 export const GET = withDb(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
   const platform = searchParams.get("platform") ?? undefined;
-  return success(service.getIdeas(platform as never));
+  return success(await service.getIdeas(platform as never));
 });
 
 export const POST = withDb(async (request: NextRequest) => {

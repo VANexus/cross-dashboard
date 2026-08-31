@@ -1,8 +1,4 @@
-/**
- * FlowMind RAK — Agent Repository
- * Data access for agents and sub-agents
- */
-import { getDb } from "../db";
+import { getSupabase } from "../db";
 import type { Agent, AgentConfig, SubAgent } from "../types";
 import { parseJsonField } from "./base";
 
@@ -56,74 +52,68 @@ function mapSubAgent(row: SubAgentRow): SubAgent {
   };
 }
 
-export function getAgents(filters?: { status?: string; type?: string }): Agent[] {
-  const db = getDb();
-  let sql = "SELECT * FROM agents WHERE 1=1";
-  const params: unknown[] = [];
-
-  if (filters?.status) {
-    sql += " AND status = ?";
-    params.push(filters.status);
-  }
-  if (filters?.type) {
-    sql += " AND type = ?";
-    params.push(filters.type);
-  }
-
-  sql += " ORDER BY name";
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (db.query(sql).all(...(params as any[])) as AgentRow[]).map(mapAgent);
+export async function getAgents(filters?: { status?: string; type?: string }): Promise<Agent[]> {
+  const sb = getSupabase();
+  let qb = sb.from("agents").select("*");
+  if (filters?.status) qb = qb.eq("status", filters.status);
+  if (filters?.type) qb = qb.eq("type", filters.type);
+  const { data } = await qb.order("name");
+  return ((data ?? []) as AgentRow[]).map(mapAgent);
 }
 
-export function getAgentById(id: string): (Agent & { subAgents: SubAgent[] }) | null {
-  const db = getDb();
-  const row = db.query("SELECT * FROM agents WHERE id = ?").get(id) as AgentRow | null;
+export async function getAgentById(id: string): Promise<(Agent & { subAgents: SubAgent[] }) | null> {
+  const sb = getSupabase();
+  const { data: agentData } = await sb.from("agents").select("*").eq("id", id).maybeSingle();
+  const row = agentData as AgentRow | null;
   if (!row) return null;
-
-  const subs = db.query("SELECT * FROM sub_agents WHERE parent_id = ?").all(id) as SubAgentRow[];
-
+  const { data: subsData } = await sb.from("sub_agents").select("*").eq("parent_id", id);
+  const subs = (subsData ?? []) as SubAgentRow[];
   return {
     ...mapAgent(row),
     subAgents: subs.map(mapSubAgent),
   };
 }
 
-export function updateAgentHeartbeat(id: string): void {
-  const db = getDb();
-  db.run("UPDATE agents SET last_heartbeat = datetime('now'), updated_at = datetime('now') WHERE id = ?", [id]);
+export async function updateAgentHeartbeat(id: string): Promise<void> {
+  const sb = getSupabase();
+  const now = new Date().toISOString();
+  await sb.from("agents").update({ last_heartbeat: now, updated_at: now }).eq("id", id);
 }
 
-export function updateAgentStatus(id: string, status: string): void {
-  const db = getDb();
-  db.run("UPDATE agents SET status = ?, updated_at = datetime('now') WHERE id = ?", [status, id]);
+export async function updateAgentStatus(id: string, status: string): Promise<void> {
+  const sb = getSupabase();
+  const now = new Date().toISOString();
+  await sb.from("agents").update({ status, updated_at: now }).eq("id", id);
 }
 
-export function updateAgentStats(id: string, stats: { taskCount?: number; successRate?: number; uptime?: number }): void {
-  const db = getDb();
-  const sets: string[] = ["updated_at = datetime('now')"];
-  const params: unknown[] = [];
-
-  if (stats.taskCount !== undefined) { sets.push("task_count = ?"); params.push(stats.taskCount); }
-  if (stats.successRate !== undefined) { sets.push("success_rate = ?"); params.push(stats.successRate); }
-  if (stats.uptime !== undefined) { sets.push("uptime = ?"); params.push(stats.uptime); }
-
-  params.push(id);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  db.run(`UPDATE agents SET ${sets.join(", ")} WHERE id = ?`, params as any[]);
+export async function updateAgentStats(id: string, stats: { taskCount?: number; successRate?: number; uptime?: number }): Promise<void> {
+  const sb = getSupabase();
+  const now = new Date().toISOString();
+  const update: Record<string, unknown> = { updated_at: now };
+  if (stats.taskCount !== undefined) update.task_count = stats.taskCount;
+  if (stats.successRate !== undefined) update.success_rate = stats.successRate;
+  if (stats.uptime !== undefined) update.uptime = stats.uptime;
+  await sb.from("agents").update(update).eq("id", id);
 }
 
-export function createSubAgent(data: { parentId: string; name: string; taskDescription: string }): SubAgent {
-  const db = getDb();
+export async function createSubAgent(data: { parentId: string; name: string; taskDescription: string }): Promise<SubAgent> {
+  const sb = getSupabase();
   const id = `sub-${Date.now()}`;
-  db.run(
-    "INSERT INTO sub_agents (id, parent_id, name, status, spawned_at, task_description) VALUES (?, ?, ?, 'online', datetime('now'), ?)",
-    [id, data.parentId, data.name, data.taskDescription],
-  );
-  const row = db.query("SELECT * FROM sub_agents WHERE id = ?").get(id) as SubAgentRow;
+  const now = new Date().toISOString();
+  const row: SubAgentRow = {
+    id,
+    parent_id: data.parentId,
+    name: data.name,
+    status: "online",
+    spawned_at: now,
+    task_description: data.taskDescription,
+  };
+  await sb.from("sub_agents").insert(row);
   return mapSubAgent(row);
 }
 
-export function updateAgentConfig(id: string, config: AgentConfig): void {
-  const db = getDb();
-  db.run("UPDATE agents SET config = ?, updated_at = datetime('now') WHERE id = ?", [JSON.stringify(config), id]);
+export async function updateAgentConfig(id: string, config: AgentConfig): Promise<void> {
+  const sb = getSupabase();
+  const now = new Date().toISOString();
+  await sb.from("agents").update({ config: JSON.stringify(config), updated_at: now }).eq("id", id);
 }

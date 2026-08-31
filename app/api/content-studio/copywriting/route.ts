@@ -9,7 +9,7 @@ const service = new ContentService();
 /** GET /api/content-studio/copywriting?platform=xhs */
 export const GET = withDb(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
-  const drafts = service.getWorks().drafts;
+  const drafts = (await service.getWorks()).drafts;
   const platform = searchParams.get("platform");
   return success(platform ? drafts.filter((d) => d.platform === platform) : drafts);
 });

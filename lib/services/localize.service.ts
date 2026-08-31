@@ -132,7 +132,6 @@ export class LocalizeService {
         remove_subtitles_strategy: "ocr_erase_redraw",
       });
 
-      // 落库：job_ids 与 accepted 位置映射（数量不一致时兜底用第一条路径）
       const jobIds = result.job_ids;
       jobIds.forEach((jobId, i) => {
         repo.insertTask({
@@ -144,7 +143,7 @@ export class LocalizeService {
           enableTts,
           removeSubtitles,
           status: "queued",
-        });
+        }).catch(console.error);
       });
 
       return {
@@ -175,14 +174,14 @@ export class LocalizeService {
 
   /** 任务列表：读本地库；VL 可达时刷新真实任务实时状态（并发上限 8）。 */
   async getTasks(): Promise<LocalizeTask[]> {
-    const tasks = repo.getTasks();
+    const tasks = await repo.getTasks();
     const realTasks = tasks.filter((t) => !isDemoTask(t));
     if (realTasks.length === 0) return tasks;
 
     try {
       await this.client.healthCheck();
     } catch {
-      return tasks; // VL 不可达，保留本地状态
+      return tasks;
     }
 
     const results = await mapWithConcurrency(realTasks, POLL_MAX_CONCURRENCY, (t) => this.client.getTask(t.id));
@@ -196,19 +195,18 @@ export class LocalizeService {
           error: detail.error ?? null,
           startedAt: detail.started_at ?? null,
           finishedAt: detail.finished_at ?? null,
-        });
+        }).catch(console.error);
       } else if (res.reason instanceof VLError && res.reason.code === "NOT_FOUND") {
-        repo.updateTaskStatus(task.id, { status: "not_found" });
+        repo.updateTaskStatus(task.id, { status: "not_found" }).catch(console.error);
       }
-      // 其他错误（environment/transient）保留本地状态
     });
 
-    return repo.getTasks();
+    return await repo.getTasks();
   }
 
   /** 单任务详情：本地 + VL 实时刷新（demo 任务不刷新）。 */
   async getTask(id: string): Promise<LocalizeTask | null> {
-    const task = repo.getTask(id);
+    const task = await repo.getTask(id);
     if (!task) return null;
     if (isDemoTask(task)) return task;
 
@@ -220,14 +218,13 @@ export class LocalizeService {
         error: detail.error ?? null,
         startedAt: detail.started_at ?? null,
         finishedAt: detail.finished_at ?? null,
-      });
+      }).catch(console.error);
     } catch (err) {
       if (err instanceof VLError && err.code === "NOT_FOUND") {
-        repo.updateTaskStatus(id, { status: "not_found" });
+        repo.updateTaskStatus(id, { status: "not_found" }).catch(console.error);
       }
-      // 其他错误保留本地状态
     }
-    return repo.getTask(id);
+    return await repo.getTask(id);
   }
 
   /** 取消任务。 */
@@ -240,7 +237,7 @@ export class LocalizeService {
   }> {
     try {
       const body = await this.client.cancelTask(id);
-      repo.updateTaskStatus(id, { status: "cancelled" });
+      repo.updateTaskStatus(id, { status: "cancelled" }).catch(console.error);
       return { cancelled: true, message: body.message ?? "已请求取消任务" };
     } catch (err) {
       const category = err instanceof VLError ? err.category : "unknown";
@@ -262,7 +259,7 @@ export class LocalizeService {
     retriable?: boolean;
     message?: string;
   }> {
-    const original = repo.getTask(id);
+    const original = await repo.getTask(id);
     try {
       const result = await this.client.retryTask(id, {
         sourceLang: original?.sourceLang,
@@ -280,7 +277,7 @@ export class LocalizeService {
           enableTts: original.enableTts,
           removeSubtitles: original.removeSubtitles,
           status: "queued",
-        });
+        }).catch(console.error);
       }
       return { originalTaskId: id, newTaskId };
     } catch (err) {

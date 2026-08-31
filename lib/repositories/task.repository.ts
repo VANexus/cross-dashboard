@@ -2,9 +2,9 @@
  * FlowMind RAK — Task Repository
  * Data access for tasks and task steps
  */
-import { getDb } from "../db";
+import { getSupabase } from "../db";
 import type { Task, TaskStep } from "../types";
-import { paginatedQuery, type PaginatedResult, parseJsonField } from "./base";
+import { type PaginatedResult, parseJsonField } from "./base";
 
 interface TaskRow {
   id: string;
@@ -59,117 +59,144 @@ function mapStep(row: StepRow): TaskStep {
   };
 }
 
-function getStepsForTask(db: ReturnType<typeof getDb>, taskId: string): TaskStep[] {
-  const rows = db.query("SELECT * FROM task_steps WHERE task_id = ? ORDER BY sort_order").all(taskId) as StepRow[];
-  return rows.map(mapStep);
+async function getStepsForTask(sb: ReturnType<typeof getSupabase>, taskId: string): Promise<TaskStep[]> {
+  const { data } = await sb
+    .from("task_steps")
+    .select("*")
+    .eq("task_id", taskId)
+    .order("sort_order", { ascending: true });
+  return (data as StepRow[] ?? []).map(mapStep);
 }
 
-export function getTasks(filters?: {
+export async function getTasks(filters?: {
   status?: string;
   priority?: string;
   page?: number;
   pageSize?: number;
-}): PaginatedResult<Task> {
-  const db = getDb();
-  let where = "WHERE 1=1";
-  const params: unknown[] = [];
+}): Promise<PaginatedResult<Task>> {
+  const sb = getSupabase();
+  const page = filters?.page ?? 1;
+  const pageSize = filters?.pageSize ?? 20;
+  const offset = (page - 1) * pageSize;
 
-  if (filters?.status) { where += " AND status = ?"; params.push(filters.status); }
-  if (filters?.priority) { where += " AND priority = ?"; params.push(filters.priority); }
+  let query = sb.from("tasks").select("*", { count: "exact" });
+  if (filters?.status) query = query.eq("status", filters.status);
+  if (filters?.priority) query = query.eq("priority", filters.priority);
 
-  const result = paginatedQuery<TaskRow>("tasks", where, params, filters?.page ?? 1, filters?.pageSize ?? 20);
+  const { data, count } = await query
+    .order("created_at", { ascending: false })
+    .range(offset, offset + pageSize - 1);
+
+  const rows = (data as TaskRow[] ?? []);
+  const items: Task[] = [];
+  for (const row of rows) {
+    const steps = await getStepsForTask(sb, row.id);
+    items.push(mapTask(row, steps));
+  }
+  const total = count ?? 0;
 
   return {
-    items: result.items.map((row) => mapTask(row, getStepsForTask(db, row.id))),
-    pagination: result.pagination,
+    items,
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    },
   };
 }
 
-export function getTaskById(id: string): Task | null {
-  const db = getDb();
-  const row = db.query("SELECT * FROM tasks WHERE id = ?").get(id) as TaskRow | null;
+export async function getTaskById(id: string): Promise<Task | null> {
+  const sb = getSupabase();
+  const { data } = await sb.from("tasks").select("*").eq("id", id).maybeSingle();
+  const row = data as TaskRow | null;
   if (!row) return null;
-  return mapTask(row, getStepsForTask(db, id));
+  const steps = await getStepsForTask(sb, id);
+  return mapTask(row, steps);
 }
 
-export function createTask(data: {
+export async function createTask(data: {
   title: string;
   description?: string;
   priority?: string;
   assignedAgents?: string[];
-}): Task {
-  const db = getDb();
+}): Promise<Task> {
+  const sb = getSupabase();
   const id = `task-${Date.now()}`;
-  db.run(
-    `INSERT INTO tasks (id, title, description, status, priority, assigned_agents)
-     VALUES (?, ?, ?, 'pending', ?, ?)`,
-    [id, data.title, data.description ?? "", data.priority ?? "medium",
-    JSON.stringify(data.assignedAgents ?? [])],
-  );
+  await sb.from("tasks").insert({
+    id,
+    title: data.title,
+    description: data.description ?? "",
+    status: "pending",
+    priority: data.priority ?? "medium",
+    assigned_agents: JSON.stringify(data.assignedAgents ?? []),
+  });
 
-  // Create default steps based on task type
   const defaultSteps = [
     { id: "s1", name: "数据采集", sort_order: 0 },
     { id: "s2", name: "分析处理", sort_order: 1 },
     { id: "s3", name: "结果生成", sort_order: 2 },
   ];
-  const stepStmt = db.prepare(
-    `INSERT INTO task_steps (id, task_id, name, status, agent_id, sort_order) VALUES (?, ?, ?, 'pending', '', ?)`,
-  );
   for (const step of defaultSteps) {
-    stepStmt.run(step.id, id, step.name, step.sort_order);
+    await sb.from("task_steps").insert({
+      id: step.id,
+      task_id: id,
+      name: step.name,
+      status: "pending",
+      agent_id: "",
+      sort_order: step.sort_order,
+    });
   }
 
-  return getTaskById(id)!;
+  return (await getTaskById(id))!;
 }
 
-export function updateTask(id: string, data: Partial<Task>): Task | null {
-  const db = getDb();
-  const sets: string[] = ["updated_at = datetime('now')"];
-  const params: unknown[] = [];
+export async function updateTask(id: string, data: Partial<Task>): Promise<Task | null> {
+  const sb = getSupabase();
+  const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
-  if (data.title !== undefined) { sets.push("title = ?"); params.push(data.title); }
-  if (data.description !== undefined) { sets.push("description = ?"); params.push(data.description); }
+  if (data.title !== undefined) updateData.title = data.title;
+  if (data.description !== undefined) updateData.description = data.description;
   if (data.status !== undefined) {
-    sets.push("status = ?"); params.push(data.status);
-    if (data.status === "completed") sets.push("completed_at = datetime('now')");
+    updateData.status = data.status;
+    if (data.status === "completed") updateData.completed_at = new Date().toISOString();
   }
-  if (data.priority !== undefined) { sets.push("priority = ?"); params.push(data.priority); }
-  if (data.output !== undefined) { sets.push("output = ?"); params.push(data.output); }
-  if (data.assignedAgents !== undefined) { sets.push("assigned_agents = ?"); params.push(JSON.stringify(data.assignedAgents)); }
+  if (data.priority !== undefined) updateData.priority = data.priority;
+  if (data.output !== undefined) updateData.output = data.output;
+  if (data.assignedAgents !== undefined) updateData.assigned_agents = JSON.stringify(data.assignedAgents);
 
-  params.push(id);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  db.run(`UPDATE tasks SET ${sets.join(", ")} WHERE id = ?`, params as any[]);
+  await sb.from("tasks").update(updateData).eq("id", id);
   return getTaskById(id);
 }
 
-export function deleteTask(id: string): boolean {
-  const db = getDb();
-  const changes = db.run("DELETE FROM tasks WHERE id = ?", [id]).changes;
-  return changes > 0;
+export async function deleteTask(id: string): Promise<boolean> {
+  const sb = getSupabase();
+  const { error } = await sb.from("tasks").delete().eq("id", id);
+  return !error;
 }
 
-export function updateTaskStep(taskId: string, stepId: string, data: Partial<TaskStep>): TaskStep | null {
-  const db = getDb();
-  const sets: string[] = [];
-  const params: unknown[] = [];
+export async function updateTaskStep(taskId: string, stepId: string, data: Partial<TaskStep>): Promise<TaskStep | null> {
+  const sb = getSupabase();
+  const updateData: Record<string, unknown> = {};
 
-  if (data.name !== undefined) { sets.push("name = ?"); params.push(data.name); }
+  if (data.name !== undefined) updateData.name = data.name;
   if (data.status !== undefined) {
-    sets.push("status = ?"); params.push(data.status);
-    if (data.status === "running") sets.push("started_at = datetime('now')");
-    if (data.status === "completed") sets.push("completed_at = datetime('now')");
+    updateData.status = data.status;
+    if (data.status === "running") updateData.started_at = new Date().toISOString();
+    if (data.status === "completed") updateData.completed_at = new Date().toISOString();
   }
-  if (data.agentId !== undefined) { sets.push("agent_id = ?"); params.push(data.agentId); }
-  if (data.output !== undefined) { sets.push("output = ?"); params.push(data.output); }
+  if (data.agentId !== undefined) updateData.agent_id = data.agentId;
+  if (data.output !== undefined) updateData.output = data.output;
 
-  if (sets.length === 0) return null;
+  if (Object.keys(updateData).length === 0) return null;
 
-  params.push(taskId, stepId);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  db.run(`UPDATE task_steps SET ${sets.join(", ")} WHERE task_id = ? AND id = ?`, params as any[]);
+  await sb.from("task_steps").update(updateData).eq("task_id", taskId).eq("id", stepId);
 
-  const row = db.query("SELECT * FROM task_steps WHERE task_id = ? AND id = ?").get(taskId, stepId) as StepRow | null;
-  return row ? mapStep(row) : null;
+  const { data: row } = await sb
+    .from("task_steps")
+    .select("*")
+    .eq("task_id", taskId)
+    .eq("id", stepId)
+    .maybeSingle();
+  return row ? mapStep(row as StepRow) : null;
 }

@@ -8,7 +8,7 @@ const service = new MemoryService();
 export const GET = withDb(async (_request: NextRequest,
   { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
-  const usage = service.getUsage(id);
+  const usage = await service.getUsage(id);
   if (!usage) return notFound("Memory entry");
   return success(usage);
 });

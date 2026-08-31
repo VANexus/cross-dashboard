@@ -16,8 +16,8 @@ export async function ContentStudioIsland() {
   const service = new ContentService();
   return (
     <ContentStudioClient
-      platforms={service.getPlatforms()}
-      works={service.getWorks()}
+      platforms={await service.getPlatforms()}
+      works={await service.getWorks()}
     />
   );
 }

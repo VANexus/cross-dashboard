@@ -137,8 +137,10 @@ export class ContentMCPClient {
     }
   }
 
-  /** 调用 content_* 技能。入参按 flowmind 约定包一层 `inp`。返回技能业务 data。 */
-  async call<T>(tool: string, args: Record<string, unknown>): Promise<T> {
+  /** 调用 content_* 技能。入参按 flowmind 约定包一层 `inp`。返回技能业务 data。
+   *  opts.timeoutMs：单次调用超时覆盖（默认 cfg.timeout）；长任务（如渠道登录）传大值。
+   *  opts.noRetry：跳过重试（长任务重试会导致重复弹登录窗）。 */
+  async call<T>(tool: string, args: Record<string, unknown>, opts?: { timeoutMs?: number; noRetry?: boolean }): Promise<T> {
     // 断路器检查
     if (this.circuitState === "OPEN") {
       if (this.shouldAttemptReset()) {
@@ -155,7 +157,7 @@ export class ContentMCPClient {
     this.stats.totalCalls++;
     let lastErr: ContentMCPError | null = null;
 
-    const maxAttempts = 1 + this.cfg.maxRetries;
+    const maxAttempts = opts?.noRetry ? 1 : 1 + this.cfg.maxRetries;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       if (attempt > 0) {
         this.stats.retriedCalls++;
@@ -164,7 +166,7 @@ export class ContentMCPClient {
       }
 
       try {
-        const result = await this.doCall<T>(tool, args);
+        const result = await this.doCall<T>(tool, args, opts?.timeoutMs);
         this.onSuccess();
         return result;
       } catch (err) {
@@ -200,13 +202,13 @@ export class ContentMCPClient {
 
   // ── 内部方法 ──
 
-  private async doCall<T>(tool: string, args: Record<string, unknown>): Promise<T> {
+  private async doCall<T>(tool: string, args: Record<string, unknown>, timeoutMs?: number): Promise<T> {
     const client = await this.ensureConnected();
     try {
       const result = await client.callTool(
         { name: tool, arguments: { inp: args } },
         undefined,
-        { timeout: this.cfg.timeout },
+        { timeout: timeoutMs ?? this.cfg.timeout },
       );
 
       const raw = result.structuredContent ??

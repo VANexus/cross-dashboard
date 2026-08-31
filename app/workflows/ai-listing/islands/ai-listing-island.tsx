@@ -6,12 +6,12 @@ import { getRecentListingResults } from "@/lib/repositories/workflow.repository"
 export async function AiListingIsland() {
   await getDbAsync();
   const service = new WorkflowService();
-  const recentResults = getRecentListingResults(5);
+  const recentResults = await getRecentListingResults(5);
   return (
     <AiListingClient
-      infringementWords={service.getInfringementWords()}
-      categoryRecs={service.getCategoryRecs()}
-      bulletPoints={service.getBulletPoints()}
+      infringementWords={await service.getInfringementWords()}
+      categoryRecs={await service.getCategoryRecs()}
+      bulletPoints={await service.getBulletPoints()}
       recentResults={recentResults}
     />
   );

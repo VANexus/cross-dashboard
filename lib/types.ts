@@ -570,3 +570,178 @@ export interface ContentPlatformMeta {
   hint: string;
   imageAspect: string;
 }
+
+// ── B端运营工作台（B2B Operations Workbench）──
+
+export type B2BPreference = "social" | "alibaba" | "mix";
+export type TrendPlatform = "tiktok" | "instagram" | "alibaba";
+
+export interface KeywordTrend {
+  word: string;
+  heat: number;
+  delta: number | null;
+  rank: number;
+  industry: string;
+  source: string;
+}
+
+export interface KeywordTrendsResult {
+  platform: TrendPlatform;
+  source: string;
+  degraded: boolean;
+  keywords: KeywordTrend[];
+  failureCategory?: string;
+  retriable?: boolean;
+  warning?: string;
+}
+
+export interface LongtailKeyword {
+  word: string;
+  category: string;
+  searchIntent: string;
+}
+
+export interface AlibabaProduct {
+  productId: string;
+  subject: string;
+  keywords: string[];
+  imageUrl: string;
+  price: string;
+  status: string;
+}
+
+export interface AlibabaProductsEnvelope {
+  products: AlibabaProduct[];
+  authorized: boolean;
+  degraded?: boolean;
+  warning?: string;
+  failureCategory?: string;
+  retriable?: boolean;
+}
+
+export interface ListingRecommendation {
+  productId: string;
+  subject: string;
+  score: number;
+  reasons: string[];
+}
+
+export type ListingUploadStatus = "draft" | "uploading" | "uploaded" | "failed";
+
+export interface B2BListingDraft {
+  id: string;
+  productId: string;
+  preference: B2BPreference;
+  title: string;
+  description: string;
+  keywords: string[];
+  imageUrl: string;
+  imagePrompt: string;
+  uploadStatus: ListingUploadStatus;
+  uploadedProductId: string;
+  createdAt: string;
+  warnings?: string[];
+}
+
+export interface ListingPublishResult {
+  productId: string;
+  strProductId: string;
+  posted: boolean;
+  warnings?: string[];
+  error?: string;
+}
+
+export interface ImageSkill {
+  id: string;
+  name: string;
+  coverUrl: string;
+  reversedPrompt: string;
+  styleTags: string[];
+  aspectRatio: string;
+  platform: string;
+  templateType: "" | "主图" | "详情页" | "社媒" | "其他";
+  isBuiltin: boolean;
+  usageCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReversePromptResult {
+  prompt: string;
+  styleTags: string[];
+  negativePrompt: string;
+}
+
+export type B2BSettingsGroup =
+  | "channel"
+  | "alibaba"
+  | "longcat"
+  | "allin"
+  | "webhook"
+  | "mcp";
+
+export interface B2BSettings {
+  flowmindMcpUrl: string;
+  /** 平台登录会话（站内渠道授权登录捕获），格式 "k=v; k2=v2" */
+  tiktokSessionCookie: string;
+  instagramSessionCookie: string;
+  alibabaAppKey: string;
+  alibabaAppSecret: string;
+  alibabaSession: string;
+  longcatApiKey: string;
+  allinApiKey: string;
+  feishuWebhookUrl: string;
+  wecomWebhookUrl: string;
+  /** 每日推送开关："true" / "false"（KV 字符串存储） */
+  b2bPushFeishuEnabled: string;
+  b2bPushWecomEnabled: string;
+  /** pg_cron 回调地址（如 https://your-domain/api/b2b/daily-refresh） */
+  b2bDailyRefreshUrl: string;
+  /** daily-refresh 路由鉴权 token（x-refresh-token 请求头） */
+  b2bDailyRefreshToken: string;
+}
+
+export interface B2BHealthStatus {
+  supabase: { ok: boolean; latencyMs: number; rowsInImageSkills?: number; error?: string };
+  groups: Record<B2BSettingsGroup, { ok: boolean; error?: string; latencyMs?: number; reachable?: boolean }>;
+}
+
+export interface B2BTestResult {
+  group: B2BSettingsGroup;
+  ok: boolean;
+  error?: string;
+  latencyMs?: number;
+  reachable?: boolean;
+}
+
+export interface DailyDigestResult {
+  date: string;
+  sections: Array<{
+    platform: string;
+    label: string;
+    source: string;
+    degraded: boolean;
+    failureCategory?: string;
+    keywords: Array<{ word: string; heat: number; rank: number }>;
+  }>;
+  longtailWords: string[];
+  longtailError?: string;
+  markdown: string;
+  pushes: Array<{ channel: string; ok: boolean; latencyMs: number; error?: string }>;
+}
+
+export interface PushTestResult {
+  channel: "feishu" | "wecom";
+  ok: boolean;
+  latencyMs: number;
+  error?: string;
+}
+
+export interface DailyRefreshResult {
+  date: string;
+  idempotent?: boolean;
+  message?: string;
+  platforms?: Record<string, { degraded: boolean; count: number; warning?: string }>;
+  digest?: DailyDigestResult | null;
+  digestError?: string;
+}

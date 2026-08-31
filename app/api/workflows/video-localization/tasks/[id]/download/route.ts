@@ -15,7 +15,7 @@ export const GET = withDb(async (request: NextRequest,
   if (!/^[A-Za-z0-9._\- ]+$/.test(file)) {
     return badRequest("Invalid file name");
   }
-  const url = service.getDownloadUrl(id, file);
+  const url = await service.getDownloadUrl(id, file);
   return success({ url });
 });
 

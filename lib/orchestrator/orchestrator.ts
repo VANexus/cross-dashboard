@@ -10,7 +10,6 @@
  *   6. All blocks streamed to frontend via AsyncGenerator
  *
  * Supports Claude (native tools) and OpenAI (native function calling).
- * Falls back to keyword-based tool selection for mock/demo mode.
  */
 
 import { getAIProvider } from "@/lib/ai";
@@ -48,8 +47,7 @@ export async function* orchestrate(
   request: OrchestrateRequest,
 ): AsyncGenerator<StreamEvent> {
   const { message, history = [], selectedOption } = request;
-  const provider = getAIProvider();
-  const config = getAIConfig();
+  const provider = await getAIProvider();
 
   // Build conversation messages
   const messages: { role: string; content: string }[] = [
@@ -85,22 +83,6 @@ export async function* orchestrate(
   try {
     while (iteration < maxIterations) {
       iteration++;
-
-      if (provider.name === "mock") {
-        // Mock mode: keyword-based tool selection
-        const mockBlocks = await runMockMode(message, config.demoMode);
-        for (const block of mockBlocks) {
-          assistantBlocks.push(block);
-          yield {
-            id: cryptoRandom(),
-            role: "assistant",
-            blocks: [block],
-            finished: false,
-            timestamp: Date.now(),
-          };
-        }
-        break;
-      }
 
       // Claude or OpenAI: use native tool_use
       const aiResponse = await callAIWithTools(provider.name, messages, toolsForAI());
@@ -272,13 +254,13 @@ async function callClaudeWithTools(
   messages: { role: string; content: string }[],
   tools: Record<string, unknown>[],
 ): Promise<AIResponse> {
-  const config = getAIConfig();
+  const config = await getAIConfig();
   const apiKey = config.apiKey;
   const baseUrl = config.baseUrl || "https://api.anthropic.com";
   const model = config.model || "claude-sonnet-4-20250514";
 
-  if (!apiKey || apiKey === "mock") {
-    throw new Error("Claude API Key 未配置");
+  if (!apiKey) {
+    throw new Error("Claude API Key 未配置，请在 设置 中配置后重试");
   }
 
   const response = await fetch(`${baseUrl}/v1/messages`, {
@@ -333,13 +315,13 @@ async function callOpenAIWithTools(
   messages: { role: string; content: string }[],
   tools: Record<string, unknown>[],
 ): Promise<AIResponse> {
-  const config = getAIConfig();
+  const config = await getAIConfig();
   const apiKey = config.apiKey;
   const baseUrl = (config.baseUrl || "https://api.openai.com").replace(/\/+$/, "");
   const model = config.model || "gpt-4o";
 
-  if (!apiKey || apiKey === "mock") {
-    throw new Error("OpenAI API Key 未配置");
+  if (!apiKey) {
+    throw new Error("OpenAI API Key 未配置，请在 设置 中配置后重试");
   }
 
   const openAITools = tools.map((t) => ({
@@ -403,203 +385,6 @@ async function callOpenAIWithTools(
   }
 
   return { text, toolCalls };
-}
-
-// ── Mock Mode ────────────────────────────────────────────────────
-
-async function runMockMode(
-  message: string,
-  _demoMode?: boolean,
-): Promise<OrchestratorBlock[]> {
-  const blocks: OrchestratorBlock[] = [];
-  const lower = message.toLowerCase();
-
-  blocks.push({
-    type: "text",
-    text: `我正在分析你的请求：「${message}」`,
-  });
-
-  // Keyword-based tool selection
-  if (lower.includes("竞品") || lower.includes("asin") || lower.includes("对手")) {
-    blocks.push({
-      type: "tool_call",
-      toolId: "competitor_analyze",
-      toolName: "竞品分析",
-      status: "running",
-      toolDescription: "分析竞品 ASIN 数据",
-    });
-
-    blocks.push({
-      type: "tool_result",
-      toolId: "competitor_analyze",
-      toolName: "竞品分析",
-      summary: "发现 3 个主要竞品，BSR 排名 #3，价格区间 $25-45",
-      data: {
-        competitors: [
-          { asin: "B08N5WRWNW", rank: 3, price: 29.99, rating: 4.5 },
-          { asin: "B09XYZ1234", rank: 7, price: 35.5, rating: 4.3 },
-          { asin: "B07ABC5678", rank: 12, price: 24.99, rating: 4.1 },
-        ],
-      },
-    });
-
-    blocks.push({
-      type: "idea_bubble",
-      text: "发现竞品 ACoS 偏高（28%），建议优化广告策略降低至 15%",
-      relatedTool: "ad_optimize",
-      actionLabel: "优化广告",
-      blockId: cryptoRandom(),
-      params: { strategy: "balanced", target_acos: 15 },
-    });
-  } else if (lower.includes("广告") || lower.includes("acos") || lower.includes("关键词")) {
-    blocks.push({
-      type: "tool_call",
-      toolId: "ad_analyze",
-      toolName: "广告关键词分析",
-      status: "running",
-    });
-
-    blocks.push({
-      type: "tool_result",
-      toolId: "ad_analyze",
-      toolName: "广告关键词分析",
-      summary: "共 15 个关键词，平均 ACoS 22.3%，3 个高花费低转化词需优化",
-      data: {
-        keywords: [
-          { keyword: "pet water fountain", spend: 156, sales: 420, acos: 37.1, conversion: 8.2 },
-          { keyword: "cat fountain", spend: 89, sales: 310, acos: 28.7, conversion: 12.1 },
-          { keyword: "automatic pet waterer", spend: 45, sales: 180, acos: 25.0, conversion: 15.3 },
-        ],
-      },
-    });
-
-    blocks.push({
-      type: "idea_bubble",
-      text: "「pet water fountain」ACoS 37% 过高，建议降低出价或暂停",
-      relatedTool: "ad_optimize",
-      actionLabel: "一键优化",
-      blockId: cryptoRandom(),
-      params: { keywords: "pet water fountain", strategy: "conservative" },
-    });
-  } else if (lower.includes("listing") || lower.includes("上架") || lower.includes("标题")) {
-    blocks.push({
-      type: "tool_call",
-      toolId: "listing_generate",
-      toolName: "Listing 生成",
-      status: "running",
-    });
-
-    blocks.push({
-      type: "tool_result",
-      toolId: "listing_generate",
-      toolName: "Listing 生成",
-      summary: "已生成高转化 Listing，预估 CTR 提升 15%",
-      data: {
-        title: "Smart Pet Fountain Pro — UV Sterilization, Ultra-Quiet, 3L Capacity",
-        bullets: [
-          "Advanced UV-C Sterilization — 99.9% bacteria elimination",
-          "Ultra-Quiet DC Motor — Under 30dB operation",
-          "3L Large Capacity — Perfect for multi-pet households",
-          "Smart Temperature Display — Real-time LED monitoring",
-          "Tool-Free Cleaning — Disassembles in seconds",
-        ],
-        seoScore: 92,
-      },
-    });
-
-    blocks.push({
-      type: "idea_bubble",
-      text: "Listing 已就绪！建议同时生成配套产品图片",
-      relatedTool: "imaging_generate",
-      actionLabel: "生成图片",
-      blockId: cryptoRandom(),
-      params: { prompt: "Smart Pet Fountain Pro product photo, white background, studio lighting", type: "main", count: 4 },
-    });
-  } else if (lower.includes("图") || lower.includes("photo") || lower.includes("image")) {
-    blocks.push({
-      type: "tool_call",
-      toolId: "imaging_generate",
-      toolName: "AI 作图",
-      status: "running",
-    });
-
-    blocks.push({
-      type: "tool_result",
-      toolId: "imaging_generate",
-      toolName: "AI 作图",
-      summary: "已生成 4 张产品图，2 张评分 85+（推荐使用）",
-      data: {
-        images: [
-          { type: "main", score: 88, isBest: true },
-          { type: "main", score: 91, isBest: true },
-          { type: "main", score: 72, isBest: false },
-          { type: "main", score: 65, isBest: false },
-        ],
-      },
-    });
-  } else if (lower.includes("库存") || lower.includes("补货") || lower.includes("restock")) {
-    blocks.push({
-      type: "tool_call",
-      toolId: "inventory_restock",
-      toolName: "库存补货建议",
-      status: "running",
-    });
-
-    blocks.push({
-      type: "tool_result",
-      toolId: "inventory_restock",
-      toolName: "库存补货建议",
-      summary: "3 个 SKU 需要补货，预估总成本 $2,400",
-      data: {
-        suggestions: [
-          { sku: "PF-001", name: "Pet Fountain Pro", daysLeft: 12, quantity: 200, urgency: "high" },
-          { sku: "PF-002", name: "Filter Replacement", daysLeft: 18, quantity: 500, urgency: "medium" },
-          { sku: "FT-003", name: "Cat Feeder Mini", daysLeft: 25, quantity: 150, urgency: "medium" },
-        ],
-      },
-    });
-  } else if (lower.includes("选品") || lower.includes("调研") || lower.includes("product research")) {
-    blocks.push({
-      type: "tool_call",
-      toolId: "product_research",
-      toolName: "选品调研",
-      status: "running",
-    });
-
-    blocks.push({
-      type: "tool_result",
-      toolId: "product_research",
-      toolName: "选品调研",
-      summary: "发现 3 个高潜力品类，推荐指数 85+",
-      data: {
-        opportunities: [
-          { name: "Interactive Cat Toys", score: 88, trend: "upward", competition: "medium" },
-          { name: "Smart Pet Cameras", score: 76, trend: "upward", competition: "high" },
-          { name: "Pet Grooming Tools", score: 82, trend: "stable", competition: "low" },
-        ],
-      },
-    });
-  } else {
-    // General response with options
-    blocks.push({
-      type: "text",
-      text: "我可以帮你完成以下任务，请选择或描述你的需求：",
-    });
-
-    blocks.push({
-      type: "options",
-      question: "你想做什么？",
-      blockId: cryptoRandom(),
-      options: [
-        { id: "competitor", label: "分析竞品", description: "输入 ASIN 分析竞品数据", icon: "Search" },
-        { id: "listing", label: "生成 Listing", description: "AI 生成标题/五点/描述", icon: "FileText" },
-        { id: "ad", label: "优化广告", description: "降低 ACoS 提升转化", icon: "TrendingUp" },
-        { id: "imaging", label: "AI 作图", description: "生成产品主图/场景图", icon: "Image" },
-      ],
-    });
-  }
-
-  return blocks;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────

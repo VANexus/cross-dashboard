@@ -2,15 +2,23 @@
  * FlowMind RAK — AI Provider Factory
  * Manages provider lifecycle and reads config from ai_config database table.
  * Supports frontend-configurable provider switching without env vars.
+ * 无 mock：未配置 key 时抛 AIConfigError（结构化配置引导），绝不返回假内容。
  */
-import { getDb } from "../db";
+import { getSupabase } from "../db";
 import type { AIProvider, AIProviderName } from "./provider";
-import { MockAIProvider } from "./mock";
 import { ClaudeAIProvider } from "./claude";
 import { OpenAIProvider } from "./openai";
 
 export type { AIProvider, AIProviderName } from "./provider";
 export type { GenerateParams, GenerateResult, AnalyzeParams } from "./provider";
+
+/** LLM 未配置时抛出；调用方（agent runtime / 编排器）据此展示配置引导而非假数据。 */
+export class AIConfigError extends Error {
+  constructor(message = "未配置 LLM API Key，请在 设置 中配置后重试") {
+    super(message);
+    this.name = "AIConfigError";
+  }
+}
 
 interface AIConfig {
   provider: AIProviderName;
@@ -19,22 +27,21 @@ interface AIConfig {
   baseUrl: string;
   maxTokens: number;
   temperature: number;
-  demoMode: boolean;
 }
 
 const DEFAULT_CONFIG: AIConfig = {
-  provider: "mock",
+  provider: "openai",
   model: "mimo-v2.5-pro",
   apiKey: "",
   baseUrl: "https://token-plan-cn.xiaomimimo.com",
   maxTokens: 4096,
   temperature: 0.7,
-  demoMode: false,
 };
 
-function readConfig(): AIConfig {
-  const db = getDb();
-  const rows = db.query("SELECT key, value FROM ai_config").all() as { key: string; value: string }[];
+async function readConfig(): Promise<AIConfig> {
+  const sb = getSupabase();
+  const { data } = await sb.from("ai_config").select("key, value");
+  const rows = (data ?? []) as Array<{ key: string; value: string }>;
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
 
   return {
@@ -44,11 +51,13 @@ function readConfig(): AIConfig {
     baseUrl: map.base_url ?? process.env.AI_BASE_URL ?? DEFAULT_CONFIG.baseUrl,
     maxTokens: Number(map.max_tokens ?? process.env.AI_MAX_TOKENS ?? DEFAULT_CONFIG.maxTokens),
     temperature: Number(map.temperature ?? process.env.AI_TEMPERATURE ?? DEFAULT_CONFIG.temperature),
-    demoMode: map.demo_mode !== undefined ? map.demo_mode !== "false" : (process.env.AI_DEMO_MODE !== "false"),
   };
 }
 
 function createProvider(config: AIConfig): AIProvider {
+  if (!config.apiKey) {
+    throw new AIConfigError();
+  }
   switch (config.provider) {
     case "claude":
       return new ClaudeAIProvider({
@@ -57,14 +66,12 @@ function createProvider(config: AIConfig): AIProvider {
         baseUrl: config.baseUrl || undefined,
       });
     case "openai":
+    default:
       return new OpenAIProvider({
         apiKey: config.apiKey,
         model: config.model,
         baseUrl: config.baseUrl || undefined,
       });
-    case "mock":
-    default:
-      return new MockAIProvider();
   }
 }
 
@@ -73,8 +80,8 @@ let _provider: AIProvider | null = null;
 let _configSnapshot: string | null = null;
 
 /** Get the current AI provider. Reads config from DB each call; only recreates if changed. */
-export function getAIProvider(): AIProvider {
-  const config = readConfig();
+export async function getAIProvider(): Promise<AIProvider> {
+  const config = await readConfig();
   const snapshot = JSON.stringify(config);
 
   if (!_provider || _configSnapshot !== snapshot) {
@@ -86,35 +93,32 @@ export function getAIProvider(): AIProvider {
 }
 
 /** Force a fresh provider (used after config updates). */
-export function refreshAIProvider(): AIProvider {
+export async function refreshAIProvider(): Promise<AIProvider> {
   _provider = null;
   _configSnapshot = null;
-  return getAIProvider();
+  return await getAIProvider();
 }
 
 /** Read the current AI config for API responses. */
-export function getAIConfig(): AIConfig {
-  return readConfig();
-}
-
-/** Check if demo mode is active. */
-export function isDemoMode(): boolean {
-  return readConfig().demoMode;
+export async function getAIConfig(): Promise<AIConfig> {
+  return await readConfig();
 }
 
 /** Update AI config. Accepts partial updates — only specified keys change. */
-export function updateAIConfig(updates: Partial<Record<string, string>>): AIConfig {
-  const db = getDb();
-  const stmt = db.prepare(
-    "INSERT INTO ai_config (key, value, updated_at) VALUES (?, ?, datetime('now')) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at"
-  );
+export async function updateAIConfig(updates: Partial<Record<string, string>>): Promise<AIConfig> {
+  const sb = getSupabase();
+  const now = new Date().toISOString();
 
-  for (const [key, value] of Object.entries(updates)) {
-    if (value !== undefined) {
-      stmt.run(key, value);
-    }
+  const entries = Object.entries(updates).filter(([, v]) => v !== undefined) as Array<[string, string]>;
+  if (entries.length > 0) {
+    await sb
+      .from("ai_config")
+      .upsert(
+        entries.map(([key, value]) => ({ key, value, updated_at: now })),
+        { onConflict: "key" }
+      );
   }
 
-  refreshAIProvider();
-  return readConfig();
+  await refreshAIProvider();
+  return await readConfig();
 }

@@ -16,13 +16,11 @@ interface AIConfig {
   baseUrl: string;
   maxTokens: number;
   temperature: number;
-  demoMode: boolean;
 }
 
 const PROVIDERS = [
   { value: "openai", label: "OpenAI 兼容" },
   { value: "claude", label: "Claude 兼容" },
-  { value: "mock", label: "Mock (测试)" },
 ];
 
 export default function SettingsPage() {
@@ -54,7 +52,6 @@ export default function SettingsPage() {
         base_url: config.baseUrl,
         max_tokens: String(config.maxTokens),
         temperature: String(config.temperature),
-        demo_mode: String(config.demoMode),
       };
       if (apiKey) body.api_key = apiKey;
       const res = await fetch("/api/ai/config", {
@@ -167,17 +164,6 @@ export default function SettingsPage() {
               </div>
 
               <Separator />
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-sm font-medium">演示模式</span>
-                  <p className="text-xs text-muted-foreground">使用模拟数据，不调用真实 AI 接口</p>
-                </div>
-                <Switch
-                  checked={config.demoMode}
-                  onCheckedChange={(v) => update("demoMode", v)}
-                />
-              </div>
 
               <div className="flex justify-end gap-3 pt-2">
                 <Button variant="outline" onClick={() => { setApiKey(""); window.location.reload(); }}>重置</Button>

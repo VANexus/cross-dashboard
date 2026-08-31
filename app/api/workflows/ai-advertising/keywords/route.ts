@@ -7,7 +7,7 @@ const service = new WorkflowService();
 
 export const GET = withDb(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
-  const data = service.getAdKeywords({
+  const data = await service.getAdKeywords({
     type: searchParams.get("type") ?? undefined,
     tag: searchParams.get("tag") ?? undefined,
   });

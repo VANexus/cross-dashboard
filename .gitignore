@@ -54,3 +54,5 @@ next-env.d.ts
 # tool artifacts
 .codegraph/
 .trunk/
+
+e2e-b2b-run.log

@@ -8,7 +8,7 @@ const service = new WorkflowService();
 export const GET = withDb(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
   const type = searchParams.get("type") ?? undefined;
-  const data = service.getImages(type);
+  const data = await service.getImages(type);
   return success(data);
 });
 

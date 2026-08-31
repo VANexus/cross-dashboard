@@ -11,7 +11,7 @@ export const PATCH = withDb(async (request: NextRequest,
   const { id } = await params;
   const parsed = parseBody(updateAdKeywordSchema, await request.json());
   if (!parsed.success) return badRequest(parsed.error);
-  const kw = service.updateAdKeyword(id, parsed.data);
+  const kw = await service.updateAdKeyword(id, parsed.data);
   if (!kw) return notFound("Ad keyword");
   return success(kw);
 });

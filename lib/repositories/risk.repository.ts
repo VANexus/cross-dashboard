@@ -2,9 +2,15 @@
  * FlowMind RAK — Risk Repository
  * Data access for risk events, health, and isolation
  */
-import { getDb } from "../db";
+import { getSupabase } from "../db";
 import type { RiskEvent, HealthDimension, RiskIndicator } from "../types";
-import { paginatedQuery, type PaginatedResult, parseJsonField } from "./base";
+import { parseJsonField } from "./base";
+import type { Pagination } from "../types";
+
+interface PaginatedResult<T> {
+  items: T[];
+  pagination: Pagination;
+}
 
 interface RiskRow {
   id: string;
@@ -33,104 +39,154 @@ function mapRisk(row: RiskRow): RiskEvent {
     description: row.description,
     source: row.source,
     timestamp: row.timestamp,
-    resolved: row.resolved === 1,
+    resolved: !!row.resolved,
     resolvedAt: row.resolved_at ?? undefined,
     actions: parseJsonField<string[]>(row.actions, []),
   };
 }
 
-export function getRiskEvents(filters?: {
+export async function getRiskEvents(filters?: {
   level?: string;
   resolved?: boolean;
   page?: number;
   pageSize?: number;
-}): PaginatedResult<RiskEvent> {
-  let where = "WHERE 1=1";
-  const params: unknown[] = [];
+}): Promise<PaginatedResult<RiskEvent>> {
+  const sb = getSupabase();
+  const page = filters?.page ?? 1;
+  const pageSize = filters?.pageSize ?? 20;
+  const offset = (page - 1) * pageSize;
 
-  if (filters?.level) { where += " AND level = ?"; params.push(filters.level); }
-  if (filters?.resolved !== undefined) { where += " AND resolved = ?"; params.push(filters.resolved ? 1 : 0); }
+  let query = sb.from("risk_events").select("*", { count: "exact" });
+  if (filters?.level) query = query.eq("level", filters.level);
+  if (filters?.resolved !== undefined) query = query.eq("resolved", filters.resolved ? 1 : 0);
 
-  const result = paginatedQuery<RiskRow>("risk_events", where, params, filters?.page ?? 1, filters?.pageSize ?? 20);
-  return { items: result.items.map(mapRisk), pagination: result.pagination };
+  const { data, count, error } = await query
+    .order("id", { ascending: false })
+    .range(offset, offset + pageSize - 1);
+
+  if (error) throw error;
+  const total = count ?? 0;
+  const items = (data as RiskRow[]).map(mapRisk);
+
+  return {
+    items,
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    },
+  };
 }
 
-export function getRiskEventById(id: string): RiskEvent | null {
-  const db = getDb();
-  const row = db.query("SELECT * FROM risk_events WHERE id = ?").get(id) as RiskRow | null;
+export async function getRiskEventById(id: string): Promise<RiskEvent | null> {
+  const sb = getSupabase();
+  const { data, error } = await sb.from("risk_events").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  const row = data as RiskRow | null;
   return row ? mapRisk(row) : null;
 }
 
-export function createRiskEvent(data: {
+export async function createRiskEvent(data: {
   level: string;
   title: string;
   description?: string;
   source?: string;
   actions?: string[];
-}): RiskEvent {
-  const db = getDb();
+}): Promise<RiskEvent> {
+  const sb = getSupabase();
   const id = `risk-${Date.now()}`;
-  db.run(
-    `INSERT INTO risk_events (id, level, title, description, source, actions)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [id, data.level, data.title, data.description ?? "", data.source ?? "",
-    JSON.stringify(data.actions ?? [])],
-  );
-  return getRiskEventById(id)!;
+  const row = {
+    id,
+    level: data.level,
+    title: data.title,
+    description: data.description ?? "",
+    source: data.source ?? "",
+    actions: JSON.stringify(data.actions ?? []),
+  };
+  const { error } = await sb.from("risk_events").insert(row);
+  if (error) throw error;
+  return (await getRiskEventById(id))!;
 }
 
-export function updateRiskEvent(id: string, data: { resolved?: boolean; resolvedAt?: string }): RiskEvent | null {
-  const db = getDb();
-  const sets: string[] = [];
-  const params: unknown[] = [];
+export async function updateRiskEvent(id: string, data: { resolved?: boolean; resolvedAt?: string }): Promise<RiskEvent | null> {
+  const sb = getSupabase();
+  const sets: Record<string, unknown> = {};
 
-  if (data.resolved !== undefined) { sets.push("resolved = ?"); params.push(data.resolved ? 1 : 0); }
-  if (data.resolvedAt !== undefined) { sets.push("resolved_at = ?"); params.push(data.resolvedAt); }
-  if (data.resolved && !data.resolvedAt) sets.push("resolved_at = datetime('now')");
+  if (data.resolved !== undefined) sets["resolved"] = data.resolved ? 1 : 0;
+  if (data.resolvedAt !== undefined) sets["resolved_at"] = data.resolvedAt;
+  if (data.resolved && !data.resolvedAt) sets["resolved_at"] = new Date().toISOString();
 
-  if (sets.length === 0) return getRiskEventById(id);
-  params.push(id);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  db.run(`UPDATE risk_events SET ${sets.join(", ")} WHERE id = ?`, params as any[]);
+  if (Object.keys(sets).length === 0) return getRiskEventById(id);
+
+  const { error } = await sb.from("risk_events").update(sets).eq("id", id);
+  if (error) throw error;
   return getRiskEventById(id);
 }
 
-export function getIsolationItems(): { label: string; desc: string; checked: boolean }[] {
-  const db = getDb();
-  const rows = db.query("SELECT * FROM risk_isolation ORDER BY id").all() as IsolationRow[];
-  return rows.map((r) => ({ label: r.label, desc: r.description, checked: r.checked === 1 }));
+export async function getIsolationItems(): Promise<{ label: string; desc: string; checked: boolean }[]> {
+  const sb = getSupabase();
+  const { data, error } = await sb.from("risk_isolation").select("*").order("id", { ascending: true });
+  if (error) throw error;
+  const rows = data as IsolationRow[];
+  return rows.map((r) => ({ label: r.label, desc: r.description, checked: !!r.checked }));
 }
 
-export function updateIsolationItem(index: number, checked: boolean): boolean {
-  const db = getDb();
-  const row = db.query("SELECT id FROM risk_isolation ORDER BY id LIMIT 1 OFFSET ?").get(index) as { id: number } | null;
+export async function updateIsolationItem(index: number, checked: boolean): Promise<boolean> {
+  const sb = getSupabase();
+  const { data, error: qError } = await sb
+    .from("risk_isolation")
+    .select("id")
+    .order("id", { ascending: true })
+    .range(index, index);
+  if (qError) throw qError;
+  const row = (data as Array<{ id: number }>)[0] ?? null;
   if (!row) return false;
-  db.run("UPDATE risk_isolation SET checked = ? WHERE id = ?", [checked ? 1 : 0, row.id]);
+  const { error } = await sb.from("risk_isolation").update({ checked: checked ? 1 : 0 }).eq("id", row.id);
+  if (error) throw error;
   return true;
 }
 
-export function getHealthData(): {
+export async function getHealthData(): Promise<{
   score: number;
   dimensions: HealthDimension[];
   indicators: RiskIndicator[];
-} {
-  const db = getDb();
-  const unresolved = (db.query("SELECT COUNT(*) as c FROM risk_events WHERE resolved = 0").get() as { c: number }).c;
-  const level1 = (db.query("SELECT COUNT(*) as c FROM risk_events WHERE level = 'level1' AND resolved = 0").get() as { c: number }).c;
+}> {
+  const sb = getSupabase();
+
+  const { count: unresolvedCount, error: e1 } = await sb
+    .from("risk_events")
+    .select("*", { count: "exact", head: true })
+    .eq("resolved", 0);
+  if (e1) throw e1;
+  const unresolved = unresolvedCount ?? 0;
+
+  const { count: level1Count, error: e2 } = await sb
+    .from("risk_events")
+    .select("*", { count: "exact", head: true })
+    .eq("level", "level1")
+    .eq("resolved", 0);
+  if (e2) throw e2;
+  const level1 = level1Count ?? 0;
 
   const score = Math.max(0, 100 - unresolved * 5 - level1 * 15);
 
-  // Compute per-source-agent risk counts for dimension scoring
-  const sourceCounts = db.query(
-    `SELECT source,
-       COUNT(*) as total,
-       SUM(CASE WHEN resolved = 0 THEN 1 ELSE 0 END) as open,
-       SUM(CASE WHEN level = 'level1' AND resolved = 0 THEN 1 ELSE 0 END) as critical
-     FROM risk_events GROUP BY source`
-  ).all() as Array<{ source: string; total: number; open: number; critical: number }>;
+  const { data: sourceCountsRaw, error: e3 } = await sb
+    .from("risk_events")
+    .select("source");
+  if (e3) throw e3;
 
   const bySource = new Map<string, { total: number; open: number; critical: number }>();
-  for (const row of sourceCounts) bySource.set(row.source, row);
+  const sourceRows = sourceCountsRaw as Array<{ source: string; level: string; resolved: number }> & { level?: string; resolved?: number }[];
+  const allSourceData = await sb.from("risk_events").select("source, level, resolved");
+  if (allSourceData.error) throw allSourceData.error;
+  for (const r of allSourceData.data as Array<{ source: string; level: string; resolved: number }>) {
+    const entry = bySource.get(r.source) ?? { total: 0, open: 0, critical: 0 };
+    entry.total++;
+    if (r.resolved === 0) entry.open++;
+    if (r.level === "level1" && r.resolved === 0) entry.critical++;
+    bySource.set(r.source, entry);
+  }
 
   function dimScore(agentId: string, base: number, threshold: number): { score: number; status: "pass" | "warning" } {
     const data = bySource.get(agentId);
@@ -139,19 +195,32 @@ export function getHealthData(): {
     return { score: s, status: s >= threshold ? "pass" : "warning" };
   }
 
-  // Ad compliance: combine risk events from marketing agent + risky keyword ratio
-  const adTotal = (db.query("SELECT COUNT(*) as c FROM wf_ad_keywords").get() as { c: number }).c;
-  const adRisky = (db.query("SELECT COUNT(*) as c FROM wf_ad_keywords WHERE ai_tag = 'risky'").get() as { c: number }).c;
+  const { count: adTotalCount, error: e4 } = await sb
+    .from("wf_ad_keywords")
+    .select("*", { count: "exact", head: true });
+  if (e4) throw e4;
+  const adTotal = adTotalCount ?? 0;
+
+  const { count: adRiskyCount, error: e5 } = await sb
+    .from("wf_ad_keywords")
+    .select("*", { count: "exact", head: true })
+    .eq("ai_tag", "risky");
+  if (e5) throw e5;
+  const adRisky = adRiskyCount ?? 0;
+
   const adDim = dimScore("marketing-001", 94, 85);
   const adCompliancePenalty = adTotal > 0 ? Math.round((adRisky / adTotal) * 10) : 0;
   const adScore = Math.max(0, adDim.score - adCompliancePenalty);
 
-  // Supply chain: from inventory ship_days
-  const shipStats = db.query(
-    "SELECT AVG(ship_days) as avg_ship, MAX(ship_days) as max_ship FROM wf_inventory"
-  ).get() as { avg_ship: number; max_ship: number };
+  const { data: shipStatsRaw, error: e6 } = await sb.from("wf_inventory").select("ship_days");
+  if (e6) throw e6;
+  const shipRows = shipStatsRaw as Array<{ ship_days: number }>;
+  const shipDays = shipRows.map((r) => r.ship_days).filter((v) => v != null && !isNaN(v));
+  const avgShip = shipDays.length > 0 ? shipDays.reduce((a, b) => a + b, 0) / shipDays.length : 0;
+  const maxShip = shipDays.length > 0 ? Math.max(...shipDays) : 0;
+
   const supplyDim = dimScore("ops-001", 91, 80);
-  const shipPenalty = (shipStats.avg_ship ?? 0) > 30 ? Math.round((shipStats.avg_ship - 30) * 0.5) : 0;
+  const shipPenalty = avgShip > 30 ? Math.round((avgShip - 30) * 0.5) : 0;
   const supplyScore = Math.max(0, supplyDim.score - shipPenalty);
 
   function dimStatus(score: number, threshold: number): "pass" | "warning" {
@@ -171,9 +240,20 @@ export function getHealthData(): {
     { label: "供应链", score: supplyScore, value: `${supplyScore}/100`, threshold: "≥80", status: dimStatus(supplyScore, 80) },
   ];
 
-  // Indicators: compute ODR from risk events, rest from DB where possible
-  const level1Total = (db.query("SELECT COUNT(*) as c FROM risk_events WHERE level = 'level1'").get() as { c: number }).c;
-  const level2Total = (db.query("SELECT COUNT(*) as c FROM risk_events WHERE level = 'level2'").get() as { c: number }).c;
+  const { count: level1TotalCount, error: e7 } = await sb
+    .from("risk_events")
+    .select("*", { count: "exact", head: true })
+    .eq("level", "level1");
+  if (e7) throw e7;
+  const level1Total = level1TotalCount ?? 0;
+
+  const { count: level2TotalCount, error: e8 } = await sb
+    .from("risk_events")
+    .select("*", { count: "exact", head: true })
+    .eq("level", "level2");
+  if (e8) throw e8;
+  const level2Total = level2TotalCount ?? 0;
+
   const ipEvents = (bySource.get("legal-001")?.total ?? 0);
 
   const indicators: RiskIndicator[] = [

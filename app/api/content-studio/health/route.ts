@@ -11,7 +11,7 @@ const service = new ContentService();
  * 用于前端状态展示或外部监控系统。
  */
 export const GET = withDb(async () => {
-  const stats = service.getMCPStatus();
+  const stats = await service.getMCPStatus();
 
   try {
     const reachable = await service.checkMCPHealth();

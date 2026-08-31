@@ -14,7 +14,7 @@
  */
 import { ContentMCPClient, ContentMCPError } from "@/lib/content/mcp-client";
 import { PLATFORMS } from "@/lib/content/platforms";
-import { getDb } from "@/lib/db";
+import { getSupabase } from "@/lib/db";
 import { updateWorkflowStatus, getWorkflowStatuses } from "@/lib/repositories/workflow.repository";
 import {
   clearHotTopics, deleteDraft, getDraft, getDrafts, getHotTopics, getIdeas,
@@ -52,30 +52,30 @@ export class ContentService {
     return PLATFORMS;
   }
 
-  getIdeas(platform?: ContentPlatform): ContentIdea[] {
-    return getIdeas(platform);
+  async getIdeas(platform?: ContentPlatform): Promise<ContentIdea[]> {
+    return await getIdeas(platform);
   }
 
-  getHotTopics(platform: ContentPlatform): HotTopic[] {
-    return getHotTopics(platform);
+  async getHotTopics(platform: ContentPlatform): Promise<HotTopic[]> {
+    return await getHotTopics(platform);
   }
 
-  getRules(platform?: ContentPlatform): RuleRow[] {
-    return getRulesByPlatform(platform);
+  async getRules(platform?: ContentPlatform): Promise<RuleRow[]> {
+    return await getRulesByPlatform(platform);
   }
 
   /** 成果库：文案草稿 ∪ 本地化视频。 */
-  getWorks(): ContentWorks {
+  async getWorks(): Promise<ContentWorks> {
     return {
-      drafts: getDrafts(50),
-      videos: getTasks().filter((t) => t.status === "completed"),
+      drafts: await getDrafts(50),
+      videos: (await getTasks()).filter((t) => t.status === "completed"),
     };
   }
 
   // ── 思路设计 ──
 
   async generateIdeas(input: { platform: ContentPlatform; subject: string; count?: number }): Promise<ContentIdea[]> {
-    this.bump("idea-design", "running");
+    this.bump("idea-design", "running").catch(console.error);
     try {
       const result = await this.mcp.call<{
         ideas: Array<{ angle: string; title: string; reason?: string }>;
@@ -90,34 +90,32 @@ export class ContentService {
         insertIdea({
           id, platform: input.platform,
           angle: idea.angle ?? "综合", title: idea.title, subject: input.subject,
-        });
+        }).catch(console.error);
         ideas.push({ id, platform: input.platform, angle: idea.angle ?? "综合", title: idea.title, subject: input.subject, createdAt: new Date().toISOString() });
       }
       return ideas;
     } finally {
-      this.bump("idea-design", "idle");
+      this.bump("idea-design", "idle").catch(console.error);
     }
   }
 
   // ── 热点雷达 ──
 
   async fetchHotTopics(input: { platform: ContentPlatform; refresh?: boolean }): Promise<HotTopicsResult> {
-    const cached = this.getHotTopics(input.platform);
+    const cached = await this.getHotTopics(input.platform);
     if (!input.refresh && cached.length > 0) {
       return { platform: input.platform, source: "cache", endpoint: "", degraded: false, topics: cached };
     }
 
-    this.bump("hot-topic", "running");
+    this.bump("hot-topic", "running").catch(console.error);
     try {
       const result = await this.mcp.call<HotTopicsResult>("content_hot_topics", {
         platform: input.platform,
         limit: 20,
       });
-      // 落库（每次刷新覆盖旧快照）— 非关键，失败不影响返回
-      this.safePersistHotTopics(input.platform, result.topics);
+      this.safePersistHotTopics(input.platform, result.topics).catch(console.error);
       return result;
     } catch (err) {
-      // 热点降级：MCP 不可用时返回缓存（即使过期）+ degraded 标记
       if (cached.length > 0) {
         return {
           platform: input.platform,
@@ -130,7 +128,7 @@ export class ContentService {
       }
       throw err;
     } finally {
-      this.bump("hot-topic", "idle");
+      this.bump("hot-topic", "idle").catch(console.error);
     }
   }
 
@@ -139,7 +137,7 @@ export class ContentService {
   async generateCopy(input: {
     platform: ContentPlatform; subject: string; angle?: string; tone?: string; keywords?: string[];
   }): Promise<CopyDraft> {
-    this.bump("copywriting", "running");
+    this.bump("copywriting", "running").catch(console.error);
     try {
       const result = await this.mcp.call<{ title: string; body: string; tags: string[] }>("content_copywrite", {
         platform: input.platform,
@@ -150,21 +148,21 @@ export class ContentService {
       });
       const id = `draft-${Date.now()}`;
       const tags = Array.isArray(result.tags) ? result.tags.slice(0, 6) : [];
-      insertDraft({ id, platform: input.platform, title: result.title, body: result.body, tags });
-      const draft = getDraft(id);
+      await insertDraft({ id, platform: input.platform, title: result.title, body: result.body, tags });
+      const draft = await getDraft(id);
       if (!draft) throw new Error("草稿写入失败");
       return draft;
     } finally {
-      this.bump("copywriting", "idle");
+      this.bump("copywriting", "idle").catch(console.error);
     }
   }
 
   // ── 平台规则审计 ──
 
   async auditDraft(input: { id: string }): Promise<AuditResult> {
-    const draft = getDraft(input.id);
+    const draft = await getDraft(input.id);
     if (!draft) throw new Error("草稿不存在");
-    this.bump("compliance-audit", "running");
+    this.bump("compliance-audit", "running").catch(console.error);
     try {
       const result = await this.mcp.call<AuditResult>("content_audit", {
         platform: draft.platform,
@@ -172,11 +170,10 @@ export class ContentService {
         body: draft.body,
         tags: draft.tags,
       });
-      // 审计结果落库 — 非关键
-      this.safeUpdateDraft(input.id, { auditPassed: result.passed, auditResult: result.findings });
+      this.safeUpdateDraft(input.id, { auditPassed: result.passed, auditResult: result.findings }).catch(console.error);
       return result;
     } finally {
-      this.bump("compliance-audit", "idle");
+      this.bump("compliance-audit", "idle").catch(console.error);
     }
   }
 
@@ -185,45 +182,44 @@ export class ContentService {
   async generateImages(input: {
     draftId: string; platform: ContentPlatform; prompt: string; count?: number;
   }): Promise<ContentImageResult> {
-    this.bump("image-gen", "running");
+    this.bump("image-gen", "running").catch(console.error);
     try {
       const result = await this.mcp.call<ContentImageResult>("content_image_gen", {
         platform: input.platform,
         prompt: input.prompt,
         count: input.count ?? 1,
       });
-      // 落库到 wf_generated_images（挂接 draft_id/platform）— 非关键
-      this.safePersistImages(result, input);
+      this.safePersistImages(result, input).catch(console.error);
       this.safeUpdateDraft(input.draftId, {
-        imageCount: (getDraft(input.draftId)?.imageCount ?? 0) + result.images.length,
-      });
+        imageCount: ((await getDraft(input.draftId))?.imageCount ?? 0) + result.images.length,
+      }).catch(console.error);
       return result;
     } finally {
-      this.bump("image-gen", "idle");
+      this.bump("image-gen", "idle").catch(console.error);
     }
   }
 
   // ── 草稿管理 ──
 
-  updateDraft(id: string, data: { title?: string; body?: string; tags?: string[]; status?: CopyDraft["status"] }): CopyDraft | null {
-    const existing = getDraft(id);
+  async updateDraft(id: string, data: { title?: string; body?: string; tags?: string[]; status?: CopyDraft["status"] }): Promise<CopyDraft | null> {
+    const existing = await getDraft(id);
     if (!existing) return null;
-    updateDraft(id, data);
-    return getDraft(id);
+    await updateDraft(id, data);
+    return await getDraft(id);
   }
 
-  removeDraft(id: string): boolean {
-    return deleteDraft(id);
+  async removeDraft(id: string): Promise<boolean> {
+    return await deleteDraft(id);
   }
 
   // ── 内部辅助 ──
 
   /** 安全落库热点（失败不抛）。 */
-  private safePersistHotTopics(platform: ContentPlatform, topics: HotTopic[]): void {
+  private async safePersistHotTopics(platform: ContentPlatform, topics: HotTopic[]): Promise<void> {
     try {
-      clearHotTopics(platform);
+      await clearHotTopics(platform);
       for (const t of topics) {
-        insertHotTopic({
+        await insertHotTopic({
           id: `ht-${platform}-${Date.now()}-${t.word.slice(0, 8)}`,
           platform,
           word: t.word, heat: t.heat, delta: t.delta, url: t.url, source: t.source,
@@ -235,26 +231,29 @@ export class ContentService {
   }
 
   /** 安全更新草稿（失败不抛）。 */
-  private safeUpdateDraft(id: string, data: Record<string, unknown>): void {
+  private async safeUpdateDraft(id: string, data: Record<string, unknown>): Promise<void> {
     try {
-      updateDraft(id, data);
+      await updateDraft(id, data);
     } catch {
       // 非关键路径
     }
   }
 
   /** 安全落库图片（失败不抛）。 */
-  private safePersistImages(result: ContentImageResult, input: { draftId: string; platform: ContentPlatform; prompt: string }): void {
+  private async safePersistImages(result: ContentImageResult, input: { draftId: string; platform: ContentPlatform; prompt: string }): Promise<void> {
     try {
-      const db = getDb();
+      const sb = getSupabase();
       const base = `gen-${Date.now()}`;
-      for (const img of result.images) {
-        db.run(
-          `INSERT INTO wf_generated_images (id, type, url, prompt, model, platform, draft_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [`${base}-${img.index}`, "content", img.url, input.prompt, result.backendUsed, input.platform, input.draftId] as unknown[],
-        );
-      }
+      const rows = result.images.map((img, idx) => ({
+        id: `${base}-${idx}`,
+        type: "content",
+        url: img.url,
+        prompt: input.prompt,
+        model: result.backendUsed,
+        platform: input.platform,
+        draft_id: input.draftId,
+      }));
+      await sb.from("wf_generated_images").insert(rows);
     } catch {
       // 非关键路径
     }
@@ -262,16 +261,16 @@ export class ContentService {
 
   // ── 状态上报（对齐 WorkflowService.bumpWorkflowStatus） ──
 
-  private bump(workflowId: string, status: "running" | "idle"): void {
+  private async bump(workflowId: string, status: "running" | "idle"): Promise<void> {
     try {
-      const current = getWorkflowStatuses().find((w) => w.id === workflowId);
+      const current = (await getWorkflowStatuses()).find((w) => w.id === workflowId);
       const newRuns = (current?.runs ?? 0) + (status === "idle" ? 1 : 0);
       const data: Bumpable = { status };
       if (status === "idle") {
         data.lastRun = new Date().toISOString();
         data.runCount = newRuns;
       }
-      updateWorkflowStatus(workflowId, data);
+      await updateWorkflowStatus(workflowId, data);
     } catch {
       // 非关键，不阻断流程
     }

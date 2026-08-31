@@ -6,8 +6,8 @@ import { AgentTopologyClient } from "@/components/ui/agent-topology-client";
 /** 仪表盘「Agent 协同拓扑」：三.js 3D 网络，节点色 = Agent 状态 */
 export async function TopologyIsland() {
   await getDbAsync();
-  const agents = new AgentService()
-    .list()
+  const agents = (await new AgentService()
+    .list())
     .map((a) => ({ id: a.id, name: a.name, status: a.status }));
 
   return (

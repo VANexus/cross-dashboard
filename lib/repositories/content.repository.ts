@@ -2,7 +2,7 @@
  * FlowMind — 内容创作中心 Repository
  * 数据访问层：wf_content_drafts / wf_content_ideas / wf_content_hot_topics / wf_content_rules
  */
-import { getDb } from "../db";
+import { getSupabase } from "../db";
 import type {
   AuditFinding, ContentDraftStatus, ContentIdea, ContentPlatform,
   CopyDraft, HotTopic,
@@ -33,7 +33,7 @@ function rowToDraft(r: DraftRow): CopyDraft {
     body: r.body,
     tags: parseJsonField<string[]>(r.tags, []),
     status: r.status as ContentDraftStatus,
-    auditPassed: r.audit_passed === 1,
+    auditPassed: !!r.audit_passed,
     auditResult: r.audit_result ? (parseJsonField<AuditFinding[] | null>(r.audit_result, null) ?? null) : null,
     imageCount: r.image_count,
     createdAt: r.created_at,
@@ -41,37 +41,47 @@ function rowToDraft(r: DraftRow): CopyDraft {
   };
 }
 
-export function insertDraft(draft: {
+export async function insertDraft(draft: {
   id: string;
   platform: ContentPlatform;
   title: string;
   body: string;
   tags: string[];
-}): void {
-  const db = getDb();
-  db.run(
-    `INSERT OR IGNORE INTO wf_content_drafts
-      (id, platform, title, body, tags, status)
-     VALUES (?, ?, ?, ?, ?, 'draft')`,
-    [draft.id, draft.platform, draft.title, draft.body, JSON.stringify(draft.tags)] as unknown[],
-  );
+}): Promise<void> {
+  const sb = getSupabase();
+  const row = {
+    id: draft.id,
+    platform: draft.platform,
+    title: draft.title,
+    body: draft.body,
+    tags: JSON.stringify(draft.tags),
+    status: "draft",
+  };
+  const { error } = await sb.from("wf_content_drafts").upsert(row, { onConflict: "id", ignoreDuplicates: true });
+  if (error) throw error;
 }
 
-export function getDrafts(limit = 50): CopyDraft[] {
-  const db = getDb();
-  const rows = db.query(
-    "SELECT * FROM wf_content_drafts ORDER BY created_at DESC, rowid DESC LIMIT ?",
-  ).all(limit) as unknown as DraftRow[];
-  return rows.map(rowToDraft);
+export async function getDrafts(limit = 50): Promise<CopyDraft[]> {
+  const sb = getSupabase();
+  const { data, error } = await sb
+    .from("wf_content_drafts")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data as DraftRow[]).map(rowToDraft);
 }
 
-export function getDraft(id: string): CopyDraft | null {
-  const db = getDb();
-  const row = db.query("SELECT * FROM wf_content_drafts WHERE id = ?").get(id) as unknown as DraftRow | undefined;
+export async function getDraft(id: string): Promise<CopyDraft | null> {
+  const sb = getSupabase();
+  const { data, error } = await sb.from("wf_content_drafts").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  const row = data as DraftRow | null;
   return row ? rowToDraft(row) : null;
 }
 
-export function updateDraft(
+export async function updateDraft(
   id: string,
   data: {
     title?: string;
@@ -82,46 +92,58 @@ export function updateDraft(
     auditResult?: AuditFinding[] | null;
     imageCount?: number;
   },
-): void {
-  const db = getDb();
-  const sets: string[] = ["updated_at = datetime('now')"];
-  const params: unknown[] = [];
-  if (data.title !== undefined) { sets.push("title = ?"); params.push(data.title); }
-  if (data.body !== undefined) { sets.push("body = ?"); params.push(data.body); }
-  if (data.tags !== undefined) { sets.push("tags = ?"); params.push(JSON.stringify(data.tags)); }
-  if (data.status !== undefined) { sets.push("status = ?"); params.push(data.status); }
-  if (data.auditPassed !== undefined) { sets.push("audit_passed = ?"); params.push(data.auditPassed ? 1 : 0); }
-  if (data.auditResult !== undefined) { sets.push("audit_result = ?"); params.push(JSON.stringify(data.auditResult)); }
-  if (data.imageCount !== undefined) { sets.push("image_count = ?"); params.push(data.imageCount); }
-  if (sets.length === 1) return;
-  params.push(id);
-  db.run(`UPDATE wf_content_drafts SET ${sets.join(", ")} WHERE id = ?`, params as unknown[]);
+): Promise<void> {
+  const sb = getSupabase();
+  const sets: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (data.title !== undefined) sets["title"] = data.title;
+  if (data.body !== undefined) sets["body"] = data.body;
+  if (data.tags !== undefined) sets["tags"] = JSON.stringify(data.tags);
+  if (data.status !== undefined) sets["status"] = data.status;
+  if (data.auditPassed !== undefined) sets["audit_passed"] = data.auditPassed ? 1 : 0;
+  if (data.auditResult !== undefined) sets["audit_result"] = JSON.stringify(data.auditResult);
+  if (data.imageCount !== undefined) sets["image_count"] = data.imageCount;
+  if (Object.keys(sets).length === 1) return;
+  const { error } = await sb.from("wf_content_drafts").update(sets).eq("id", id);
+  if (error) throw error;
 }
 
-export function deleteDraft(id: string): boolean {
-  const db = getDb();
-  const before = db.query("SELECT id FROM wf_content_drafts WHERE id = ?").get(id);
+export async function deleteDraft(id: string): Promise<boolean> {
+  const sb = getSupabase();
+  const { data: before, error: qError } = await sb.from("wf_content_drafts").select("id").eq("id", id).maybeSingle();
+  if (qError) throw qError;
   if (!before) return false;
-  db.run("DELETE FROM wf_content_drafts WHERE id = ?", [id] as unknown[]);
+  const { error } = await sb.from("wf_content_drafts").delete().eq("id", id);
+  if (error) throw error;
   return true;
 }
 
 // ── wf_content_ideas ──
 
-export function insertIdea(idea: { id: string; platform: ContentPlatform; angle: string; title: string; subject: string }): void {
-  const db = getDb();
-  db.run(
-    "INSERT OR IGNORE INTO wf_content_ideas (id, platform, angle, title, subject) VALUES (?, ?, ?, ?, ?)",
-    [idea.id, idea.platform, idea.angle, idea.title, idea.subject] as unknown[],
-  );
+export async function insertIdea(idea: { id: string; platform: ContentPlatform; angle: string; title: string; subject: string }): Promise<void> {
+  const sb = getSupabase();
+  const row = {
+    id: idea.id,
+    platform: idea.platform,
+    angle: idea.angle,
+    title: idea.title,
+    subject: idea.subject,
+  };
+  const { error } = await sb.from("wf_content_ideas").upsert(row, { onConflict: "id", ignoreDuplicates: true });
+  if (error) throw error;
 }
 
-export function getIdeas(platform?: ContentPlatform, limit = 20): ContentIdea[] {
-  const db = getDb();
-  const rows = platform
-    ? db.query("SELECT * FROM wf_content_ideas WHERE platform = ? ORDER BY created_at DESC, rowid DESC LIMIT ?").all(platform, limit)
-    : db.query("SELECT * FROM wf_content_ideas ORDER BY created_at DESC, rowid DESC LIMIT ?").all(limit);
-  return (rows as Array<{
+export async function getIdeas(platform?: ContentPlatform, limit = 20): Promise<ContentIdea[]> {
+  const sb = getSupabase();
+  let query = sb
+    .from("wf_content_ideas")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(limit);
+  if (platform) query = query.eq("platform", platform);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data as Array<{
     id: string; platform: string; angle: string; title: string; subject: string; created_at: string;
   }>).map((r) => ({
     id: r.id,
@@ -135,27 +157,38 @@ export function getIdeas(platform?: ContentPlatform, limit = 20): ContentIdea[] 
 
 // ── wf_content_hot_topics ──
 
-export function clearHotTopics(platform: ContentPlatform): void {
-  const db = getDb();
-  db.run("DELETE FROM wf_content_hot_topics WHERE platform = ?", [platform] as unknown[]);
+export async function clearHotTopics(platform: ContentPlatform): Promise<void> {
+  const sb = getSupabase();
+  const { error } = await sb.from("wf_content_hot_topics").delete().eq("platform", platform);
+  if (error) throw error;
 }
 
-export function insertHotTopic(t: { id: string; platform: ContentPlatform; word: string; heat: number; delta: number | null; url: string; source: string }): void {
-  const db = getDb();
-  db.run(
-    `INSERT OR IGNORE INTO wf_content_hot_topics (id, platform, word, heat, delta, url, source, fetched_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-    [t.id, t.platform, t.word, t.heat, t.delta, t.url, t.source] as unknown[],
-  );
+export async function insertHotTopic(t: { id: string; platform: ContentPlatform; word: string; heat: number; delta: number | null; url: string; source: string }): Promise<void> {
+  const sb = getSupabase();
+  const row = {
+    id: t.id,
+    platform: t.platform,
+    word: t.word,
+    heat: t.heat,
+    delta: t.delta,
+    url: t.url,
+    source: t.source,
+    fetched_at: new Date().toISOString(),
+  };
+  const { error } = await sb.from("wf_content_hot_topics").upsert(row, { onConflict: "id", ignoreDuplicates: true });
+  if (error) throw error;
 }
 
-export function getHotTopics(platform: ContentPlatform, limit = 20): HotTopic[] {
-  const db = getDb();
-  const rows = db.query(
-    `SELECT word, heat, delta, url, source FROM wf_content_hot_topics
-     WHERE platform = ? ORDER BY heat DESC LIMIT ?`,
-  ).all(platform, limit) as Array<{ word: string; heat: number; delta: number | null; url: string; source: string }>;
-  return rows.map((r) => ({
+export async function getHotTopics(platform: ContentPlatform, limit = 20): Promise<HotTopic[]> {
+  const sb = getSupabase();
+  const { data, error } = await sb
+    .from("wf_content_hot_topics")
+    .select("word, heat, delta, url, source")
+    .eq("platform", platform)
+    .order("heat", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data as Array<{ word: string; heat: number; delta: number | null; url: string; source: string }>).map((r) => ({
     word: r.word,
     heat: r.heat,
     delta: r.delta,
@@ -177,10 +210,26 @@ export interface RuleRow {
   enabled: number;
 }
 
-export function getRulesByPlatform(platform?: ContentPlatform): RuleRow[] {
-  const db = getDb();
-  const rows = platform
-    ? db.query("SELECT * FROM wf_content_rules WHERE (platform = ? OR platform = '*') AND enabled = 1 ORDER BY severity, id").all(platform)
-    : db.query("SELECT * FROM wf_content_rules WHERE enabled = 1 ORDER BY severity, id").all();
-  return rows as unknown as RuleRow[];
+export async function getRulesByPlatform(platform?: ContentPlatform): Promise<RuleRow[]> {
+  const sb = getSupabase();
+  const query = sb
+    .from("wf_content_rules")
+    .select("*")
+    .eq("enabled", 1)
+    .order("severity", { ascending: true })
+    .order("id", { ascending: true });
+  if (platform) {
+    const { data: dataPlatform, error: ep } = await sb
+      .from("wf_content_rules")
+      .select("*")
+      .eq("enabled", 1)
+      .or(`platform.eq.${platform},platform.eq.*`)
+      .order("severity", { ascending: true })
+      .order("id", { ascending: true });
+    if (ep) throw ep;
+    return dataPlatform as unknown as RuleRow[];
+  }
+  const { data, error } = await query;
+  if (error) throw error;
+  return data as unknown as RuleRow[];
 }

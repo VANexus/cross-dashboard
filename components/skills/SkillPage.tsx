@@ -12,14 +12,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SchemaForm } from "./SchemaForm";
 import { SkillOutput } from "./SkillOutput";
-import { domainStyle } from "@/lib/skills/demo-manifest";
+import { domainStyle } from "@/lib/skills/domain-style";
 import { cn } from "@/lib/utils";
 import { Play, Loader2, Sparkles, Gauge, Clock, Brain, Zap } from "lucide-react";
 import type { DiscoveredSkill } from "@/lib/skills";
 
 export interface SkillPageSkill extends DiscoveredSkill {
   domain?: string;
-  demoOutput?: unknown;
 }
 
 const DOMAIN_ICON: Record<string, React.ReactNode> = {
@@ -45,21 +44,36 @@ export function SkillPage({ skill }: { skill: SkillPageSkill }) {
   });
   const [running, setRunning] = useState(false);
   const [output, setOutput] = useState<unknown | null>(null);
+  const [runError, setRunError] = useState<string | null>(null);
   const [showSchema, setShowSchema] = useState(false);
 
   const rp = skill.reliability_profile;
   const style = domainStyle(skill.domain);
   const icon = skill.domain ? (DOMAIN_ICON[skill.domain] ?? <Sparkles className="h-4 w-4" />) : <Sparkles className="h-4 w-4" />;
 
-  const handleRun = () => {
+  // 真实执行：POST /api/skills/run → flowmind A2A 编排器；失败展示结构化错误，不出假数据
+  const handleRun = async () => {
     if (running) return;
     setRunning(true);
     setOutput(null);
-    // 模拟运行：短暂延迟后呈现示例输出（后端就绪时替换为真实调用）
-    setTimeout(() => {
-      setOutput(skill.demoOutput ?? {});
+    setRunError(null);
+    try {
+      const res = await fetch("/api/skills/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: skill.id, input }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setOutput(data.data.output);
+      } else {
+        setRunError(data.message ?? "技能执行失败");
+      }
+    } catch (err) {
+      setRunError(err instanceof Error ? err.message : String(err));
+    } finally {
       setRunning(false);
-    }, 900);
+    }
   };
 
   return (
@@ -154,13 +168,15 @@ export function SkillPage({ skill }: { skill: SkillPageSkill }) {
         <div className="glass rounded-2xl p-5">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold">输出结果</h2>
-            {output !== null && <Badge variant="success">已完成</Badge>}
+            {runError ? <Badge variant="warning">执行失败</Badge> : output !== null ? <Badge variant="success">已完成</Badge> : null}
           </div>
           {running ? (
             <div className="flex h-40 flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
               正在编排 Agent 协同执行…
             </div>
+          ) : runError ? (
+            <p className="rounded-lg bg-warning/10 px-4 py-3 text-sm text-warning">{runError}</p>
           ) : (
             <SkillOutput data={output ?? {}} />
           )}

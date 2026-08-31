@@ -6,40 +6,40 @@ import * as repo from "../repositories/memory.repository";
 import type { MemoryEntry, MemoryUsageStats, Pagination } from "../types";
 
 export class MemoryService {
-  list(filters?: {
+  async list(filters?: {
     zone?: string;
     type?: string;
     search?: string;
     agentId?: string;
     page?: number;
     pageSize?: number;
-  }): { items: MemoryEntry[]; pagination: Pagination } {
-    return repo.getMemoryEntries(filters);
+  }): Promise<{ items: MemoryEntry[]; pagination: Pagination }> {
+    return await repo.getMemoryEntries(filters);
   }
 
-  getById(id: string): MemoryEntry | null {
-    return repo.getMemoryById(id);
+  async getById(id: string): Promise<MemoryEntry | null> {
+    return await repo.getMemoryById(id);
   }
 
-  create(data: {
+  async create(data: {
     zone: string;
     title: string;
     content: string;
     type: string;
     tags?: string[];
-  }): MemoryEntry {
-    return repo.createMemory(data);
+  }): Promise<MemoryEntry> {
+    return await repo.createMemory(data);
   }
 
-  update(id: string, data: Partial<MemoryEntry>): MemoryEntry | null {
-    return repo.updateMemory(id, data);
+  async update(id: string, data: Partial<MemoryEntry>): Promise<MemoryEntry | null> {
+    return await repo.updateMemory(id, data);
   }
 
-  delete(id: string): boolean {
-    return repo.deleteMemory(id);
+  async delete(id: string): Promise<boolean> {
+    return await repo.deleteMemory(id);
   }
 
-  getUsage(id: string): MemoryUsageStats | null {
-    return repo.getMemoryUsage(id);
+  async getUsage(id: string): Promise<MemoryUsageStats | null> {
+    return await repo.getMemoryUsage(id);
   }
 }

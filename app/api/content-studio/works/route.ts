@@ -6,7 +6,7 @@ const service = new ContentService();
 
 /** 成果库：文案草稿 ∪ 本地化视频。 */
 export const GET = withDb(async () => {
-  return success(service.getWorks());
+  return success(await service.getWorks());
 });
 
 export { methodNotAllowed as POST };

@@ -3,7 +3,7 @@
  * Orchestrates Ziniao Browser to extract e-commerce store data
  */
 import * as ziniao from "../ziniao/client";
-import { getDb } from "../db";
+import { getSupabase } from "../db";
 import type { ZiniaoStore } from "../ziniao/client";
 
 export interface CrawlResult {
@@ -130,23 +130,29 @@ export class CrawlerService {
   }
 
   /** Save crawl result to database */
-  saveResult(result: CrawlResult): void {
-    const db = getDb();
+  async saveResult(result: CrawlResult): Promise<void> {
+    const sb = getSupabase();
     const id = `crawl-${Date.now()}`;
-    db.run(
-      `INSERT INTO crawl_results (id, store_id, store_name, platform, url, data, timestamp)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [id, result.storeId, result.storeName, result.platform, result.url,
-       JSON.stringify(result.data), result.timestamp]
-    );
+    await sb.from("crawl_results").insert({
+      id,
+      store_id: result.storeId,
+      store_name: result.storeName,
+      platform: result.platform,
+      url: result.url,
+      data: JSON.stringify(result.data),
+      timestamp: result.timestamp,
+    });
   }
 
   /** Get recent crawl results */
-  getRecentResults(limit = 20): CrawlResult[] {
-    const db = getDb();
-    const rows = db.query(
-      "SELECT * FROM crawl_results ORDER BY timestamp DESC LIMIT ?"
-    ).all(limit) as Array<{
+  async getRecentResults(limit = 20): Promise<CrawlResult[]> {
+    const sb = getSupabase();
+    const { data } = await sb
+      .from("crawl_results")
+      .select("*")
+      .order("timestamp", { ascending: false })
+      .limit(limit);
+    const rows = (data ?? []) as Array<{
       id: string; store_id: string; store_name: string; platform: string;
       url: string; data: string; timestamp: string;
     }>;

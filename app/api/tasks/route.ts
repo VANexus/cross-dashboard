@@ -10,7 +10,7 @@ export const GET = withDb(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
   const pagination = paginationSchema.safeParse({ page: searchParams.get("page"), pageSize: searchParams.get("pageSize") });
   if (!pagination.success) return badRequest("Invalid pagination parameters");
-  const result = service.list({
+  const result = await service.list({
     status: searchParams.get("status") ?? undefined,
     priority: searchParams.get("priority") ?? undefined,
     ...pagination.data,
