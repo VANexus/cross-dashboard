@@ -71,11 +71,29 @@ export class B2BService {
   async fetchKeywordTrends(input: { platform: TrendPlatform; industryId?: number; keyword?: string; refresh?: boolean }): Promise<KeywordTrendsResult> {
     const cached = await getKeywordTrends(input.platform);
 
-    // 渠道授权登录会话：TikTok 解锁全量榜单；IG 必需
+    // 渠道会话：保险库 active 账号优先（多账号），settings 单账号兜底
+    // TikTok 解锁全量榜单；IG 必需
     const settings = await new (await import("./b2b-settings.service")).B2BSettingsService().getSettings();
-    const sessionCookie =
+    const settingsCookie =
       input.platform === "instagram" ? settings.instagramSessionCookie :
       input.platform === "tiktok" ? settings.tiktokSessionCookie : "";
+    let sessionCookie: string | null = null;
+    if (input.platform === "tiktok" || input.platform === "instagram") {
+      sessionCookie = await resolveChannelSession(input.platform);
+    }
+    sessionCookie = sessionCookie || settingsCookie || "";
+
+    // IG 网页端无匿名全站榜单，话题搜索必需关键词：
+    // 自动挖取（每日刷新/无词刷新）时按日期轮换跨境品类词池，保证每天出真实 IG 话题数据
+    let keyword = input.keyword;
+    if (input.platform === "instagram" && !keyword) {
+      const IG_DAILY_POOL = [
+        "handbag", "jewelry", "skincare", "sneakers", "dress",
+        "sunglasses", "watch", "hairaccessories", "homegoods", "petproducts",
+      ];
+      const dayIdx = Math.floor(Date.now() / 86_400_000) % IG_DAILY_POOL.length;
+      keyword = IG_DAILY_POOL[dayIdx];
+    }
 
     this.bump("keyword-trend", "running").catch(console.error);
     try {
@@ -86,7 +104,7 @@ export class B2BService {
       }>("b2b_keyword_trends", {
         platform: input.platform,
         industry_id: input.industryId,
-        keyword: input.keyword,
+        keyword,
         session_cookie: sessionCookie || undefined,
         limit: 30,
       });

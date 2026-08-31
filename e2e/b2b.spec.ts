@@ -32,17 +32,15 @@ test.describe("B端运营工作台", () => {
     await expect(page.locator("text=会话内容过短").first()).toBeVisible({ timeout: 5000 });
   });
 
-  test("关键词趋势页加载并展示空态引导（无演示数据）", async ({ page }) => {
+  test("关键词趋势页加载并展示真实数据或空态引导（无演示数据）", async ({ page }) => {
     await page.goto("/b2b/keyword-trends");
     await expect(page.locator("text=B端运营工作台").first()).toBeVisible({ timeout: 15000 });
     await expect(page.locator("text=行业关键词热力榜").first()).toBeVisible({ timeout: 15000 });
-    // 无 MCP / 无配置 → 空态 + 配置 CTA；绝不出现演示词
+    // 已有真实缓存数据（榜单行：等宽字体排名徽标）或空态引导（未配置时）均可
     await expect(
-      page.locator("text=暂无榜单数据").first()
+      page.locator("text=暂无榜单数据").or(page.locator("span.font-mono").first())
     ).toBeVisible({ timeout: 15000 });
-    await expect(
-      page.locator("text=前往设置 → B 端运营").first()
-    ).toBeVisible({ timeout: 5000 });
+    // 绝不出现演示/种子词
     await expect(page.locator("text=skincare routine")).toHaveCount(0);
   });
 

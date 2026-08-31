@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import {
   TrendingUp, Flame, RefreshCw, Loader2, AlertTriangle,
   XCircle, ArrowUpRight, ArrowDownRight, Sparkles, ExternalLink,
-  Send, CalendarClock, CheckCircle2,
+  Send, CalendarClock, CheckCircle2, KeyRound,
 } from "lucide-react";
 import { B2BNav } from "../b2b-nav";
 import {
@@ -290,14 +290,24 @@ export function B2BTrendsClient({ initialTrends }: { initialTrends: KeywordTrend
                 <p className="text-sm text-muted-foreground">
                   暂无榜单数据。真实关键词来自 TikTok Creative Center / 阿里 TOP，首次使用请先配置：
                 </p>
-                <Link
-                  href="/settings/b2b"
-                  className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
-                >
-                  <Sparkles className="h-3 w-3" />
-                  前往设置 → B 端运营
-                  <ArrowUpRight className="h-3 w-3" />
-                </Link>
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href="/b2b/channels"
+                    className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+                  >
+                    <KeyRound className="h-3 w-3" />
+                    渠道授权登录（解锁全量）
+                    <ArrowUpRight className="h-3 w-3" />
+                  </Link>
+                  <Link
+                    href="/settings/b2b"
+                    className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+                  >
+                    <Sparkles className="h-3 w-3" />
+                    前往设置 → B 端运营
+                    <ArrowUpRight className="h-3 w-3" />
+                  </Link>
+                </div>
               </div>
             )}
             {keywords.map((k) => (
