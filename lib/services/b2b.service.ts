@@ -13,6 +13,7 @@ import {
   insertProduct, updateImageSkill, updateListing,
 } from "@/lib/repositories/b2b.repository";
 import { getSupabase } from "@/lib/db";
+import { resolveChannelSession } from "@/lib/repositories/channel-accounts.repository";
 import type {
   AlibabaProduct, B2BListingDraft, B2BPreference, ContentImage, DailyDigestResult, ImageSkill,
   KeywordTrendsResult, ListingPublishResult, ListingRecommendation, LongtailKeyword, PushTestResult,

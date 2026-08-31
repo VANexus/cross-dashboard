@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { TrendingUp, Package, Palette } from "lucide-react";
+import { TrendingUp, Package, Palette, KeyRound } from "lucide-react";
 
 const TABS = [
   { href: "/b2b/keyword-trends", label: "关键词趋势", icon: TrendingUp },
   { href: "/b2b/listing", label: "一键上架", icon: Package },
   { href: "/b2b/image-skills", label: "生图 Skill 库", icon: Palette },
+  { href: "/b2b/channels", label: "渠道授权", icon: KeyRound },
 ];
 
 /** B端工作台三个子页共用顶部导航 */

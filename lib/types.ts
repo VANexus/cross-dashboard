@@ -706,6 +706,22 @@ export interface B2BHealthStatus {
   groups: Record<B2BSettingsGroup, { ok: boolean; error?: string; latencyMs?: number; reachable?: boolean }>;
 }
 
+/** 渠道账号保险库（browser_worker_saas_design.md M2） */
+export type ChannelPlatform = "tiktok" | "instagram" | "alibaba";
+export type ChannelAccountStatus = "active" | "expired" | "risk_control";
+
+export interface ChannelAccount {
+  id: string;
+  platform: ChannelPlatform;
+  label: string;
+  /** 会话密文（AES-256-GCM），仅服务端可见；列表返回空串 */
+  sessionEnc: string;
+  status: ChannelAccountStatus;
+  lastCheckedAt: string | null;
+  createdAt: string;
+}
+
+
 export interface B2BTestResult {
   group: B2BSettingsGroup;
   ok: boolean;

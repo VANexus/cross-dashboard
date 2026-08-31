@@ -1,12 +1,35 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("B端运营工作台", () => {
-  test("侧边栏包含 B端运营 三个入口", async ({ page }) => {
+  test("侧边栏包含 B端运营 四个入口", async ({ page }) => {
     await page.goto("/dashboard");
     await expect(page.locator("text=B端运营").first()).toBeVisible({ timeout: 15000 });
     await expect(page.locator("a[href='/b2b/keyword-trends']").first()).toBeVisible();
     await expect(page.locator("a[href='/b2b/listing']").first()).toBeVisible();
     await expect(page.locator("a[href='/b2b/image-skills']").first()).toBeVisible();
+    await expect(page.locator("a[href='/b2b/channels']").first()).toBeVisible();
+  });
+
+  test("渠道授权页加载并展示账号保险库区块", async ({ page }) => {
+    await page.goto("/b2b/channels");
+    await expect(page.locator("text=B端运营工作台").first()).toBeVisible({ timeout: 15000 });
+    await expect(page.locator("text=AES-256-GCM 加密").first()).toBeVisible({ timeout: 15000 });
+    await expect(page.locator("text=Instagram").first()).toBeVisible({ timeout: 15000 });
+    // 未登录任何账号 → 平台卡空态引导
+    await expect(
+      page.locator("text=暂无账号").first()
+    ).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("button", { name: "站内登录" }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "粘贴导入" }).first()).toBeVisible();
+  });
+
+  test("渠道授权粘贴导入表单交互（不实际提交）", async ({ page }) => {
+    await page.goto("/b2b/channels");
+    await page.getByRole("button", { name: "粘贴导入" }).first().click();
+    await expect(page.locator("text=粘贴导入会话").first()).toBeVisible({ timeout: 5000 });
+    await page.getByRole("button", { name: "加密导入" }).click();
+    // 会话内容过短 → 前端提示，不发请求
+    await expect(page.locator("text=会话内容过短").first()).toBeVisible({ timeout: 5000 });
   });
 
   test("关键词趋势页加载并展示空态引导（无演示数据）", async ({ page }) => {

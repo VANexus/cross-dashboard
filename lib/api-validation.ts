@@ -210,6 +210,25 @@ export const b2bChannelLoginSchema = z.object({
   platform: z.enum(["tiktok", "instagram"]),
 });
 
+/** 渠道账号保险库（M2） */
+export const b2bChannelCreateSchema = z.object({
+  platform: z.enum(["tiktok", "instagram", "alibaba"]),
+  label: z.string().max(80).optional().default(""),
+  /** 手动粘贴导入的会话；站内登录则不传（由登录流程回传） */
+  session: z.string().min(10).max(20_000).optional(),
+});
+
+export const b2bChannelUpdateSchema = z.object({
+  label: z.string().max(80).optional(),
+  session: z.string().min(10).max(20_000).optional(),
+  status: z.enum(["active", "expired", "risk_control"]).optional(),
+});
+
+export const b2bChannelLoginAccountSchema = z.object({
+  platform: z.enum(["tiktok", "instagram"]),
+  label: z.string().max(80).optional().default(""),
+});
+
 export const b2bLongtailSchema = z.object({
   industry: z.string().min(1).max(100),
   seedKeywords: z.array(z.string().max(100)).max(20).optional(),

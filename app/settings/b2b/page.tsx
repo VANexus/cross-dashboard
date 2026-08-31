@@ -48,7 +48,7 @@ const GROUPS: GroupSpec[] = [
   {
     key: "channel",
     title: "渠道授权（TikTok / Instagram 登录）",
-    desc: "点「站内登录」弹出本机浏览器，手动登录后自动捕获会话——解锁全量榜单与 IG 话题搜索",
+    desc: "多账号托管请用「B端运营 → 渠道授权」（加密保险库 + 会话探活）；此处为单账号兜底会话",
     icon: Globe,
     channelLogins: [
       { platform: "tiktok", label: "登录 TikTok", settingKey: "tiktokSessionCookie" },
