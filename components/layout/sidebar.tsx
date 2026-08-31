@@ -25,6 +25,7 @@ import {
   Boxes,
   Target,
   Globe,
+  PenLine,
 } from "lucide-react";
 
 type WorkflowStatus = "running" | "idle" | "warning" | "error";
@@ -51,12 +52,28 @@ const navGroups: NavGroup[] = [
   {
     label: "工作流",
     items: [
+      { label: "能力中心", href: "/skills", icon: <Sparkles className="h-4 w-4" /> },
       { label: "选品工作流", href: "/workflows/product-research", icon: <Radar className="h-4 w-4" />, wfStatus: "running" },
       { label: "AI 作图", href: "/workflows/ai-imaging", icon: <Image className="h-4 w-4" />, wfStatus: "idle" },
       { label: "AI 广告", href: "/workflows/ai-advertising", icon: <BarChart3 className="h-4 w-4" />, wfStatus: "running" },
       { label: "AI 上架", href: "/workflows/ai-listing", icon: <PackagePlus className="h-4 w-4" />, wfStatus: "idle" },
       { label: "库销比", href: "/workflows/inventory", icon: <Boxes className="h-4 w-4" />, wfStatus: "warning" },
       { label: "竞品广告分析", href: "/workflows/competitor-ads", icon: <Target className="h-4 w-4" />, wfStatus: "idle" },
+      { label: "视频本地化", href: "/workflows/video-localization", icon: <Globe className="h-4 w-4" /> },
+    ],
+  },
+  {
+    label: "B端运营",
+    items: [
+      { label: "关键词趋势", href: "/b2b/keyword-trends", icon: <BarChart3 className="h-4 w-4" /> },
+      { label: "一键上架", href: "/b2b/listing", icon: <PackagePlus className="h-4 w-4" /> },
+      { label: "生图 Skill 库", href: "/b2b/image-skills", icon: <Image className="h-4 w-4" /> },
+    ],
+  },
+  {
+    label: "内容",
+    items: [
+      { label: "内容创作中心", href: "/content-studio", icon: <PenLine className="h-4 w-4" /> },
     ],
   },
   {

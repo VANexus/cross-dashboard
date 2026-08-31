@@ -61,12 +61,12 @@ async function AgentDetailData({ id }: { id: string }) {
   const agentService = new AgentService();
   const taskService = new TaskService();
 
-  const agent = agentService.getById(id);
+  const agent = await agentService.getById(id);
   if (!agent) notFound();
 
-  const allTasks = taskService.list().items;
+  const allTasks = (await taskService.list()).items;
   const agentTasks = allTasks.filter((t: Task) => t.assignedAgents?.includes(id));
-  const journal = getEntries(id, 100);
+  const journal = await getEntries(id, 100);
 
   return (
     <AgentDetailClient

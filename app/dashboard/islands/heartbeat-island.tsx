@@ -5,6 +5,6 @@ import { DashboardHeartbeat } from "../dashboard-heartbeat";
 export async function HeartbeatIsland() {
   await getDbAsync();
   const agentService = new AgentService();
-  const agents = agentService.list();
+  const agents = await agentService.list();
   return <DashboardHeartbeat agents={agents} />;
 }

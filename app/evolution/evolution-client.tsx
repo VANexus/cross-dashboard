@@ -31,8 +31,8 @@ const Sparkline = dynamic(
   { ssr: false }
 );
 
-const stageConfig: Record<EvolutionRecord["stage"], { label: string; variant: "info" | "warning" | "danger" | "success" }> = {
-  identify: { label: "识别", variant: "info" },
+const stageConfig: Record<EvolutionRecord["stage"], { label: string; variant: "secondary" | "warning" | "danger" | "success" }> = {
+  identify: { label: "识别", variant: "secondary" },
   generate: { label: "生成", variant: "warning" },
   test: { label: "测试", variant: "warning" },
   review: { label: "评审", variant: "danger" },
@@ -40,7 +40,7 @@ const stageConfig: Record<EvolutionRecord["stage"], { label: string; variant: "i
 };
 
 const statusConfig = {
-  in_progress: { label: "进行中", icon: Loader2, variant: "info" as const, dot: "info" as const },
+  in_progress: { label: "进行中", icon: Loader2, variant: "secondary" as const, dot: "info" as const },
   success: { label: "成功", icon: CheckCircle2, variant: "success" as const, dot: "success" as const },
   failed: { label: "失败", icon: AlertTriangle, variant: "danger" as const, dot: "danger" as const },
 };

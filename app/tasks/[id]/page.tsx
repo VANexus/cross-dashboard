@@ -52,11 +52,11 @@ async function TaskDetailData({ id }: { id: string }) {
   const taskService = new TaskService();
   const agentService = new AgentService();
 
-  const task = taskService.getById(id);
+  const task = await taskService.getById(id);
   if (!task) notFound();
 
   const agent = task.assignedAgents?.[0]
-    ? agentService.getById(task.assignedAgents[0])
+    ? await agentService.getById(task.assignedAgents[0])
     : undefined;
 
   return <TaskDetailClient task={task} agent={agent ?? undefined} />;

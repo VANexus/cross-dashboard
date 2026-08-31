@@ -21,21 +21,22 @@ import {
   ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 import { updateTask } from "@/hooks/use-tasks";
 import type { Task, Agent, TaskStatus } from "@/lib/types";
 
-const statusConfig: Record<import("@/lib/types").TaskStatus, { label: string; icon: React.ComponentType<{ className?: string }>; variant: "success" | "info" | "secondary" | "danger" | "warning" }> = {
+const statusConfig: Record<import("@/lib/types").TaskStatus, { label: string; icon: React.ComponentType<{ className?: string }>; variant: "success" | "secondary" | "danger" | "warning" }> = {
   completed: { label: "已完成", icon: CheckCircle2, variant: "success" },
-  running: { label: "运行中", icon: Loader2, variant: "info" },
+  running: { label: "运行中", icon: Loader2, variant: "secondary" },
   pending: { label: "等待中", icon: Clock, variant: "secondary" },
   failed: { label: "失败", icon: AlertTriangle, variant: "danger" },
   cancelled: { label: "已取消", icon: Clock, variant: "warning" },
 };
 
-const priorityConfig: Record<string, { label: string; variant: "danger" | "warning" | "info" }> = {
+const priorityConfig: Record<string, { label: string; variant: "danger" | "warning" | "secondary" }> = {
   high: { label: "高", variant: "danger" },
   medium: { label: "中", variant: "warning" },
-  low: { label: "低", variant: "info" },
+  low: { label: "低", variant: "secondary" },
   critical: { label: "紧急", variant: "danger" },
 };
 
@@ -255,7 +256,7 @@ export function TasksClient({ initialTasks, agents }: TasksClientProps) {
                   }}
                 >
                   <div className="flex items-center gap-2 px-1.5">
-                    <config.icon className={cn("h-3.5 w-3.5", config.color)} />
+                    <config.icon className="h-3.5 w-3.5" />
                     <span className="text-xs font-semibold text-muted-foreground">{config.label}</span>
                     <span className="metric-value ml-auto text-[11px] text-muted-foreground">{columnTasks.length}</span>
                   </div>
@@ -276,7 +277,7 @@ export function TasksClient({ initialTasks, agents }: TasksClientProps) {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm font-medium leading-snug">{task.title}</p>
-                          <Badge variant="outline" className={cn("shrink-0 text-[10px]", priorityConfig[task.priority]?.color, priorityConfig[task.priority]?.bg, "border-0")}>
+                          <Badge variant="outline" className="shrink-0 border-0 text-[10px]">
                             {priorityConfig[task.priority]?.label || task.priority}
                           </Badge>
                         </div>
