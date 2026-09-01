@@ -210,7 +210,7 @@ export const b2bKeywordTrendSchema = z.object({
 export const b2bChannelCreateSchema = z.object({
   platform: z.enum(["tiktok", "instagram", "alibaba"]),
   label: z.string().max(80).optional().default(""),
-  /** 手动粘贴导入的会话；站内登录则不传（由登录流程回传） */
+  /** 手动粘贴导入的会话（TikHub 主路径下仅作备用凭证） */
   session: z.string().min(10).max(20_000).optional(),
 });
 
@@ -218,12 +218,6 @@ export const b2bChannelUpdateSchema = z.object({
   label: z.string().max(80).optional(),
   session: z.string().min(10).max(20_000).optional(),
   status: z.enum(["active", "expired", "risk_control"]).optional(),
-});
-
-/** 内嵌登录捕获：页面轮询触发，CDP 从用户浏览器捕获会话后加密入库 */
-export const b2bChannelCaptureSchema = z.object({
-  platform: z.enum(["tiktok", "instagram"]),
-  label: z.string().max(80).optional().default(""),
 });
 
 export const b2bLongtailSchema = z.object({

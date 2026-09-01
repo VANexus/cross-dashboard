@@ -69,7 +69,7 @@ const navGroups: NavGroup[] = [
       { label: "关键词趋势", href: "/b2b/keyword-trends", icon: <BarChart3 className="h-4 w-4" /> },
       { label: "一键上架", href: "/b2b/listing", icon: <PackagePlus className="h-4 w-4" /> },
       { label: "生图 Skill 库", href: "/b2b/image-skills", icon: <Image className="h-4 w-4" /> },
-      { label: "渠道授权", href: "/b2b/channels", icon: <KeyRound className="h-4 w-4" /> },
+      { label: "渠道账号", href: "/b2b/channels", icon: <KeyRound className="h-4 w-4" /> },
     ],
   },
   {

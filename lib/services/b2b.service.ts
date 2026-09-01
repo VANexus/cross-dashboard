@@ -72,7 +72,7 @@ export class B2BService {
     const cached = await getKeywordTrends(input.platform);
 
     // 渠道会话：保险库 active 账号优先（多账号），settings 单账号兜底
-    // TikTok 解锁全量榜单；IG 必需
+    // 主路径全走 TikHub（key 配在 flowmind .env）：cookie 仅为可选透传/回退路径使用，不再必需
     const settings = await new (await import("./b2b-settings.service")).B2BSettingsService().getSettings();
     const settingsCookie =
       input.platform === "instagram" ? settings.instagramSessionCookie :

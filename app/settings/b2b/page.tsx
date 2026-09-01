@@ -27,7 +27,7 @@ interface GroupSpec {
     type?: "text" | "password" | "url";
     hint?: string;
   }>;
-  /** 渠道授权组：无内嵌字段时仅展示测试/状态 */
+  /** 渠道凭证组：无内嵌字段时仅展示测试/状态 */
 }
 
 const GROUPS: GroupSpec[] = [
@@ -46,8 +46,8 @@ const GROUPS: GroupSpec[] = [
   },
   {
     key: "channel",
-    title: "渠道授权（浏览器直连）",
-    desc: "主路径：直连你自己的浏览器（真实指纹 + 登录态，零风控）；粘贴会话仅作兜底。多账号管理见「B端运营 → 渠道授权」",
+    title: "渠道凭证（备用）",
+    desc: "主路径已切换 TikHub API（免登录，key 配在 flowmind .env）；以下字段仅供旧自建回退路径使用。多账号管理见「B端运营 → 渠道账号」",
     icon: Globe,
     fields: [
       {
@@ -55,21 +55,21 @@ const GROUPS: GroupSpec[] = [
         label: "浏览器 CDP 地址",
         placeholder: "http://127.0.0.1:9222",
         type: "url",
-        hint: "浏览器需带调试端口启动：完全退出后执行 chrome.exe --remote-debugging-port=9222（Edge 用 msedge.exe）",
+        hint: "仅旧自建回退路径使用：浏览器需带调试端口启动",
       },
       {
         settingKey: "tiktokSessionCookie",
-        label: "TikTok 会话（兜底）",
+        label: "TikTok 会话（可选）",
         placeholder: "可选：sessionid=...; ...",
         type: "password",
-        hint: "CDP 未连通时的兜底路径",
+        hint: "TikHub 主路径无需登录；填写后透传以解锁更多数据，也用于旧自建回退路径",
       },
       {
         settingKey: "instagramSessionCookie",
         label: "Instagram 会话（兜底）",
         placeholder: "可选：sessionid=...; ...",
         type: "password",
-        hint: "CDP 未连通时的兜底路径",
+        hint: "仅旧自建回退路径（self_host）使用",
       },
     ],
   },
@@ -216,7 +216,7 @@ export default function B2BSettingsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">B 端运营配置</h1>
           <p className="text-sm text-muted-foreground">
-            渠道授权登录 + 阿里 TOP / LongCat / AllIn / Webhook 密钥，保存后三功能页面将清除缓存并重试。
+            渠道凭证 + 阿里 TOP / LongCat / AllIn / Webhook 密钥，保存后三功能页面将清除缓存并重试。
           </p>
         </div>
         <Button

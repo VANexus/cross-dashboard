@@ -22,8 +22,8 @@ import {
 import type { DailyRefreshResult, KeywordTrendsResult, LongtailKeyword, TrendPlatform } from "@/lib/types";
 
 const PLATFORMS: { id: TrendPlatform; label: string; hint: string }[] = [
-  { id: "tiktok", label: "TikTok", hint: "Creative Center 行业热词（自托管直连，登录解锁全量）" },
-  { id: "instagram", label: "Instagram", hint: "话题搜索（自托管直连，需登录 + 输入关键词）" },
+  { id: "tiktok", label: "TikTok", hint: "Creative Center 行业热词（TikHub API，免登录全量榜单）" },
+  { id: "instagram", label: "Instagram", hint: "话题搜索（TikHub API，输入关键词出真实话题榜，免登录）" },
   { id: "alibaba", label: "阿里国际站", hint: "TOP 热销商品词频统计（需完成授权）" },
 ];
 
@@ -288,17 +288,21 @@ export function B2BTrendsClient({ initialTrends }: { initialTrends: KeywordTrend
             {!loading && keywords.length === 0 && (
               <div className="px-4 py-6 flex flex-col sm:flex-row items-start sm:items-center gap-3">
                 <p className="text-sm text-muted-foreground">
-                  暂无榜单数据。真实关键词来自 TikTok Creative Center / 阿里 TOP，首次使用请先配置：
+                  {platform === "alibaba"
+                    ? "暂无榜单数据。热销词来自阿里 TOP，需先完成开放平台授权："
+                    : "暂无榜单数据。真实关键词由 TikHub API 提供，请先在设置中配置 TIKHUB_API_KEY："}
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <Link
-                    href="/b2b/channels"
-                    className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
-                  >
-                    <KeyRound className="h-3 w-3" />
-                    渠道授权登录（解锁全量）
-                    <ArrowUpRight className="h-3 w-3" />
-                  </Link>
+                  {platform === "alibaba" && (
+                    <Link
+                      href="/settings/b2b"
+                      className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+                    >
+                      <KeyRound className="h-3 w-3" />
+                      前往设置 → B 端运营
+                      <ArrowUpRight className="h-3 w-3" />
+                    </Link>
+                  )}
                   <Link
                     href="/settings/b2b"
                     className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"

@@ -10,16 +10,12 @@ test.describe("B端运营工作台", () => {
     await expect(page.locator("a[href='/b2b/channels']").first()).toBeVisible();
   });
 
-  test("渠道授权页加载并展示浏览器直连状态", async ({ page }) => {
+  test("渠道账号页加载并展示 TikHub 数据源说明与粘贴导入", async ({ page }) => {
     await page.goto("/b2b/channels");
     await expect(page.locator("text=B端运营工作台").first()).toBeVisible({ timeout: 15000 });
-    await expect(page.locator("text=你的浏览器（CDP 直连）").first()).toBeVisible({ timeout: 15000 });
-    // CDP 未连通 → 启用步骤指引；连通 → 浏览器信息
-    await expect(
-      page.locator("text=启用步骤（一次性）").or(page.locator("text=个标签页").first())
-    ).toBeVisible({ timeout: 15000 });
+    await expect(page.locator("text=数据源：TikHub API（免登录）").first()).toBeVisible({ timeout: 15000 });
     await expect(page.getByRole("button", { name: "粘贴导入" }).first()).toBeVisible();
-    await expect(page.locator("text=暂无兜底会话").first()).toBeVisible({ timeout: 15000 });
+    await expect(page.locator("text=暂无保存的账号会话").or(page.locator("text=账号保险库")).first()).toBeVisible({ timeout: 15000 });
   });
 
   test("关键词趋势页加载并展示真实数据或空态引导（无演示数据）", async ({ page }) => {

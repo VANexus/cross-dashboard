@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,9 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
-  Globe, KeyRound, Loader2, RefreshCw, ShieldCheck, Trash2, AlertTriangle, CheckCircle2, XCircle, MonitorSmartphone, ExternalLink,
+  KeyRound, Loader2, RefreshCw, ShieldCheck, Trash2, AlertTriangle,
 } from "lucide-react";
-import type { ChannelAccount, ChannelPlatform } from "@/lib/types";
+import type { ChannelPlatform } from "@/lib/types";
 
 interface AccountView {
   id: string;
@@ -20,15 +20,6 @@ interface AccountView {
   status: "active" | "expired" | "risk_control";
   lastCheckedAt: string | null;
   createdAt: string;
-}
-
-interface BrowserStatus {
-  connected: boolean;
-  browser: string;
-  cdp: string;
-  tabs?: number;
-  platforms?: { tiktok: boolean; instagram: boolean; alibaba: boolean };
-  hint: string;
 }
 
 const STATUS_BADGE: Record<AccountView["status"], { label: string; variant: "success" | "danger" | "warning" }> = {
@@ -42,63 +33,31 @@ function fmtTime(iso: string | null): string {
   return new Date(iso).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
-const EDGE_CMD = 'msedge.exe --remote-debugging-port=9222';
-const CHROME_CMD = 'chrome.exe --remote-debugging-port=9222';
-
-/** 站内登录：在你自己的浏览器打开平台登录页，正常登录后页面自动轮询捕获会话 */
-const LOGIN_URL: Record<"tiktok" | "instagram", string> = {
-  tiktok: "https://www.tiktok.com/login",
-  instagram: "https://www.instagram.com/accounts/login/",
-};
-
-interface LoginState {
-  platform: "tiktok" | "instagram";
-  message: string;
-  active: boolean;
-}
-
 export function ChannelsClient() {
   const [accounts, setAccounts] = useState<AccountView[]>([]);
-  const [browser, setBrowser] = useState<BrowserStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [message, setMessage] = useState<Record<string, string>>({});
   const [importOpen, setImportOpen] = useState<ChannelPlatform | null>(null);
   const [importLabel, setImportLabel] = useState("");
   const [importSession, setImportSession] = useState("");
-  const [login, setLogin] = useState<LoginState | null>(null);
-  const loginTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const loginBusy = useRef(false);
 
-  const stopLogin = useCallback((message?: string) => {
-    if (loginTimer.current) {
-      clearInterval(loginTimer.current);
-      loginTimer.current = null;
-    }
-    loginBusy.current = false;
-    setLogin((prev) => (prev ? { ...prev, active: false, ...(message !== undefined ? { message } : {}) } : prev));
-  }, []);
-
-  useEffect(() => () => { if (loginTimer.current) clearInterval(loginTimer.current); }, []);
+  const setMsg = (key: string, text: string) => setMessage((s) => ({ ...s, [key]: text }));
+  const setBuz = (key: string, on: boolean) => setBusy((s) => ({ ...s, [key]: on }));
 
   const refresh = useCallback(async () => {
-    const [accRes, brRes] = await Promise.allSettled([
-      fetch("/api/b2b/channels").then((r) => r.json()),
-      fetch("/api/b2b/browser-status").then((r) => r.json()),
-    ]);
-    if (accRes.status === "fulfilled" && accRes.value.success) setAccounts(accRes.value.data as AccountView[]);
-    if (brRes.status === "fulfilled" && brRes.value.success) setBrowser(brRes.value.data as BrowserStatus);
+    const accRes = await fetch("/api/b2b/channels").then((r) => r.json()).catch(() => null);
+    if (accRes?.success) setAccounts(accRes.data as AccountView[]);
     setLoading(false);
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  // 延迟到定时器回调再拉取，避免在 effect 体内同步 setState（react-hooks/set-state-in-effect）
+  useEffect(() => {
+    const t = setTimeout(refresh, 0);
+    return () => clearTimeout(t);
+  }, [refresh]);
 
-  const copyCmd = useCallback(async (cmd: string) => {
-    try { await navigator.clipboard.writeText(cmd); setMessage((s) => ({ ...s, cmd: "已复制，粘贴到 Win+R 或终端执行" })); }
-    catch { setMessage((s) => ({ ...s, cmd: "复制失败，请手动选择文本复制" })); }
-  }, []);
-
-  /** 兜底：粘贴导入会话（F12 → Application → Cookies 复制） */
+  /** 粘贴导入会话（F12 → Application → Cookies 复制），加密入库 */
   const handleImport = useCallback(async () => {
     if (!importOpen || importSession.trim().length < 10) {
       setMsg("import", "会话内容过短");
@@ -150,152 +109,35 @@ export function ChannelsClient() {
     }
   }, [refresh]);
 
-  /** 站内登录：新开平台登录页（你自己的浏览器）→ 轮询 CDP 捕获会话 → 自动加密入库 */
-  const handleLogin = useCallback((platform: "tiktok" | "instagram") => {
-    stopLogin();
-    window.open(LOGIN_URL[platform], "_blank", "noopener,noreferrer");
-    setLogin({
-      platform,
-      message: "已打开登录页——请在浏览器里完成登录（验证码/滑块按平台提示操作），登录成功后会话自动加密入库。",
-      active: true,
-    });
-    const startedAt = Date.now();
-    loginTimer.current = setInterval(async () => {
-      if (loginBusy.current) return;
-      loginBusy.current = true;
-      try {
-        if (Date.now() - startedAt > 180_000) {
-          stopLogin("等待超时：3 分钟内未检测到登录会话，登录完成后可重新点「站内登录」捕获。");
-          return;
-        }
-        const res = await fetch("/api/b2b/channels/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ platform }),
-        });
-        const d = await res.json();
-        const data = (d.data ?? {}) as { ok?: boolean; pending?: boolean; message?: string };
-        if (data.ok) {
-          stopLogin(data.message || "登录成功，会话已加密入库");
-          refresh();
-        } else if (data.pending) {
-          setLogin((prev) => (prev ? { ...prev, message: data.message || prev.message } : prev));
-        } else {
-          stopLogin(data.message || "会话捕获失败");
-        }
-      } catch {
-        /* 网络抖动：下一轮继续 */
-      } finally {
-        loginBusy.current = false;
-      }
-    }, 4000);
-  }, [refresh, stopLogin]);
-
-  const setMsg = (key: string, text: string) => setMessage((s) => ({ ...s, [key]: text }));
-  const setBuz = (key: string, on: boolean) => setBusy((s) => ({ ...s, [key]: on }));
-
   return (
     <div className="space-y-6">
-      {/* 浏览器直连状态卡（主路径） */}
+      {/* 数据源说明 */}
       <Card>
         <CardHeader>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Globe className="h-5 w-5 text-primary" />
-                你的浏览器（CDP 直连）
-                {browser && (
-                  <Badge variant={browser.connected ? "success" : "danger"} className="ml-1">
-                    {browser.connected ? "已连接" : "未连接"}
-                  </Badge>
-                )}
-              </CardTitle>
-              <CardDescription>
-                抓取直接在你的浏览器里进行——真实指纹 + 你已登录的账号，会话永不离开浏览器，零风控。
-                登录平台 = 在你自己的浏览器里正常登录。
-              </CardDescription>
-            </div>
-            <Button size="sm" variant="outline" onClick={refresh}>
-              <RefreshCw className="mr-1 h-4 w-4" /> 刷新
-            </Button>
-          </div>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-primary" />
+            数据源：TikHub API（免登录）
+          </CardTitle>
+          <CardDescription>
+            趋势数据现由 TikHub 服务端代抓（TikTok Creative Center 榜单 / Instagram 话题搜索），
+            无需平台登录、无需浏览器、无需安装任何东西。
+            本页仅作为备用凭证保险库：手动粘贴的平台会话（AES-256-GCM 加密保管）可供旧自建回退路径使用。
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          {loading ? (
-            <p className="py-2 text-sm text-muted-foreground">检测中…</p>
-          ) : browser?.connected ? (
-            <div className="space-y-2 text-sm">
-              <p className="flex items-center gap-1.5 text-muted-foreground">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                {browser.browser || "浏览器"} · {browser.tabs ?? 0} 个标签页 · {browser.cdp}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {(["tiktok", "instagram"] as const).map((p) => (
-                  <Badge key={p} variant={browser.platforms?.[p] ? "success" : "outline"}>
-                    {p === "tiktok" ? "TikTok" : "Instagram"}：{browser.platforms?.[p] ? "浏览器里有页面" : "未打开过页面"}
-                  </Badge>
-                ))}
-              </div>
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                {(["tiktok", "instagram"] as const).map((p) => (
-                  <Button key={p} size="sm" variant="outline" onClick={() => handleLogin(p)} disabled={!!login?.active}>
-                    <ExternalLink className="mr-1 h-4 w-4" /> 站内登录 {p === "tiktok" ? "TikTok" : "Instagram"}
-                  </Button>
-                ))}
-                {login?.active && (
-                  <Button size="sm" variant="ghost" onClick={() => stopLogin("已取消自动捕获。")}>
-                    取消
-                  </Button>
-                )}
-              </div>
-              {login && (
-                <p className={`flex items-start gap-1.5 text-xs ${login.active ? "text-muted-foreground" : "text-primary"}`}>
-                  {login.active && <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin" />}
-                  {login.message}
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground">{browser.hint}</p>
-            </div>
-          ) : (
-            <div className="space-y-3 text-sm">
-              <p className="flex items-start gap-1.5 text-warning">
-                <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                {browser?.hint ?? "无法连接浏览器调试端口。"}
-              </p>
-              <div className="rounded-lg border bg-muted/40 p-3 space-y-2 text-xs">
-                <p className="font-medium">启用步骤（一次性）：</p>
-                <p>1. 完全退出浏览器（含后台进程，任务栏右键图标退出）</p>
-                <p>2. 用以下命令重启（粘贴到 Win+R 运行框或终端）：</p>
-                <div className="flex items-center gap-2 font-mono">
-                  <code className="rounded bg-background px-2 py-1">{EDGE_CMD}</code>
-                  <Button size="sm" variant="outline" onClick={() => copyCmd(EDGE_CMD)}>复制</Button>
-                </div>
-                <div className="flex items-center gap-2 font-mono">
-                  <code className="rounded bg-background px-2 py-1">{CHROME_CMD}</code>
-                  <Button size="sm" variant="outline" onClick={() => copyCmd(CHROME_CMD)}>复制</Button>
-                </div>
-                <p>3. 在这个浏览器里打开本页面，点上方「站内登录」即可登录并自动捕获会话</p>
-              </div>
-              {message["cmd"] && <p className="text-xs text-muted-foreground">{message["cmd"]}</p>}
-            </div>
-          )}
-        </CardContent>
       </Card>
 
       <Separator />
 
-      {/* 兜底：账号保险库（粘贴导入会话） */}
+      {/* 账号保险库 */}
       <Card className="border-dashed">
         <CardHeader>
           <div className="flex items-start justify-between gap-3">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <MonitorSmartphone className="h-5 w-5 text-muted-foreground" />
-                兜底：粘贴导入会话（AES-256-GCM 加密保管）
+                <KeyRound className="h-5 w-5 text-muted-foreground" />
+                账号保险库（AES-256-GCM 加密保管）
               </CardTitle>
-              <CardDescription>
-                浏览器直连不可用时（如服务器部署）的兜底路径。会话加密入库、永不明文返回前端。
-              </CardDescription>
+              <CardDescription>手动粘贴导入（F12 → Application → Cookies 复制）。会话加密保存、永不明文返回前端。</CardDescription>
             </div>
             <Button size="sm" variant="outline" onClick={() => { setImportOpen("instagram"); setMsg("import", ""); }}>
               <KeyRound className="mr-1 h-4 w-4" /> 粘贴导入
@@ -306,7 +148,7 @@ export function ChannelsClient() {
           {loading ? (
             <p className="text-sm text-muted-foreground">加载中…</p>
           ) : accounts.length === 0 ? (
-            <p className="text-sm text-muted-foreground">暂无兜底会话。</p>
+            <p className="text-sm text-muted-foreground">暂无保存的账号会话。</p>
           ) : (
             <div className="space-y-3">
               {accounts.map((a) => {
@@ -341,9 +183,11 @@ export function ChannelsClient() {
               })}
             </div>
           )}
-          <p className="mt-3 text-xs text-muted-foreground">
-            CDP 直连可用时优先走浏览器，此处会话不参与抓取。
-          </p>
+          {message["import"] && (
+            <p className="mt-3 flex items-center gap-1.5 text-xs text-warning">
+              <AlertTriangle className="h-3.5 w-3.5" /> {message["import"]}
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -366,11 +210,6 @@ export function ChannelsClient() {
               <Input id="ch-import-session" type="password" value={importSession} onChange={(e) => setImportSession(e.target.value)}
                 placeholder="sessionid=...; csrftoken=...; ..." />
             </div>
-            {message["import"] && (
-              <p className="flex items-center gap-1.5 text-xs text-warning">
-                <AlertTriangle className="h-3.5 w-3.5" /> {message["import"]}
-              </p>
-            )}
             <Separator />
             <div className="flex justify-end gap-2">
               <Button variant="outline" size="sm" onClick={() => setImportOpen(null)}>取消</Button>
@@ -384,7 +223,7 @@ export function ChannelsClient() {
       )}
 
       <p className="text-xs text-muted-foreground">
-        需要配置单账号兜底或 CDP 地址？前往
+        需要配置单账号兜底或托管浏览器参数？前往
         <Link href="/settings/b2b" className="mx-1 text-primary underline-offset-4 hover:underline">设置 → B 端运营</Link>。
       </p>
     </div>
