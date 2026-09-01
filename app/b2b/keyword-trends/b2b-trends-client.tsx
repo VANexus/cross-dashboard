@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import {
   TrendingUp, Flame, RefreshCw, Loader2, AlertTriangle,
   XCircle, ArrowUpRight, ArrowDownRight, Sparkles, ExternalLink,
-  Send, CalendarClock, CheckCircle2, KeyRound,
+  Send, CalendarClock, CheckCircle2, KeyRound, Search,
 } from "lucide-react";
 import { B2BNav } from "../b2b-nav";
 import {
@@ -37,6 +37,7 @@ export function B2BTrendsClient({ initialTrends }: { initialTrends: KeywordTrend
   const [platform, setPlatform] = useState<TrendPlatform>("tiktok");
   const [override, setOverride] = useState<KeywordTrendsResult | null>(null);
   const [industry, setIndustry] = useState("");
+  const [igKeyword, setIgKeyword] = useState("");
   const [longtail, setLongtail] = useState<LongtailKeyword[] | null>(null);
 
   const [busy, setBusy] = useState<string | null>(null);
@@ -70,6 +71,16 @@ export function B2BTrendsClient({ initialTrends }: { initialTrends: KeywordTrend
   const handleRefresh = () => {
     void run("refresh", async () => {
       setOverride(await refreshKeywordTrends({ platform }));
+    });
+  };
+
+  const handleIgSearch = () => {
+    if (!igKeyword.trim()) {
+      setError("请输入关键词（IG 无匿名全站榜单，按关键词搜话题）");
+      return;
+    }
+    void run("ig-search", async () => {
+      setOverride(await refreshKeywordTrends({ platform: "instagram", keyword: igKeyword.trim() }));
     });
   };
 
@@ -161,6 +172,21 @@ export function B2BTrendsClient({ initialTrends }: { initialTrends: KeywordTrend
             <span className="ml-auto text-xs text-muted-foreground">
               {PLATFORMS.find((p) => p.id === platform)?.hint}
             </span>
+            {platform === "instagram" && (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={igKeyword}
+                  onChange={(e) => setIgKeyword(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleIgSearch()}
+                  placeholder="关键词搜话题，如 hair"
+                  className="h-8 w-44"
+                />
+                <Button size="sm" variant="outline" onClick={handleIgSearch} disabled={busy !== null} className="shrink-0">
+                  {busy === "ig-search" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  搜话题
+                </Button>
+              </div>
+            )}
             <Button size="sm" onClick={handleRefresh} disabled={busy !== null} className="shrink-0">
               {busy === "refresh" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               更新榜单

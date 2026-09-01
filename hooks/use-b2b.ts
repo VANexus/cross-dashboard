@@ -35,7 +35,7 @@ export function useImageSkills() {
 
 // ── mutations ──
 
-export function refreshKeywordTrends(data: { platform: TrendPlatform; industryId?: number }): Promise<KeywordTrendsResult> {
+export function refreshKeywordTrends(data: { platform: TrendPlatform; industryId?: number; keyword?: string }): Promise<KeywordTrendsResult> {
   return apiPost<KeywordTrendsResult>("/api/b2b/keyword-trends", data);
 }
 
