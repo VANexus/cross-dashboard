@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
-  Globe, KeyRound, Loader2, RefreshCw, ShieldCheck, Trash2, AlertTriangle, CheckCircle2, XCircle, MonitorSmartphone,
+  Globe, KeyRound, Loader2, RefreshCw, ShieldCheck, Trash2, AlertTriangle, CheckCircle2, XCircle, MonitorSmartphone, ExternalLink,
 } from "lucide-react";
 import type { ChannelAccount, ChannelPlatform } from "@/lib/types";
 
@@ -45,6 +45,18 @@ function fmtTime(iso: string | null): string {
 const EDGE_CMD = 'msedge.exe --remote-debugging-port=9222';
 const CHROME_CMD = 'chrome.exe --remote-debugging-port=9222';
 
+/** 站内登录：在你自己的浏览器打开平台登录页，正常登录后页面自动轮询捕获会话 */
+const LOGIN_URL: Record<"tiktok" | "instagram", string> = {
+  tiktok: "https://www.tiktok.com/login",
+  instagram: "https://www.instagram.com/accounts/login/",
+};
+
+interface LoginState {
+  platform: "tiktok" | "instagram";
+  message: string;
+  active: boolean;
+}
+
 export function ChannelsClient() {
   const [accounts, setAccounts] = useState<AccountView[]>([]);
   const [browser, setBrowser] = useState<BrowserStatus | null>(null);
@@ -54,6 +66,20 @@ export function ChannelsClient() {
   const [importOpen, setImportOpen] = useState<ChannelPlatform | null>(null);
   const [importLabel, setImportLabel] = useState("");
   const [importSession, setImportSession] = useState("");
+  const [login, setLogin] = useState<LoginState | null>(null);
+  const loginTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const loginBusy = useRef(false);
+
+  const stopLogin = useCallback((message?: string) => {
+    if (loginTimer.current) {
+      clearInterval(loginTimer.current);
+      loginTimer.current = null;
+    }
+    loginBusy.current = false;
+    setLogin((prev) => (prev ? { ...prev, active: false, ...(message !== undefined ? { message } : {}) } : prev));
+  }, []);
+
+  useEffect(() => () => { if (loginTimer.current) clearInterval(loginTimer.current); }, []);
 
   const refresh = useCallback(async () => {
     const [accRes, brRes] = await Promise.allSettled([
@@ -124,6 +150,47 @@ export function ChannelsClient() {
     }
   }, [refresh]);
 
+  /** 站内登录：新开平台登录页（你自己的浏览器）→ 轮询 CDP 捕获会话 → 自动加密入库 */
+  const handleLogin = useCallback((platform: "tiktok" | "instagram") => {
+    stopLogin();
+    window.open(LOGIN_URL[platform], "_blank", "noopener,noreferrer");
+    setLogin({
+      platform,
+      message: "已打开登录页——请在浏览器里完成登录（验证码/滑块按平台提示操作），登录成功后会话自动加密入库。",
+      active: true,
+    });
+    const startedAt = Date.now();
+    loginTimer.current = setInterval(async () => {
+      if (loginBusy.current) return;
+      loginBusy.current = true;
+      try {
+        if (Date.now() - startedAt > 180_000) {
+          stopLogin("等待超时：3 分钟内未检测到登录会话，登录完成后可重新点「站内登录」捕获。");
+          return;
+        }
+        const res = await fetch("/api/b2b/channels/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ platform }),
+        });
+        const d = await res.json();
+        const data = (d.data ?? {}) as { ok?: boolean; pending?: boolean; message?: string };
+        if (data.ok) {
+          stopLogin(data.message || "登录成功，会话已加密入库");
+          refresh();
+        } else if (data.pending) {
+          setLogin((prev) => (prev ? { ...prev, message: data.message || prev.message } : prev));
+        } else {
+          stopLogin(data.message || "会话捕获失败");
+        }
+      } catch {
+        /* 网络抖动：下一轮继续 */
+      } finally {
+        loginBusy.current = false;
+      }
+    }, 4000);
+  }, [refresh, stopLogin]);
+
   const setMsg = (key: string, text: string) => setMessage((s) => ({ ...s, [key]: text }));
   const setBuz = (key: string, on: boolean) => setBusy((s) => ({ ...s, [key]: on }));
 
@@ -169,6 +236,24 @@ export function ChannelsClient() {
                   </Badge>
                 ))}
               </div>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                {(["tiktok", "instagram"] as const).map((p) => (
+                  <Button key={p} size="sm" variant="outline" onClick={() => handleLogin(p)} disabled={!!login?.active}>
+                    <ExternalLink className="mr-1 h-4 w-4" /> 站内登录 {p === "tiktok" ? "TikTok" : "Instagram"}
+                  </Button>
+                ))}
+                {login?.active && (
+                  <Button size="sm" variant="ghost" onClick={() => stopLogin("已取消自动捕获。")}>
+                    取消
+                  </Button>
+                )}
+              </div>
+              {login && (
+                <p className={`flex items-start gap-1.5 text-xs ${login.active ? "text-muted-foreground" : "text-primary"}`}>
+                  {login.active && <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin" />}
+                  {login.message}
+                </p>
+              )}
               <p className="text-xs text-muted-foreground">{browser.hint}</p>
             </div>
           ) : (
@@ -189,7 +274,7 @@ export function ChannelsClient() {
                   <code className="rounded bg-background px-2 py-1">{CHROME_CMD}</code>
                   <Button size="sm" variant="outline" onClick={() => copyCmd(CHROME_CMD)}>复制</Button>
                 </div>
-                <p>3. 在这个浏览器里正常登录 tiktok.com / instagram.com，然后点上方「刷新」</p>
+                <p>3. 在这个浏览器里打开本页面，点上方「站内登录」即可登录并自动捕获会话</p>
               </div>
               {message["cmd"] && <p className="text-xs text-muted-foreground">{message["cmd"]}</p>}
             </div>

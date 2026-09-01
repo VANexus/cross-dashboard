@@ -206,10 +206,6 @@ export const b2bKeywordTrendSchema = z.object({
   refresh: z.boolean().optional(),
 });
 
-export const b2bChannelLoginSchema = z.object({
-  platform: z.enum(["tiktok", "instagram"]),
-});
-
 /** 渠道账号保险库（M2） */
 export const b2bChannelCreateSchema = z.object({
   platform: z.enum(["tiktok", "instagram", "alibaba"]),
@@ -224,7 +220,8 @@ export const b2bChannelUpdateSchema = z.object({
   status: z.enum(["active", "expired", "risk_control"]).optional(),
 });
 
-export const b2bChannelLoginAccountSchema = z.object({
+/** 内嵌登录捕获：页面轮询触发，CDP 从用户浏览器捕获会话后加密入库 */
+export const b2bChannelCaptureSchema = z.object({
   platform: z.enum(["tiktok", "instagram"]),
   label: z.string().max(80).optional().default(""),
 });
