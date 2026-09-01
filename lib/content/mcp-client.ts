@@ -229,6 +229,12 @@ export class ContentMCPClient {
       }
       return raw.data as T;
     } catch (err) {
+      // 会话失效（服务端重启）→ 立即断开，下次调用重建会话
+      const cause = err instanceof Error ? err.message : String(err);
+      if (cause.includes("Session not found")) {
+        this.teardown();
+        throw this.classifyError(err, tool);
+      }
       // 调用失败时断开，避免脏连接
       if (err instanceof ContentMCPError) throw err;
       this.teardown();

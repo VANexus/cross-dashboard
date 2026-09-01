@@ -109,7 +109,7 @@ export class B2BService {
         // CDP 直连用户浏览器：真实指纹 + 浏览器登录态，优先于会话 cookie
         browser_debug_url: settings.browserDebugUrl || undefined,
         limit: 30,
-      });
+      }, { timeoutMs: 120_000, noRetry: true });
 
       const keywords = (result.keywords ?? []).map((k) => ({
         word: k.word, heat: k.heat, delta: k.delta, rank: k.rank, industry: k.industry, source: k.source,
