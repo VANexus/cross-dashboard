@@ -12,6 +12,7 @@ import type {
 
 const KV_KEYS: Record<keyof B2BSettings, string> = {
   flowmindMcpUrl: "b2b_flowmind_mcp_url",
+  browserDebugUrl: "b2b_browser_debug_url",
   tiktokSessionCookie: "b2b_tiktok_session_cookie",
   instagramSessionCookie: "b2b_instagram_session_cookie",
   alibabaAppKey: "b2b_alibaba_app_key",
@@ -29,6 +30,7 @@ const KV_KEYS: Record<keyof B2BSettings, string> = {
 
 const ENV_FALLBACK: Record<keyof B2BSettings, string> = {
   flowmindMcpUrl: "FLOWMIND_MCP_URL",
+  browserDebugUrl: "BROWSER_DEBUG_URL",
   tiktokSessionCookie: "TIKTOK_SESSION_COOKIE",
   instagramSessionCookie: "INSTAGRAM_SESSION_COOKIE",
   alibabaAppKey: "ALIBABA_APP_KEY",
@@ -58,6 +60,8 @@ export class B2BSettingsService {
       const db = map[KV_KEYS[k]] ?? "";
       result[k] = db || env;
     });
+    // 浏览器 CDP 默认本机调试端口
+    if (!result.browserDebugUrl) result.browserDebugUrl = "http://127.0.0.1:9222";
     return result;
   }
 
@@ -120,11 +124,23 @@ export class B2BSettingsService {
           };
         }
         case "channel": {
+          // 主路径：用户浏览器 CDP 直连（真实指纹 + 浏览器登录态）
+          const cdp = (settings.browserDebugUrl || "").replace(/\/+$/, "");
+          if (cdp) {
+            const p = await this._fetchProbe(`${cdp}/json/version`, { method: "GET", timeoutMs: 4000 });
+            if (p.ok) {
+              return { group, ok: true, reachable: true, latencyMs: Date.now() - t0, error: undefined };
+            }
+          }
+          // 兜底：保险库/设置会话
           const sessions: string[] = [];
           if (settings.tiktokSessionCookie.includes("sessionid=")) sessions.push("TikTok");
           if (settings.instagramSessionCookie.includes("sessionid=")) sessions.push("Instagram");
           if (sessions.length === 0) {
-            return { group, ok: false, error: "尚未完成任何平台登录（点击对应平台的「站内登录」按钮）", latencyMs: Date.now() - t0 };
+            return {
+              group, ok: false, latencyMs: Date.now() - t0,
+              error: "浏览器 CDP 未连通（用 --remote-debugging-port=9222 重启浏览器）且无兜底会话",
+            };
           }
           return { group, ok: true, reachable: true, latencyMs: Date.now() - t0, error: undefined };
         }

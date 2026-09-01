@@ -682,7 +682,9 @@ export type B2BSettingsGroup =
 
 export interface B2BSettings {
   flowmindMcpUrl: string;
-  /** 平台登录会话（站内渠道授权登录捕获），格式 "k=v; k2=v2" */
+  /** 用户浏览器 CDP 调试地址（如 http://127.0.0.1:9222）——直连真实浏览器抓取，登录态零风控 */
+  browserDebugUrl: string;
+  /** 平台登录会话（兜底路径），格式 "k=v; k2=v2" */
   tiktokSessionCookie: string;
   instagramSessionCookie: string;
   alibabaAppKey: string;

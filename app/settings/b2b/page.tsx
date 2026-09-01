@@ -27,8 +27,7 @@ interface GroupSpec {
     type?: "text" | "password" | "url";
     hint?: string;
   }>;
-  /** 渠道站内登录按钮（弹本机浏览器登录后自动捕获会话填充） */
-  channelLogins?: Array<{ platform: "tiktok" | "instagram"; label: string; settingKey: keyof B2BSettings }>;
+  /** 渠道授权组：无内嵌字段时仅展示测试/状态 */
 }
 
 const GROUPS: GroupSpec[] = [
@@ -47,27 +46,30 @@ const GROUPS: GroupSpec[] = [
   },
   {
     key: "channel",
-    title: "渠道授权（TikTok / Instagram 登录）",
-    desc: "多账号托管请用「B端运营 → 渠道授权」（加密保险库 + 会话探活）；此处为单账号兜底会话",
+    title: "渠道授权（浏览器直连）",
+    desc: "主路径：直连你自己的浏览器（真实指纹 + 登录态，零风控）；粘贴会话仅作兜底。多账号管理见「B端运营 → 渠道授权」",
     icon: Globe,
-    channelLogins: [
-      { platform: "tiktok", label: "登录 TikTok", settingKey: "tiktokSessionCookie" },
-      { platform: "instagram", label: "登录 Instagram", settingKey: "instagramSessionCookie" },
-    ],
     fields: [
       {
+        settingKey: "browserDebugUrl",
+        label: "浏览器 CDP 地址",
+        placeholder: "http://127.0.0.1:9222",
+        type: "url",
+        hint: "浏览器需带调试端口启动：完全退出后执行 chrome.exe --remote-debugging-port=9222（Edge 用 msedge.exe）",
+      },
+      {
         settingKey: "tiktokSessionCookie",
-        label: "TikTok 会话",
-        placeholder: "通过「站内登录」自动填充，也可手动粘贴",
+        label: "TikTok 会话（兜底）",
+        placeholder: "可选：sessionid=...; ...",
         type: "password",
-        hint: "登录后解锁 Creative Center 全量榜单（匿名仅 Top3）",
+        hint: "CDP 未连通时的兜底路径",
       },
       {
         settingKey: "instagramSessionCookie",
-        label: "Instagram 会话",
-        placeholder: "通过「站内登录」自动填充，也可手动粘贴",
+        label: "Instagram 会话（兜底）",
+        placeholder: "可选：sessionid=...; ...",
         type: "password",
-        hint: "IG 话题搜索必需；会话失效时请重新登录",
+        hint: "CDP 未连通时的兜底路径",
       },
     ],
   },
@@ -138,8 +140,6 @@ export default function B2BSettingsPage() {
   const [testResults, setTestResults] = useState<Partial<Record<GroupKey, B2BTestResult>>>({});
   const [health, setHealth] = useState<B2BHealthStatus | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
-  const [loggingIn, setLoggingIn] = useState<Partial<Record<"tiktok" | "instagram", boolean>>>({});
-  const [loginMsg, setLoginMsg] = useState<Partial<Record<"tiktok" | "instagram", string>>>({});
 
   const refreshHealth = useCallback(() => {
     setHealthLoading(true);
@@ -195,34 +195,6 @@ export default function B2BSettingsPage() {
   const toggleKey = useCallback((k: keyof B2BSettings) => {
     setShowKey((s) => ({ ...s, [k]: !s[k] }));
   }, []);
-
-  const handleChannelLogin = useCallback(async (platform: "tiktok" | "instagram") => {
-    setLoggingIn((s) => ({ ...s, [platform]: true }));
-    setLoginMsg((s) => ({ ...s, [platform]: "本机即将弹出浏览器，请在窗口内完成登录（最长等 5 分钟）…" }));
-    try {
-      const res = await fetch("/api/b2b/channel-login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ platform }),
-      });
-      const data = await res.json();
-      const payload = data.data as { ok?: boolean; message?: string } | undefined;
-      if (data.success && payload?.ok) {
-        setLoginMsg((s) => ({ ...s, [platform]: payload.message ?? "登录成功" }));
-        // 回填会话（不回显内容，只刷新健康检查）
-        refreshHealth();
-        fetch("/api/settings/b2b").then((r) => r.json()).then((d) => {
-          if (d.success) setSettings(d.data);
-        }).catch(() => {});
-      } else {
-        setLoginMsg((s) => ({ ...s, [platform]: payload?.message ?? data.error ?? "登录未完成" }));
-      }
-    } catch (e) {
-      setLoginMsg((s) => ({ ...s, [platform]: e instanceof Error ? e.message : "登录请求失败" }));
-    } finally {
-      setLoggingIn((s) => ({ ...s, [platform]: false }));
-    }
-  }, [refreshHealth]);
 
   const healthGroupBadge = (g: GroupKey) => {
     const h = health?.groups[g];

@@ -87,18 +87,23 @@ export function decryptAccountSession(a: ChannelAccount): string {
 }
 
 /**
- * 会话解析：取指定平台最新的 active 账号会话明文；无保险库账号时返回 null
- * （由调用方回退到 settings 单账号会话）。
+ * 会话解析：取指定平台最新的 active 账号会话明文；无保险库账号/表未建/解密失败
+ * 时返回 null（由调用方回退到 settings 单账号会话）——保险库故障绝不拖垮业务。
  */
 export async function resolveChannelSession(platform: ChannelPlatform): Promise<string | null> {
-  const accounts = await listChannelAccounts(platform);
+  let accounts: ChannelAccount[];
+  try {
+    accounts = await listChannelAccounts(platform);
+  } catch {
+    return null;
+  }
   const active = accounts.find((a) => a.status === "active");
   if (!active) return null;
   try {
     return decryptAccountSession(active);
   } catch {
     // 密钥轮换/密文损坏：标记过期，交由调用方回退
-    await updateChannelAccount(active.id, { status: "expired", lastCheckedAt: new Date().toISOString() });
+    await updateChannelAccount(active.id, { status: "expired", lastCheckedAt: new Date().toISOString() }).catch(() => {});
     return null;
   }
 }
