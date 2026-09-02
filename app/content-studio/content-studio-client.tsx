@@ -1,15 +1,30 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+/**
+ * 内容创作中心 — 4 步工作流 stepper（J1 内容发布旅程的宿主页）
+ *
+ * ① 洞察（热点雷达第一屏 + 平台/主题输入）→ ② 创作（思路 + 文案）
+ * → ③ 审计 + 配图 → ④ 发布（公众号发布工作台入口）
+ *
+ * 旅程接入：URL 带 ?journey=content-publish&step=n 时顶部出现 JourneyBar，
+ * Agent 可经 data-agent-action="journey-next" 推进步骤。
+ */
+import { useCallback, useMemo, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { useAgentPage } from "@/lib/agent/page-context";
+import { JourneyBar } from "@/components/journey/journey-bar";
+import { WorkflowStepper, type StepItem } from "@/components/ui/workflow-stepper";
 import {
   PenLine, Sparkles, Flame, ShieldCheck, Image as ImageIcon,
   CheckCircle2, AlertTriangle, XCircle, Library, Copy, Check, RefreshCw,
-  Loader2, ExternalLink, Clock,
+  Loader2, ExternalLink, Clock, Send, ArrowRight,
 } from "lucide-react";
 import {
   generateCopy, generateIdeas, generateImages, refreshHotTopics,
@@ -36,14 +51,32 @@ const PLATFORM_LABEL: Record<string, string> = {
 };
 
 type Tab = "copy" | "library";
+type PageStep = "insight" | "create" | "audit" | "publish";
 
-interface ContentStudioClientProps {
-  platforms: ContentPlatformMeta[];
-  works: ContentWorks;
+const STEP_ORDER: PageStep[] = ["insight", "create", "audit", "publish"];
+const STEP_META: Record<PageStep, { label: string; description: string }> = {
+  insight: { label: "洞察趋势", description: "热点雷达锁定选题方向" },
+  create: { label: "选题创作", description: "AI 生成思路与平台化文案" },
+  audit: { label: "审计配图", description: "平台规则审计 + AI 配图" },
+  publish: { label: "发布", description: "公众号端到端发布" },
+};
+
+function readInitialStep(params: URLSearchParams | null): PageStep {
+  const n = Number(params?.get("step") ?? "1");
+  return STEP_ORDER[Math.min(Math.max(n, 1), STEP_ORDER.length) - 1];
 }
 
-export function ContentStudioClient({ platforms, works: initialWorks }: ContentStudioClientProps) {
+function ContentStudioInner({ platforms, works: initialWorks }: ContentStudioClientProps) {
+  const searchParams = useSearchParams();
   const [tab, setTab] = useState<Tab>("copy");
+  // 步骤 = URL ?step=n 派生 + 本地覆盖。
+  // 同路由下 ?step=2→3 的客户端导航不会重挂载组件，故不能只在初始化时读 URL：
+  // 覆盖值绑定当时的 stepParam，URL 一变即失效回落到 URL 派生值。
+  const stepParam = searchParams.get("step") ?? "1";
+  const urlStep = readInitialStep(searchParams);
+  const [stepOverride, setStepOverride] = useState<{ param: string; step: PageStep } | null>(null);
+  const step = stepOverride && stepOverride.param === stepParam ? stepOverride.step : urlStep;
+  const setStep = (s: PageStep) => setStepOverride({ param: stepParam, step: s });
   const [platform, setPlatform] = useState<ContentPlatform>("xhs");
   const [subject, setSubject] = useState("");
   const [angle, setAngle] = useState("");
@@ -151,13 +184,84 @@ export function ContentStudioClient({ platforms, works: initialWorks }: ContentS
     } catch { /* clipboard unavailable */ }
   };
 
+  // 「前端即 Agent」一行接入：注册本页上下文快照 + 可被 agent 调用的页面动作
+  useAgentPage({
+    title: "内容创作中心",
+    snapshot: () =>
+      `平台=${PLATFORM_LABEL[platform]} · 当前第 ${STEP_ORDER.indexOf(step) + 1}/4 步（${STEP_META[step].label}） · ` +
+      `主题「${subject || "未输入"}」 · ` +
+      (currentDraft
+        ? `文案已生成《${currentDraft.title}》（${currentDraft.body.length} 字 · ${currentDraft.tags.length} 个标签）`
+        : "文案未生成") +
+      ` · 审计${audit ? `已出（${audit.findings.length} 项发现）` : "未跑"}` +
+      ` · 配图${images ? `已出 ${images.images.length} 张` : "未生成"}`,
+    state: () => ({ platform, tab, step, subject, hasDraft: Boolean(currentDraft) }),
+    actions: [
+      {
+        id: "oneKeyGenerate",
+        description: "填入产品 / 主题并一键生成选题思路 + 平台文案（如 subject=车载保温杯 316 不锈钢），完成后停在创作步",
+        schema: z.object({ subject: z.string().min(1).describe("产品 / 主题") }),
+        execute: async (p) => {
+          const s = String(p.subject ?? "").trim();
+          if (!s) return "主题不能为空";
+          setTab("copy");
+          setStep("create");
+          setSubject(s);
+          try {
+            const [ideaRes, draft] = await Promise.all([
+              generateIdeas({ platform, subject: s }),
+              generateCopy({ platform, subject: s, angle: angle.trim() || undefined }),
+            ]);
+            setIdeas(ideaRes);
+            setCurrentDraft(draft);
+            setAudit(null);
+            setImages(null);
+            void refetchWorks();
+            return `已为「${s}」生成 ${ideaRes.length} 条思路与文案《${draft.title}》（${draft.body.length} 字），已展示在创作步`;
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : "生成失败";
+            setError(msg);
+            throw err;
+          }
+        },
+      },
+    ],
+  });
+
+  const stepIdx = STEP_ORDER.indexOf(step);
+  const stepperItems: StepItem[] = STEP_ORDER.map((s, i) => ({
+    id: s,
+    label: STEP_META[s].label,
+    description: STEP_META[s].description,
+    status: i < stepIdx ? "completed" : i === stepIdx ? "active" : "pending",
+  }));
+
+  // 洞察步「去创作」：有主题且未生成时顺带触发生成
+  const goCreate = () => {
+    setStep("create");
+    if (subject.trim() && !currentDraft && busy === null) handleGenerate();
+  };
+
+  const wechatPublishHref = useMemo(() => {
+    const q = new URLSearchParams();
+    if (currentDraft) q.set("draft", currentDraft.id);
+    const j = searchParams.get("journey");
+    if (j) q.set("journey", j);
+    if (j) q.set("step", "4");
+    const qs = q.toString();
+    return `/content-studio/wechat${qs ? `?${qs}` : ""}`;
+  }, [currentDraft, searchParams]);
+
   return (
     <div className="mx-auto max-w-5xl px-6 py-7">
+      <JourneyBar />
+
       <div className="mb-5 flex flex-wrap items-end gap-4">
         <div>
+          <p className="dash-crumbs">内容工坊 / <b>内容创作中心</b></p>
           <h1 className="font-heading text-2xl font-bold tracking-tight">内容创作中心</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            多平台文案创作：思路设计 · 抓取热点 · 生成文案 · 规则审计 · AI 配图
+            洞察 → 创作 → 审计配图 → 发布，一条流水线走完内容生产
           </p>
         </div>
         <div className="ml-auto flex gap-2">
@@ -177,265 +281,378 @@ export function ContentStudioClient({ platforms, works: initialWorks }: ContentS
         </div>
       )}
 
-      {tab === "copy" ? (
+      {tab === "library" ? (
+        <LibraryView works={works} onSelect={(d) => { setCurrentDraft(d); setPlatform(d.platform); setTab("copy"); setStep("audit"); }} />
+      ) : (
         <>
-          {/* 头部：平台选择 + 主题输入 + 一键生成 */}
-          <Card className="mb-4">
-            <CardContent className="pt-5">
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="text-sm text-muted-foreground">平台</span>
-                {platforms.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => switchPlatform(p.id)}
-                    className={cn(
-                      "inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors",
-                      platform === p.id
-                        ? "border-border bg-card shadow-sm"
-                        : "border-transparent text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    <span className="h-2 w-2 rounded-full" style={{ background: p.color }} />
-                    {p.label}
-                  </button>
-                ))}
-                <span className="ml-auto text-xs text-muted-foreground">{activePlatform?.hint}</span>
-              </div>
-              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-                <Input
-                  placeholder="输入产品 / 主题，例如：车载保温杯，316 不锈钢，一键开盖防漏…"
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
-                />
-                <Input
-                  className="sm:w-56"
-                  placeholder="选题角度（可选）"
-                  value={angle}
-                  onChange={(e) => setAngle(e.target.value)}
-                />
-                <Button size="sm" onClick={handleGenerate} disabled={busy !== null} className="shrink-0">
-                  {busy === "all" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                  一键生成
-                </Button>
-              </div>
+          {/* 4 步 stepper（横向，Linear 式紧凑） */}
+          <Card className="mb-4 py-0">
+            <CardContent className="px-4 py-3">
+              <WorkflowStepper
+                steps={stepperItems}
+                currentStep={step}
+                orientation="horizontal"
+                onStepClick={(id) => {
+                  setTab("copy");
+                  setStep(id as PageStep);
+                }}
+              />
             </CardContent>
           </Card>
 
-          {/* 思路设计 */}
-          <Card className="mb-4">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" /> 思路设计
-              </CardTitle>
-              <CardDescription>
-                AI 选题灵感{subject ? ` · 「${subject}」` : ""}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {ideas && ideas.length > 0 ? (
-                <div className="grid gap-3 md:grid-cols-3">
-                  {ideas.map((idea) => (
-                    <div key={idea.id} className="rounded-xl border p-4 transition-colors hover:border-primary/40">
-                      <div className="text-[11px] font-semibold text-primary">{idea.angle}</div>
-                      <div className="mt-1.5 text-sm font-medium leading-snug">{idea.title}</div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  {busy === "all" ? "生成中…" : "在上方输入产品 / 主题后点击「一键生成」，这里会给出选题思路。"}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* 热点雷达 */}
-          <Card className="mb-4">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Flame className="h-4 w-4 text-primary" /> 热点雷达
-                  </CardTitle>
-                  <CardDescription className="hidden sm:block">
-                    {hotData?.source && hotData.source !== "cache" ? `平台趋势热词 · 源 /${hotData.source}` : "平台趋势热词"}
-                  </CardDescription>
-                </div>
-                <Button variant="outline" size="sm" onClick={handleRefreshHot} disabled={busy !== null}>
-                  {busy === "hot" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                  刷新
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {hotData?.degraded && (
-                <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-600">
-                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                  {hotData.warning ?? "热榜 API 不可达，展示种子数据"}
-                </div>
-              )}
-              {hotData && hotData.topics.length > 0 ? (
-                <div className="flex flex-wrap gap-2.5">
-                  {hotData.topics.map((h) => (
-                    <a
-                      key={h.word}
-                      href={h.url || undefined}
-                      target={h.url ? "_blank" : undefined}
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm hover:border-primary/40 transition-colors"
-                    >
-                      {h.word}
-                      <span className="font-mono text-xs font-semibold text-primary">{h.heat}</span>
-                      {h.delta !== null && h.delta !== undefined && (
-                        <span className={cn("font-mono text-[11px]", h.delta >= 0 ? "text-emerald-500" : "text-muted-foreground")}>
-                          {h.delta >= 0 ? "▲" : "▽"}{Math.abs(h.delta)}
-                        </span>
-                      )}
-                      {h.url && <ExternalLink className="h-3 w-3 text-muted-foreground/40" />}
-                    </a>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">暂无热点数据，点击「刷新」抓取。</p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* 生成文案 */}
-          <Card className="mb-4">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <PenLine className="h-4 w-4 text-primary" /> 生成文案
-                </CardTitle>
-                <Button variant="outline" size="sm" onClick={copyAll} disabled={!currentDraft}>
-                  {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                  {copied ? "已复制" : "复制全部"}
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {currentDraft ? (
-                <>
-                  <h2 className="font-heading text-lg font-bold leading-snug">{currentDraft.title}</h2>
-                  <p className="mt-3 text-sm leading-7 whitespace-pre-wrap">{currentDraft.body}</p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {currentDraft.tags.map((t) => (
-                      <span key={t} className="text-sm text-info">#{t}</span>
+          {/* ── 第 1 步 · 洞察（热点雷达第一屏）── */}
+          {step === "insight" && (
+            <>
+              <Card className="mb-4">
+                <CardContent className="pt-5">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="text-sm text-muted-foreground">平台</span>
+                    {platforms.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => switchPlatform(p.id)}
+                        className={cn(
+                          "inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors",
+                          platform === p.id
+                            ? "border-border bg-card shadow-sm"
+                            : "border-transparent text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        <span className="h-2 w-2 rounded-full" style={{ background: p.color }} />
+                        {p.label}
+                      </button>
                     ))}
+                    <span className="ml-auto text-xs text-muted-foreground">{activePlatform?.hint}</span>
                   </div>
-                  {currentDraft.auditResult && currentDraft.auditResult.length > 0 && (
-                    <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-                      <ShieldCheck className="h-3.5 w-3.5" />
-                      已审计 · {currentDraft.auditResult.filter((f) => f.severity === "error").length} 处风险
+                  <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <Input
+                      placeholder="输入产品 / 主题，例如：车载保温杯，316 不锈钢，一键开盖防漏…"
+                      value={subject}
+                      onChange={(e) => setSubject(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && goCreate()}
+                    />
+                    <Input
+                      className="sm:w-56"
+                      placeholder="选题角度（可选）"
+                      value={angle}
+                      onChange={(e) => setAngle(e.target.value)}
+                    />
+                    <Button size="sm" onClick={goCreate} className="shrink-0" data-agent-action="studio-goto-create">
+                      {busy === "all" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                      生成创作 <ArrowRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 热点雷达 */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <Flame className="h-4 w-4 text-primary" /> 热点雷达
+                      </CardTitle>
+                      <CardDescription className="hidden sm:block">
+                        {hotData?.source && hotData.source !== "cache" ? `平台趋势热词 · 源 /${hotData.source}` : "平台趋势热词"}
+                      </CardDescription>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={handleRefreshHot} disabled={busy !== null}>
+                      {busy === "hot" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                      刷新
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {hotData?.degraded && (
+                    <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-600">
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                      {hotData.warning ?? "热榜 API 不可达，展示种子数据"}
                     </div>
                   )}
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground">点击「一键生成」后，这里展示平台化文案（标题 + 正文 + 标签）。</p>
-              )}
-            </CardContent>
-          </Card>
+                  {hotData && hotData.topics.length > 0 ? (
+                    <div className="flex flex-wrap gap-2.5">
+                      {hotData.topics.map((h) => (
+                        <a
+                          key={h.word}
+                          href={h.url || undefined}
+                          target={h.url ? "_blank" : undefined}
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm hover:border-primary/40 transition-colors"
+                        >
+                          {h.word}
+                          <span className="font-mono text-xs font-semibold text-primary">{h.heat}</span>
+                          {h.delta !== null && h.delta !== undefined && (
+                            <span className={cn("font-mono text-[11px]", h.delta >= 0 ? "text-emerald-500" : "text-muted-foreground")}>
+                              {h.delta >= 0 ? "▲" : "▽"}{Math.abs(h.delta)}
+                            </span>
+                          )}
+                          {h.url && <ExternalLink className="h-3 w-3 text-muted-foreground/40" />}
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">暂无热点数据，点击「刷新」抓取。</p>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
 
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* 平台规则审计 */}
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
+          {/* ── 第 2 步 · 创作 ── */}
+          {step === "create" && (
+            <>
+              <Card className="mb-4">
+                <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <ShieldCheck className="h-4 w-4 text-emerald-500" /> 平台规则审计
+                    <Sparkles className="h-4 w-4 text-primary" /> 思路设计
                   </CardTitle>
-                  <Button variant="outline" size="sm" onClick={handleAudit} disabled={busy !== null || !currentDraft}>
-                    {busy === "audit" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
-                    开始审计
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {!audit ? (
-                  <p className="text-xs text-muted-foreground">
-                    规则库扫描（广告法 + {activePlatform?.label} 平台规范）+ AI 复核。先「一键生成」文案。
-                  </p>
-                ) : audit.findings.length === 0 ? (
-                  <div className="flex items-start gap-2.5 text-sm text-emerald-600">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-                    <div>
-                      <div className="font-medium">未检出违规项，可通过</div>
-                      <div className="text-xs text-muted-foreground">
-                        {audit.llmReviewed ? "规则扫描 + AI 复核均通过" : "规则扫描通过（AI 复核未完成）"}
-                      </div>
-                    </div>
+                  <CardDescription>
+                    AI 选题灵感{subject ? ` · 「${subject}」` : ""}
+                  </CardDescription>
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <Input
+                      className="h-8 text-sm"
+                      placeholder="输入产品 / 主题"
+                      value={subject}
+                      onChange={(e) => setSubject(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
+                    />
+                    <Button size="sm" onClick={handleGenerate} disabled={busy !== null} className="shrink-0" data-agent-action="studio-generate">
+                      {busy === "all" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                      一键生成
+                    </Button>
                   </div>
-                ) : (
-                  audit.findings.map((f, i) => (
-                    <div key={i} className="flex items-start gap-2.5 text-sm">
-                      {f.severity === "error"
-                        ? <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-                        : <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />}
-                      <div>
-                        <div className="font-medium">
-                          {CATEGORY_LABELS[f.category] ?? f.category}
-                          {f.matchedText && <span className="text-muted-foreground"> · 「{f.matchedText}」</span>}
+                </CardHeader>
+                <CardContent>
+                  {ideas && ideas.length > 0 ? (
+                    <div className="grid gap-3 md:grid-cols-3">
+                      {ideas.map((idea) => (
+                        <div key={idea.id} className="rounded-xl border p-4 transition-colors hover:border-primary/40">
+                          <div className="text-[11px] font-semibold text-primary">{idea.angle}</div>
+                          <div className="mt-1.5 text-sm font-medium leading-snug">{idea.title}</div>
                         </div>
-                        <div className="text-xs text-muted-foreground">{f.message}</div>
-                        <div className="text-xs text-muted-foreground/80">{f.suggestion}</div>
-                      </div>
+                      ))}
                     </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      {busy === "all" ? "生成中…" : "输入产品 / 主题后点击「一键生成」，这里会给出选题思路。"}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
 
-            {/* AI 配图 */}
+              <Card className="mb-4">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <PenLine className="h-4 w-4 text-primary" /> 生成文案
+                    </CardTitle>
+                    <Button variant="outline" size="sm" onClick={copyAll} disabled={!currentDraft}>
+                      {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                      {copied ? "已复制" : "复制全部"}
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {currentDraft ? (
+                    <>
+                      <h2 className="font-heading text-lg font-bold leading-snug">{currentDraft.title}</h2>
+                      <p className="mt-3 text-sm leading-7 whitespace-pre-wrap">{currentDraft.body}</p>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {currentDraft.tags.map((t) => (
+                          <span key={t} className="text-sm text-info">#{t}</span>
+                        ))}
+                      </div>
+                      {currentDraft.auditResult && currentDraft.auditResult.length > 0 && (
+                        <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                          <ShieldCheck className="h-3.5 w-3.5" />
+                          已审计 · {currentDraft.auditResult.filter((f) => f.severity === "error").length} 处风险
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">点击「一键生成」后，这里展示平台化文案（标题 + 正文 + 标签）。</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <div className="flex justify-end">
+                <Button size="sm" variant="outline" onClick={() => setStep("audit")} disabled={!currentDraft} data-agent-action="studio-goto-audit">
+                  下一步 · 审计与配图 <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </>
+          )}
+
+          {/* ── 第 3 步 · 审计 + 配图 ── */}
+          {step === "audit" && (
+            <>
+              <div className="grid gap-4 md:grid-cols-2">
+                {/* 平台规则审计 */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <ShieldCheck className="h-4 w-4 text-emerald-500" /> 平台规则审计
+                      </CardTitle>
+                      <Button variant="outline" size="sm" onClick={handleAudit} disabled={busy !== null || !currentDraft} data-agent-action="studio-audit">
+                        {busy === "audit" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+                        开始审计
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {!audit ? (
+                      <p className="text-xs text-muted-foreground">
+                        规则库扫描（广告法 + {activePlatform?.label} 平台规范）+ AI 复核。先在创作步生成文案。
+                      </p>
+                    ) : audit.findings.length === 0 ? (
+                      <div className="flex items-start gap-2.5 text-sm text-emerald-600">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                        <div>
+                          <div className="font-medium">未检出违规项，可通过</div>
+                          <div className="text-xs text-muted-foreground">
+                            {audit.llmReviewed ? "规则扫描 + AI 复核均通过" : "规则扫描通过（AI 复核未完成）"}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      audit.findings.map((f, i) => (
+                        <div key={i} className="flex items-start gap-2.5 text-sm">
+                          {f.severity === "error"
+                            ? <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                            : <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />}
+                          <div>
+                            <div className="font-medium">
+                              {CATEGORY_LABELS[f.category] ?? f.category}
+                              {f.matchedText && <span className="text-muted-foreground"> · 「{f.matchedText}」</span>}
+                            </div>
+                            <div className="text-xs text-muted-foreground">{f.message}</div>
+                            <div className="text-xs text-muted-foreground/80">{f.suggestion}</div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* AI 配图 */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <ImageIcon className="h-4 w-4 text-primary" /> AI 配图
+                    </CardTitle>
+                    <CardDescription>调用云生图 · {activePlatform?.hint}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="画面描述，如：通勤场景 · 暖色调"
+                        value={imagePrompt}
+                        onChange={(e) => setImagePrompt(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleImages()}
+                      />
+                      <Button size="sm" onClick={handleImages} disabled={busy !== null} data-agent-action="image-generate">
+                        {busy === "images" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                        生成
+                      </Button>
+                    </div>
+                    {images ? (
+                      <div className={cn("mt-3 grid gap-3", images.images.length > 1 ? "grid-cols-3" : "grid-cols-1")}>
+                        {images.images.map((img) => (
+                          <a
+                            key={img.index}
+                            href={img.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="relative block aspect-[3/4] overflow-hidden rounded-xl border bg-muted"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={img.url} alt={`配图 ${img.index}`} className="h-full w-full object-cover" />
+                          </a>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        生成后图片会挂接当前文案草稿，按平台比例输出。
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+              <div className="mt-4 flex justify-end">
+                <Button size="sm" variant="outline" onClick={() => setStep("publish")} disabled={!currentDraft} data-agent-action="studio-goto-publish">
+                  下一步 · 发布 <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </>
+          )}
+
+          {/* ── 第 4 步 · 发布 ── */}
+          {step === "publish" && (
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <ImageIcon className="h-4 w-4 text-primary" /> AI 配图
+                  <Send className="h-4 w-4 text-primary" /> 发布
                 </CardTitle>
-                <CardDescription>调用云生图 · {activePlatform?.hint}</CardDescription>
+                <CardDescription>公众号端到端发布：AI 排版 → 人工确认 → 发布 / 群发</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="画面描述，如：通勤场景 · 暖色调"
-                    value={imagePrompt}
-                    onChange={(e) => setImagePrompt(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleImages()}
-                  />
-                  <Button size="sm" onClick={handleImages} disabled={busy !== null}>
-                    {busy === "images" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                    生成
-                  </Button>
-                </div>
-                {images ? (
-                  <div className={cn("mt-3 grid gap-3", images.images.length > 1 ? "grid-cols-3" : "grid-cols-1")}>
-                    {images.images.map((img) => (
-                      <a
-                        key={img.index}
-                        href={img.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="relative block aspect-[3/4] overflow-hidden rounded-xl border bg-muted"
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={img.url} alt={`配图 ${img.index}`} className="h-full w-full object-cover" />
-                      </a>
-                    ))}
+              <CardContent className="space-y-4">
+                {currentDraft ? (
+                  <div className="rounded-xl border p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="secondary">{PLATFORM_LABEL[currentDraft.platform] ?? currentDraft.platform}</Badge>
+                      <span className="text-sm font-medium">{currentDraft.title}</span>
+                      <span className="text-xs text-muted-foreground">{currentDraft.body.length} 字</span>
+                    </div>
+                    <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{currentDraft.body}</p>
                   </div>
                 ) : (
-                  <p className="mt-3 text-xs text-muted-foreground">
-                    生成后图片会挂接当前文案草稿，按平台比例输出。
-                  </p>
+                  <p className="text-sm text-muted-foreground">还没有草稿——回创作步生成文案后，可在这里直接进入发布工作台。</p>
+                )}
+                {platform === "wechat" || currentDraft?.platform === "wechat" ? (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button asChild size="sm" data-agent-action="studio-open-wechat">
+                      <Link href={wechatPublishHref}>
+                        打开公众号发布工作台 <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      选稿 → AI 排版 → 发布设置 → 人工确认 → 发布/群发，草稿会自动带上
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button size="sm" variant="outline" onClick={copyAll} disabled={!currentDraft}>
+                      {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                      {copied ? "已复制" : "复制文案"}
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      {PLATFORM_LABEL[platform]}暂无站内发布通道，复制文案后到平台 App 发布；公众号文案可走工作台
+                    </span>
+                  </div>
                 )}
               </CardContent>
             </Card>
-          </div>
+          )}
         </>
-      ) : (
-        <LibraryView works={works} onSelect={(d) => { setCurrentDraft(d); setPlatform(d.platform); setTab("copy"); }} />
       )}
     </div>
+  );
+}
+
+interface ContentStudioClientProps {
+  platforms: ContentPlatformMeta[];
+  works: ContentWorks;
+}
+
+export function ContentStudioClient(props: ContentStudioClientProps) {
+  // useSearchParams 需要 Suspense 边界（页面已在 page.tsx 里包裹）
+  return (
+    <Suspense fallback={null}>
+      <ContentStudioInner {...props} />
+    </Suspense>
   );
 }
 
