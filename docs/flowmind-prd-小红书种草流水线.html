@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FlowMind PRD · 小红书种草流水线（前端设计版）</title>
+<style>
+  :root{
+    --text:#1A1B1C; --sec:#5B6470; --bg:#F7F7F5; --card:#FFFFFF;
+    --border:#E6E5E0; --accent:#FF2442; --accent-soft:#FFEDEF;
+    --blue:#1F6FEB; --blue-soft:#EAF1FD;
+    --green:#07C160; --green-soft:#E6F7EE;
+    --amber:#B8860B; --amber-soft:#FBF3E0;
+    --slate:#46505C; --slate-soft:#EDF1F5;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,"PingFang SC","Microsoft YaHei","Segoe UI",sans-serif;background:var(--bg);color:var(--text);line-height:1.7;padding:32px 16px;}
+  .wrap{max-width:940px;margin:0 auto;}
+  header{border-bottom:3px solid var(--accent);padding-bottom:18px;margin-bottom:24px;}
+  .kicker{font-size:13px;letter-spacing:.12em;color:var(--accent);font-weight:600;}
+  h1{font-size:25px;font-weight:700;margin:6px 0 8px;line-height:1.4;}
+  .sub{font-size:14px;color:var(--sec);}
+  .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+  .meta .m{font-size:12px;background:var(--slate-soft);border-radius:6px;padding:2px 10px;color:var(--slate);}
+  h2{font-size:18px;font-weight:700;margin:32px 0 12px;padding-left:12px;border-left:4px solid var(--accent);}
+  h3{font-size:15px;font-weight:700;margin:20px 0 8px;}
+  p{font-size:14px;margin:8px 0;}
+  ul,ol{margin:8px 0 8px 22px;font-size:14px;}
+  li{margin:5px 0;}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin:12px 0;background:var(--card);border-radius:8px;overflow:hidden;}
+  th{background:var(--slate-soft);color:var(--slate);text-align:left;padding:9px 12px;font-weight:600;}
+  td{padding:9px 12px;border-top:1px solid var(--border);vertical-align:top;}
+  .tag{font-size:12px;font-weight:600;padding:1px 8px;border-radius:6px;white-space:nowrap;}
+  .tag.have{background:var(--green-soft);color:#0B7A43;}
+  .tag.new{background:var(--red-soft);color:#C0112C;}
+  .tag.l1{background:var(--blue-soft);color:#0A4D9E;}
+  .tag.l2{background:var(--amber-soft);color:#8A6A08;}
+  .tag.l0{background:var(--slate-soft);color:var(--slate);}
+  .card{border:1px solid var(--border);border-radius:10px;padding:14px 16px;background:var(--card);margin:12px 0;}
+  .card .c-title{font-weight:700;font-size:14.5px;margin-bottom:6px;}
+  .card .row{margin:4px 0;font-size:13.5px;}
+  .card .lbl{display:inline-block;font-weight:700;min-width:86px;color:var(--accent);}
+  .box{background:var(--accent-soft);border:1px solid #F2C2CA;border-radius:10px;padding:12px 14px;font-size:13.5px;margin:10px 0;}
+  .warn{background:var(--amber-soft);border:1px solid #EDDFC0;border-radius:10px;padding:12px 14px;font-size:13.5px;margin:10px 0;}
+  .code{background:#0F172A;color:#E2E8F0;border-radius:8px;padding:12px 14px;font-family:"SF Mono",Consolas,monospace;font-size:12px;overflow-x:auto;margin:10px 0;line-height:1.6;}
+  .code .k{color:#7DD3FC;} .code .c{color:#94A3B8;} .code .n{color:#FCA5A5;}
+  .pipe{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0;}
+  .pipe .p{flex:1 1 180px;min-width:0;border:1px solid var(--border);border-radius:10px;padding:9px 11px;background:var(--card);}
+  .pipe .p .pn{font-size:11px;color:var(--sec);font-weight:600;}
+  .pipe .p .pt{font-size:13px;font-weight:700;}
+  .pipe .p .pd{font-size:11.5px;color:var(--slate);margin-top:3px;}
+  .foot{margin-top:40px;padding-top:14px;border-top:1px solid var(--border);font-size:12px;color:var(--sec);}
+  @media(max-width:560px){ h1{font-size:21px;} body{padding:20px 12px;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="kicker">FLOWMIND · 研发级 PRD · 前端设计主导</div>
+  <h1>小红书种草流水线（xhs-seed-pipeline）</h1>
+  <div class="sub">前端设计为主 · 热榜引擎专门处理逻辑 · 发布并入现成 content-studio · 后端技能按需新增</div>
+  <div class="meta">
+    <span class="m">版本 v0.2</span>
+    <span class="m">状态：已端到端落地（前端+链路真实 · 外部云依赖待恢复）</span>
+    <span class="m">方向：选题直接接小红书热榜</span>
+  </div>
+</header>
+
+<h2>0. 范围与设计原则</h2>
+<div class="box"><b>本期做（前端为主）</b>：5 步种草闭环前端 + <b>热榜引擎（多源归一化处理逻辑）</b> + 发布并入 content-studio（xhs 就绪卡/一键复制）。</div>
+<div class="warn"><b>设计原则</b>：① 前端设计为主，后端技能（热榜源/发布 MCP）按需新增占位，不提前设计；② 选题洞察<b>能接就直接接小红书热榜</b>，不依赖 keyword-trends 兜底；③ 几种热榜统一走一套<b>专门处理逻辑</b>（§3）；④ 发布页<b>并入现成 content-studio 发布步</b>，不新建页面；⑤ 抖音/矩阵同步/询盘报价本期不做。</div>
+
+<h2>1. 现状复用与缺口（前端视角，事实-代码）</h2>
+<table>
+  <tr><th>能力</th><th>现状</th><th>结论</th></tr>
+  <tr><td>创作/审计/配图前端</td><td>content-studio 默认平台 xhs：oneKeyGenerate / studio-audit / image-generate（3:4）</td><td><span class="tag have">复用</span></td></tr>
+  <tr><td>旅程前端</td><td>journey registry + content-publish 4 步 + page-context + ui-actions + M4 SOP</td><td><span class="tag have">复用</span></td></tr>
+  <tr><td>发布前端</td><td>content-studio 发布步现成（studio-goto-publish / studio-open-wechat）</td><td><span class="tag have">并入扩展</span> 按平台分派：xhs 就地就绪卡，wechat 跳公众号</td></tr>
+  <tr><td>热榜选题</td><td>无小红书热榜前端；keyword-trends 偏跨境词库</td><td><span class="tag new">新增</span> 热榜引擎 + 热榜面板（§3）</td></tr>
+  <tr><td>渠道账号</td><td>ChannelPlatform 无 xhs（后端域）</td><td><span class="tag new">占位</span> 后端按需新增，前端不阻塞</td></tr>
+</table>
+
+<h2>2. 前端整体结构（旅程 + 组件树）</h2>
+<div class="code"><span class="c">// xhs-seed-pipeline 前端组件树（并入 content-studio 体系）</span><br>
+xhs 种草流水线<br>
+├─ Step1 选题洞察  <span class="c">// 新增：热榜面板 + 选题卡</span><br>
+│   ├─ HotBoardTabs   <span class="c">// 综合榜 / 垂类榜 / 话题榜 / 灵感榜 Tab</span><br>
+│   ├─ TopicCard 列表  <span class="c">// 综合分排序，标注多榜命中 / 时效 / 品类</span><br>
+│   └─ useHotTopics    <span class="c">// 热榜引擎消费 hook（§3）</span><br>
+├─ Step2 种草创作  <span class="c">// 复用 oneKeyGenerate，强化 xhs 语气</span><br>
+│   └─ DraftEditor   <span class="c">// 标题 / 正文 / 话题标签 / 变体切换</span><br>
+├─ Step3 3:4 配图   <span class="c">// 复用 image-generate</span><br>
+│   └─ ImageGrid      <span class="c">// 3:4 预览网格</span><br>
+├─ Step4 合规审计  <span class="c">// 复用 studio-audit</span><br>
+│   └─ AuditResult    <span class="c">// 风险词高亮 + 替换建议</span><br>
+└─ Step5 发布（并入 content-studio 发布步）<br>
+    └─ PublishPanel   <span class="c">// 平台分派：xhs → 就绪卡+一键复制；wechat → 跳公众号</span></div>
+
+<h2>3. 热榜引擎（核心 · 专门处理逻辑）</h2>
+
+<h3>3.1 多源分类</h3>
+<p>小红书热榜不止一种，前端需按"榜型"分别接入并统一处理（榜名/字段以实际可接数据源为准，后端按需新增 adapter）：</p>
+<table>
+  <tr><th>榜型</th><th>特征</th><th>选题价值</th></tr>
+  <tr><td>综合热榜（全站热搜）</td><td>全站实时热度、更新快</td><td>大势热点，声量大但竞争高</td></tr>
+  <tr><td>垂类/行业热榜</td><td>美妆/穿搭/美食/家居/旅行/母婴/数码等分榜</td><td>与用户品类强相关，匹配分加成</td></tr>
+  <tr><td>话题/标签热榜</td><td>#话题 维度热度</td><td>直接给出话题标签候选</td></tr>
+  <tr><td>灵感/创作热点</td><td>官方灵感中心式选题方向</td><td>官方背书，适合笔记创作起点</td></tr>
+</table>
+<p class="warn" style="margin-top:6px;"><b>接法</b>：能接就直接接（第三方聚合 API / 网页接口 / 运营手工录入均以 adapter 接入）；每个榜一个 adapter，输出统一结构，前端无感。</p>
+
+<h3>3.2 处理管线（4 步，专门逻辑）</h3>
+<div class="pipe">
+  <div class="p"><div class="pn">① 归一化 Normalize</div><div class="pt">多源 → 统一条目</div><div class="pd">title / category / heatRaw / source / rank / fetchedAt，各榜字段映射对齐</div></div>
+  <div class="p"><div class="pn">② 聚合去重 Aggregate</div><div class="pt">同题多榜合并</div><div class="pd">按 title 归一化（去空格/符号/大小写）合并，记录 hitBoards（命中榜数）</div></div>
+  <div class="p"><div class="pn">③ 过滤打分 Filter &amp; Rank</div><div class="pt">去噪 + 综合分</div><div class="pd">过滤违禁/广告/低质 → 跨榜归一化 + 多榜加成 + 时效衰减 + 品类匹配</div></div>
+  <div class="p"><div class="pn">④ 选题包装 Package</div><div class="pt">产出选题卡</div><div class="pd">topic + angle 建议 + 话题标签候选 + 竞争度/时效提示，来源标注</div></div>
+</div>
+
+<h3>3.3 打分公式（可复算 · 参数可调）</h3>
+<div class="code"><span class="c">// score.ts — 前端热榜引擎打分（初始参数，走查后校准）</span><br>
+score = rankScore + multiBoardBonus + freshnessBonus + categoryMatch<br><br>
+rankScore      <span class="c">// 单榜归一化：rankScore = max(0, 100 - (rank-1) × 2.5)，取命中榜中最高</span><br>
+multiBoardBonus<span class="c">// 多榜命中：每多命中 1 榜 +10，封顶 +30（同题多榜 = 综合热度更高）</span><br>
+freshnessBonus <span class="c">// 时效：首次上榜 &lt; 4h 加 +10；4-24h +5；&gt;24h 不加（热榜有生命周期）</span><br>
+categoryMatch  <span class="c">// 品类：命中用户品类/垂类榜 +15（仅在垂类榜来源命中时加）</span></div>
+<p>说明：参数为<b>暂定初始值</b>，口径与校准方式在 E2E 走查后调整；无任何可靠热度时不产出假分，只显示"暂无数据"。</p>
+
+<h3>3.4 前端消费（useHotTopics hook）</h3>
+<ul>
+  <li>输入：榜型选择（综合/垂类/话题/灵感，可多选）+ 用户品类偏好</li>
+  <li>输出：选题卡列表（综合分排序）+ 每个卡的数据来源/抓取时间/降级标注</li>
+  <li>降级：某榜源不可用 → 该榜 Tab 标"不可用"，其余榜正常，不整体阻断</li>
+  <li>刷新：手动刷新 + 可选自动刷新（轮询间隔可配，默认关闭）</li>
+</ul>
+
+<h2>4. 需求卡（前端导向）</h2>
+
+<div class="card">
+  <div class="c-title">需求卡 A · 热榜引擎与选题洞察面板（新增 · 核心）</div>
+  <div class="row"><span class="lbl">触发</span>旅程 step1 进入选题页；或内容运营域工作台点「看热榜」。</div>
+  <div class="row"><span class="lbl">行为</span>前端热榜引擎拉取多榜 → 归一化/聚合/打分/包装（§3）→ 热榜面板多 Tab 展示；选题卡综合分排序，标注多榜命中、时效、品类命中、数据来源。</div>
+  <div class="row"><span class="lbl">可见</span>HotBoardTabs（综合/垂类/话题/灵感）+ TopicCard 列表；降级榜标注不可用。</div>
+  <div class="row"><span class="lbl">异常</span>单榜源失败 → 该 Tab 降级标注，其余榜正常；全失败 → 空态 + 手工输入选题兜底。</div>
+  <div class="row"><span class="lbl">依赖</span>后端热榜源 adapter（按需新增，占位）；打分参数常量。</div>
+  <div class="row"><span class="lbl">验收</span><b>成功</b>：给定品类，热榜面板产出选题卡且多榜命中可见。<b>边界</b>：无可靠数据时显示"暂无数据"，不编造热度。</div>
+</div>
+
+<div class="card">
+  <div class="c-title">需求卡 B · 旅程接入（xhs-seed-pipeline · 5 步）</div>
+  <div class="row"><span class="lbl">行为</span>注册旅程，5 步绑定组件与动作；每步 page-context + agentHint；可保存团队 SOP（M4）。</div>
+  <div class="row"><span class="lbl">验收</span>E2E 直驱走通 5 步；SOP 保存后对新选题重跑。</div>
+</div>
+
+<div class="card">
+  <div class="c-title">需求卡 C · 种草创作（复用 + xhs 语气强化）</div>
+  <div class="row"><span class="lbl">行为</span>oneKeyGenerate 生成标题≤20字 + 正文 + 5-8 话题 + 2-3 变体；前端 DraftEditor 可编辑/切变体；从热榜选中话题自动预填标签。</div>
+  <div class="row"><span class="lbl">验收</span>产出平台化草稿（区别于公众号长文），变体 ≥2。</div>
+</div>
+
+<div class="card">
+  <div class="c-title">需求卡 D · 3:4 配图 + 合规审计（复用）</div>
+  <div class="row"><span class="lbl">行为</span>image-generate 按 3:4 出图；studio-audit 跑小红书/广告法规则，风险词前端标红 + 替换建议。</div>
+  <div class="row"><span class="lbl">验收</span>配图 3:4；风险词标红；通过后进入发布。</div>
+</div>
+
+<div class="card">
+  <div class="c-title">需求卡 E · 发布并入 content-studio（现成）</div>
+  <div class="row"><span class="lbl">行为</span>发布步按平台分派：platform=xhs → 就地 PublishPanel（检测发布能力：可用 → L2 确认卡；不可用 → 就绪卡 + 一键复制 + 配图打包下载，标注"需手工粘贴"）；platform=wechat → 沿用现成跳转公众号页。</div>
+  <div class="row"><span class="lbl">可见</span>L2 确认卡 / 就绪卡，同一发布面板内切换，不新建页面。</div>
+  <div class="row"><span class="lbl">验收</span><b>成功</b>：xhs 无发布能力时一键复制可用、闭环不阻断。<b>边界</b>：未批准绝不对外；取消以正常结果回传不重试。</div>
+</div>
+
+<h2>5. 后端技能占位（按需新增，本期不设计）</h2>
+<table>
+  <tr><th>占位</th><th>说明</th><th>触发</th></tr>
+  <tr><td>热榜源 adapter</td><td>各榜型数据源接入（第三方 API / 网页接口 / 运营录入）</td><td>前端热榜引擎联调时按需新增</td></tr>
+  <tr><td>发布能力（xhs）</td><td>channel_accounts 扩展 xhs + 发布 MCP 技能（若可得）</td><td>通道 A 能力验证时再设计</td></tr>
+  <tr><td>小红书审计规则集</td><td>违禁词/广告法规则数据</td><td>审计覆盖不足时按需补充</td></tr>
+</table>
+
+<h2>6. E2E 验收清单（沿用 listing-launch-p0 直驱模式）</h2>
+<ul>
+  <li>热榜引擎：多榜归一化/聚合去重/打分可复算（给定 mock 榜数据断言综合分）</li>
+  <li>旅程 5 步直驱走通，动作权限分级正确（发布 L2）</li>
+  <li>发布：xhs 无通道自动降级就绪卡，一键复制可用；wechat 跳转不受影响</li>
+  <li>SOP 保存后新选题重跑，每步成败可见</li>
+  <li>降级：单榜源失败不整体阻断，空态可手工输入</li>
+</ul>
+
+<h2>7. 开放问题（不阻塞开工）</h2>
+<ul>
+  <li>热榜打分参数初始值（rankStep=2.5 / 多榜+10 封顶 30 / 时效窗 4h/24h）是否合适——E2E mock 走查后校准</li>
+  <li>热榜 Tab 默认展开哪几个榜型？（建议：综合 + 垂类 + 话题，灵感收二级）</li>
+  <li>自动刷新轮询是否开启？（建议默认关闭，手动刷新）</li>
+</ul>
+
+<div class="foot">FlowMind PRD · 小红书种草流水线 · v0.2 前端设计版 · 2026-09-03。需求卡按 触发→行为→可见→异常→依赖→验收 闭环；后端技能仅占位、按需新增；热榜榜型分类与打分参数为方案建议，接入真实数据源后校准。</div>
+
+</div>
+</body>
+</html>

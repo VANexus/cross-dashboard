@@ -43,11 +43,11 @@ export function AgentPersonaCard({ config }: AgentPersonaCardProps) {
         <div className="flex items-center gap-2">
           <MessageSquare className="h-3 w-3 text-muted-foreground" />
           <span className="text-xs text-muted-foreground">沟通风格:</span>
-          <Badge variant="secondary" className="text-[10px]">{persona.communicationStyle}</Badge>
+          <Badge variant="secondary" className="text-tiny">{persona.communicationStyle}</Badge>
         </div>
         <div className="flex flex-wrap gap-1">
           {(persona.expertise ?? []).map((tag) => (
-            <Badge key={tag} variant="outline" className="text-[10px] border-primary/20 text-primary/80">
+            <Badge key={tag} variant="outline" className="text-tiny border-primary/20 text-primary/80">
               {tag}
             </Badge>
           ))}

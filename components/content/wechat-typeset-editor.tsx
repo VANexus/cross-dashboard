@@ -83,7 +83,7 @@ export function WechatTypesetEditor({ initialHtml, onChange }: Props) {
     editorProps: {
       attributes: {
         class:
-          "prose prose-sm max-w-none focus:outline-none min-h-[420px] px-4 py-3 text-[15px] leading-7",
+          "prose prose-sm max-w-none focus:outline-none min-h-[420px] px-4 py-3 text-base leading-7",
       },
     },
     onUpdate: ({ editor: e }) => onChange(e.getHTML()),

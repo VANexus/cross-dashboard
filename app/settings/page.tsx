@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/page-header";
 import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -77,10 +78,10 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6 max-w-4xl">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">系统设置</h1>
-        <p className="text-sm text-muted-foreground">配置 FlowMind 系统参数</p>
-      </div>
+      <PageHeader
+        title="系统设置"
+        description="配置 FlowMind 系统参数"
+      />
 
       {/* AI 配置 */}
       <Card>

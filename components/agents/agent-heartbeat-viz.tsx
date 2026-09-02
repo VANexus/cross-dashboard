@@ -10,12 +10,12 @@ interface AgentHeartbeatVizProps {
 }
 
 const moodColors: Record<MoodState, string> = {
-  focused: "#3b82f6",
-  alert: "#f59e0b",
-  tired: "#6b7280",
-  stressed: "#ef4444",
-  curious: "#a855f7",
-  satisfied: "#10b981",
+  focused: "var(--info)",
+  alert: "var(--warning)",
+  tired: "var(--muted-foreground)",
+  stressed: "var(--destructive)",
+  curious: "var(--viz-2)",
+  satisfied: "var(--success)",
 };
 
 export function AgentHeartbeatViz({ mood, energy, online }: AgentHeartbeatVizProps) {
@@ -32,7 +32,7 @@ export function AgentHeartbeatViz({ mood, energy, online }: AgentHeartbeatVizPro
     return () => clearInterval(timer);
   }, [energy, online]);
 
-  const color = online ? moodColors[mood] : "#6b7280";
+  const color = online ? moodColors[mood] : "var(--muted-foreground)";
   const scale = beat ? 1.3 : 1;
   const opacity = online ? (energy * 0.5 + 0.5) : 0.3;
 
@@ -54,7 +54,7 @@ export function AgentHeartbeatViz({ mood, energy, online }: AgentHeartbeatVizPro
           />
         )}
       </div>
-      <span className="text-[10px] text-muted-foreground">
+      <span className="text-tiny text-muted-foreground">
         {online ? "心跳" : "离线"}
       </span>
     </div>

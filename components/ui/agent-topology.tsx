@@ -15,10 +15,10 @@ interface AgentTopologyProps {
 }
 
 const STATUS_COLOR: Record<AgentStatus, string> = {
-  online: "#10b981",
-  busy: "#f59e0b",
-  error: "#ef4444",
-  offline: "#94a3b8",
+  online: "var(--success)",
+  busy: "var(--warning)",
+  error: "var(--destructive)",
+  offline: "var(--muted-foreground)",
 };
 
 const STATUS_LABEL: Record<AgentStatus, string> = {
@@ -28,7 +28,7 @@ const STATUS_LABEL: Record<AgentStatus, string> = {
   offline: "离线",
 };
 
-const HUB_COLOR = "#f59e0b";
+const HUB_COLOR = "var(--warning)";
 const HUB_LABEL = "编排中枢";
 
 /** 三.js 多智能体协同拓扑：星形 + 环形网格，节点色 = 状态，悬停高亮 */
@@ -234,14 +234,14 @@ export function AgentTopology({ agents }: AgentTopologyProps) {
         className="pointer-events-none absolute left-0 top-0 z-10 -translate-x-1/2 -translate-y-[140%] whitespace-nowrap rounded-lg border border-border bg-card/95 px-2.5 py-1.5 text-xs font-medium opacity-0 transition-opacity duration-150"
       />
       <div className="pointer-events-none absolute bottom-3 left-3 z-10 flex flex-wrap gap-1.5">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/85 px-2.5 py-1 font-mono text-[10.5px] text-muted-foreground backdrop-blur">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/85 px-2.5 py-1 font-mono text-caption text-muted-foreground backdrop-blur">
           <i className="h-1.5 w-1.5 rounded-full" style={{ background: HUB_COLOR }} />
           {HUB_LABEL}
         </span>
         {Object.entries(counts).map(([status, count]) => (
           <span
             key={status}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/85 px-2.5 py-1 font-mono text-[10.5px] text-muted-foreground backdrop-blur"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/85 px-2.5 py-1 font-mono text-caption text-muted-foreground backdrop-blur"
           >
             <i className="h-1.5 w-1.5 rounded-full" style={{ background: STATUS_COLOR[status as AgentStatus] }} />
             {STATUS_LABEL[status as AgentStatus]} · {count}

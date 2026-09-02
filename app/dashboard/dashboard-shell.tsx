@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/page-header";
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
@@ -91,17 +92,13 @@ export function DashboardShell({ children }: DashboardShellProps) {
   });
 
   return (
-    <div className="space-y-[18px]">
-      <div className="dash-pagehead">
-        <div>
-          <div className="dash-crumbs">
-            工作台 / <b>总览</b>
-          </div>
-          <h1>仪表盘</h1>
-          <p className="dash-desc">多智能体协同编排 · 内容工作台总览</p>
-        </div>
-        <div className="dash-actions">
-          <span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">实时数据 · 本地编排</span>
+    <div className="space-y-6">
+      <PageHeader
+        breadcrumb={<><span>工作台</span> / <b>总览</b></>}
+        title="仪表盘"
+        description="多智能体协同编排 · 内容工作台总览"
+        actions={<>
+          <span className="hidden font-mono text-caption text-muted-foreground sm:inline">实时数据 · 本地编排</span>
           <button
             type="button"
             className="btn-orchestrate"
@@ -112,8 +109,8 @@ export function DashboardShell({ children }: DashboardShellProps) {
             <Sparkles className="h-4 w-4" />
             发起编排
           </button>
-        </div>
-      </div>
+        </>}
+      />
 
       {children}
 

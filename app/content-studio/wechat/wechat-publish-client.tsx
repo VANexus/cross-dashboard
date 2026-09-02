@@ -57,13 +57,13 @@ function PhonePreview({ html, title }: { html: string; title: string }) {
   return (
     <div className="flex flex-col items-center gap-2">
       <div className="w-[300px] overflow-hidden rounded-2xl border bg-white shadow-lg">
-        <div className="border-b bg-[#07C160] px-3 py-1.5 text-center text-xs font-medium text-white">
+        <div className="border-b bg-brand-wechat px-3 py-1.5 text-center text-xs font-medium text-white">
           公众号预览
         </div>
         <div className="flex items-center gap-2 border-b px-3 py-2">
-          <div className="h-7 w-7 rounded-full bg-[#07C160]/10" />
+          <div className="h-7 w-7 rounded-full bg-brand-wechat/10" />
           <div className="flex-1 truncate text-xs font-medium text-gray-800">{title || "未命名"}</div>
-          <span className="text-[10px] text-gray-400">···</span>
+          <span className="text-tiny text-gray-400">···</span>
         </div>
         <iframe
           title="公众号正文预览"
@@ -123,7 +123,7 @@ function AccountPanel({
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-[#07C160]" /> 公众号账号保险库
+            <ShieldCheck className="h-4 w-4 text-brand-wechat" /> 公众号账号保险库
           </CardTitle>
           <CardDescription>
             支持无限多个公众号。AppID / AppSecret 用 AES-256-GCM 加密存储，任何接口都只返回掩码，
@@ -203,7 +203,7 @@ function AccountPanel({
             {error && <p className="text-sm text-destructive">{error}</p>}
             {testResult && (
               <div className={cn("flex items-start gap-2 rounded-md border p-3 text-sm",
-                testResult.ok ? "border-green-200 bg-green-50 text-green-800" : "border-red-200 bg-red-50 text-red-800")}>
+                testResult.ok ? "border-success/20 bg-success/10 text-success" : "border-destructive/20 bg-destructive/10 text-destructive")}>
                 {testResult.ok ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <XCircle className="mt-0.5 h-4 w-4 shrink-0" />}
                 <div>
                   <div className="font-medium">
@@ -260,7 +260,7 @@ function HistoryPanel({
     <Card>
       <CardHeader>
         <CardTitle className="text-base flex items-center gap-2">
-          <FileText className="h-4 w-4 text-[#07C160]" /> 发布历史
+          <FileText className="h-4 w-4 text-brand-wechat" /> 发布历史
         </CardTitle>
         <CardDescription>已排版 / 已发布 / 已群发的任务，可轮询状态或打开文章链接。</CardDescription>
       </CardHeader>
@@ -279,7 +279,7 @@ function HistoryPanel({
                 {j.publishTime ? ` · 定时 ${new Date(j.publishTime * 1000).toLocaleString()}` : ""}
                 {j.articleUrl ? " · 已生成文章链接" : ""}
               </div>
-              {j.warning && <div className="mt-1 text-xs text-amber-600">{j.warning}</div>}
+              {j.warning && <div className="mt-1 text-xs text-warning">{j.warning}</div>}
             </div>
             {(j.status === "publishing" || (j.publishId && !j.articleUrl)) && (
               <Button
@@ -526,9 +526,9 @@ export function WechatPublishClient({ accounts: initAccounts, jobs: initJobs, th
         <div key={s} className="flex items-center gap-1">
           <div
             className={cn(
-              "flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-medium",
-              i < stepIndex ? "bg-[#07C160]/15 text-[#07C160]"
-                : i === stepIndex ? "bg-[#07C160] text-white" : "bg-muted text-muted-foreground",
+              "flex h-6 w-6 items-center justify-center rounded-full text-caption font-medium",
+              i < stepIndex ? "bg-brand-wechat/15 text-brand-wechat"
+                : i === stepIndex ? "bg-brand-wechat text-white" : "bg-muted text-muted-foreground",
             )}
           >
             {i < stepIndex ? <CheckCircle2 className="h-3.5 w-3.5" /> : i + 1}
@@ -550,7 +550,7 @@ export function WechatPublishClient({ accounts: initAccounts, jobs: initJobs, th
       {/* 顶部操作区 */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#07C160]/10 text-[#07C160]">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-wechat/10 text-brand-wechat">
             <Send className="h-5 w-5" />
           </div>
           <div>
@@ -573,7 +573,7 @@ export function WechatPublishClient({ accounts: initAccounts, jobs: initJobs, th
             onClick={() => setTab(k)}
             className={cn(
               "border-b-2 px-4 py-2 text-sm transition-colors",
-              tab === k ? "border-[#07C160] font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
+              tab === k ? "border-brand-wechat font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
             {label}
@@ -582,16 +582,16 @@ export function WechatPublishClient({ accounts: initAccounts, jobs: initJobs, th
       </div>
 
       {error && (
-        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</div>
+        <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
       )}
 
       {tab === "accounts" && (
         <>
           {accountsState.error && (
-            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            <div className="rounded-md border border-warning/20 bg-warning/10 p-3 text-sm text-warning">
               <div className="font-medium">公众号账号表未就绪</div>
               <div className="mt-0.5 text-xs opacity-90">
-                请在 Supabase SQL Editor 执行 <code className="rounded bg-amber-100 px-1">supabase/migrations/00011_wechat_e2e.sql</code>
+                请在 Supabase SQL Editor 执行 <code className="rounded bg-warning/15 px-1">supabase/migrations/00011_wechat_e2e.sql</code>
                 （创建 wf_wechat_accounts / wf_wechat_publish_jobs 表）后刷新。错误：{accountsState.error}
               </div>
             </div>
@@ -627,7 +627,7 @@ export function WechatPublishClient({ accounts: initAccounts, jobs: initJobs, th
                         onClick={() => selectDraft(d)}
                         className={cn(
                           "block w-full rounded-lg border p-2.5 text-left transition-colors",
-                          draftId === d.id ? "border-[#07C160] bg-[#07C160]/5" : "hover:border-border",
+                          draftId === d.id ? "border-brand-wechat bg-brand-wechat/5" : "hover:border-border",
                         )}
                       >
                         <div className="truncate text-sm font-medium">{d.title}</div>
@@ -665,12 +665,12 @@ export function WechatPublishClient({ accounts: initAccounts, jobs: initJobs, th
                           onClick={() => setThemeId(t.id)}
                           className={cn(
                             "rounded-lg border p-3 text-left transition-colors",
-                            themeId === t.id ? "border-[#07C160] bg-[#07C160]/5" : "hover:border-border",
+                            themeId === t.id ? "border-brand-wechat bg-brand-wechat/5" : "hover:border-border",
                           )}
                         >
                           <div className="h-3 w-3 rounded-full" style={{ background: t.primary }} />
                           <div className="mt-1.5 text-sm font-medium">{t.label}</div>
-                          <div className="text-[11px] text-muted-foreground">{t.primary}</div>
+                          <div className="text-caption text-muted-foreground">{t.primary}</div>
                         </button>
                       ))}
                     </div>
@@ -692,7 +692,7 @@ export function WechatPublishClient({ accounts: initAccounts, jobs: initJobs, th
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2">
-                      <PenLine className="h-4 w-4 text-[#07C160]" /> 可视化微调（TipTap 富文本）
+                      <PenLine className="h-4 w-4 text-brand-wechat" /> 可视化微调（TipTap 富文本）
                     </CardTitle>
                     <CardDescription>直接编辑已排版的正文；切换主题会基于原文重新排版（丢弃手改）。</CardDescription>
                   </CardHeader>
@@ -727,7 +727,7 @@ export function WechatPublishClient({ accounts: initAccounts, jobs: initJobs, th
             <div className="grid gap-4 lg:grid-cols-2">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-sm flex items-center gap-2"><Settings2 className="h-4 w-4 text-[#07C160]" /> 发布设置</CardTitle>
+                  <CardTitle className="text-sm flex items-center gap-2"><Settings2 className="h-4 w-4 text-brand-wechat" /> 发布设置</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-1.5">
@@ -822,7 +822,7 @@ export function WechatPublishClient({ accounts: initAccounts, jobs: initJobs, th
             <div className="mx-auto max-w-2xl space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-sm flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-[#07C160]" /> 最终确认</CardTitle>
+                  <CardTitle className="text-sm flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-brand-wechat" /> 最终确认</CardTitle>
                   <CardDescription>发布是不可逆操作，请逐项核对后勾选确认。</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -851,7 +851,7 @@ export function WechatPublishClient({ accounts: initAccounts, jobs: initJobs, th
               </Card>
               <div className="flex justify-between">
                 <Button variant="ghost" onClick={() => setStep("settings")}>上一步</Button>
-                <Button onClick={doPublish} disabled={busy} className="bg-[#07C160] hover:bg-[#06ad56]" data-agent-action="wechat-publish-submit">
+                <Button onClick={doPublish} disabled={busy} className="bg-brand-wechat hover:bg-brand-wechat/90" data-agent-action="wechat-publish-submit">
                   {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   {busy ? busyLabel
                     : draftOnly ? "确认保存草稿"
@@ -865,7 +865,7 @@ export function WechatPublishClient({ accounts: initAccounts, jobs: initJobs, th
           {step === "done" && result && (
             <Card className="mx-auto max-w-2xl">
               <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2 text-green-600">
+                <CardTitle className="text-sm flex items-center gap-2 text-success">
                   <CheckCircle2 className="h-4 w-4" /> {draftOnly ? "已保存草稿" : "已提交"}
                 </CardTitle>
               </CardHeader>
@@ -878,7 +878,7 @@ export function WechatPublishClient({ accounts: initAccounts, jobs: initJobs, th
                 {result.mediaId && <div className="flex justify-between"><span className="text-muted-foreground">media_id</span><span className="font-mono text-xs">{result.mediaId}</span></div>}
                 {result.publishId && <div className="flex justify-between"><span className="text-muted-foreground">发布 ID</span><span className="font-mono text-xs">{result.publishId}</span></div>}
                 {result.msgId && <div className="flex justify-between"><span className="text-muted-foreground">群发 msg_id</span><span className="font-mono text-xs">{result.msgId}</span></div>}
-                {result.warning && <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-800">{result.warning}</div>}
+                {result.warning && <div className="rounded-md border border-warning/20 bg-warning/10 p-3 text-warning">{result.warning}</div>}
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="outline" onClick={() => { jobsState.refetch(); resetAll(); }}>
                     <RotateCcw className="h-4 w-4" /> 再发一篇

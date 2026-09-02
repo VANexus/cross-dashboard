@@ -117,7 +117,7 @@ export function NotificationPanel({ open, onClose }: NotificationPanelProps) {
           <div className="flex items-center gap-2">
             <h3 className="font-semibold text-sm">通知</h3>
             {unreadCount > 0 && (
-              <Badge variant="destructive" className="h-5 min-w-5 text-[10px] px-1 rounded-full">
+              <Badge variant="destructive" className="h-5 min-w-5 text-tiny px-1 rounded-full">
                 {unreadCount}
               </Badge>
             )}
@@ -160,12 +160,12 @@ export function NotificationPanel({ open, onClose }: NotificationPanelProps) {
                       {n.description}
                     </p>
                     <div className="flex items-center justify-between mt-1.5">
-                      <span className="text-[11px] text-muted-foreground/60">{n.time}</span>
+                      <span className="text-caption text-muted-foreground/60">{n.time}</span>
                       {n.href && (
                         <Link
                           href={n.href}
                           onClick={onClose}
-                          className="inline-flex items-center gap-0.5 text-[11px] text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="inline-flex items-center gap-0.5 text-caption text-primary opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                           查看 <ExternalLink className="h-3 w-3" />
                         </Link>

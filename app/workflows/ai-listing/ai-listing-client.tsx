@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/page-header";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -151,15 +152,11 @@ export function AiListingClient({ infringementWords, categoryRecs, bulletPoints,
 
   return (
     <PageTransition className="space-y-4">
-      <div className="flex items-center gap-3 mb-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-wf-listing/10">
-          <FileText className="h-4 w-4 text-wf-listing" />
-        </div>
-        <div>
-          <h1 className="text-lg font-semibold">AI Listing 生成</h1>
-          <p className="text-xs text-muted-foreground">解决 Listing 生成慢、侵权风险高问题 — 五步流式生成，实时侵权检测</p>
-        </div>
-      </div>
+      <PageHeader
+        title="AI Listing 生成"
+        description="解决 Listing 生成慢、侵权风险高问题 — 五步流式生成，实时侵权检测"
+        icon={<FileText className="h-6 w-6 text-wf-listing" />}
+      />
 
       <div className="flex gap-2">
         {steps.map((s, i) => (
@@ -171,7 +168,7 @@ export function AiListingClient({ infringementWords, categoryRecs, bulletPoints,
               s.id === currentStep ? "bg-primary/10 text-primary font-medium" : i < currentIdx ? "text-muted-foreground hover:bg-muted cursor-pointer" : "text-muted-foreground/40"
             )}
           >
-            {i < currentIdx ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : s.id === currentStep ? <Zap className="h-4 w-4" /> : <span className="h-4 w-4 rounded-full border text-[10px] flex items-center justify-center">{i + 1}</span>}
+            {i < currentIdx ? <CheckCircle2 className="h-4 w-4 text-success" /> : s.id === currentStep ? <Zap className="h-4 w-4" /> : <span className="h-4 w-4 rounded-full border text-tiny flex items-center justify-center">{i + 1}</span>}
             <span className="hidden md:inline">{s.label}</span>
             {i < steps.length - 1 && <ChevronRight className="h-3 w-3 text-muted-foreground/30 ml-1" />}
           </button>
@@ -187,9 +184,9 @@ export function AiListingClient({ infringementWords, categoryRecs, bulletPoints,
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm">侵权词检测</CardTitle>
                     <div className="flex gap-2 text-xs text-muted-foreground">
-                      <span className="text-emerald-400">{passedWords} 通过</span>
+                      <span className="text-success">{passedWords} 通过</span>
                       <span>·</span>
-                      <span className="text-red-400">{blockedWords} 拦截</span>
+                      <span className="text-destructive">{blockedWords} 拦截</span>
                     </div>
                   </div>
                 </CardHeader>
@@ -209,18 +206,18 @@ export function AiListingClient({ infringementWords, categoryRecs, bulletPoints,
                           <td className="px-4 py-2.5 font-medium">{w.word}</td>
                           <td className="px-4 py-2.5">
                             <Badge variant="outline" className={cn(
-                              "text-[10px]",
-                              w.type === "brand" && "border-red-500/30 text-red-400",
-                              w.type === "patent" && "border-amber-500/30 text-amber-400",
-                              w.type === "generic" && "border-emerald-500/30 text-emerald-400"
+                              "text-tiny",
+                              w.type === "brand" && "border-destructive/30 text-destructive",
+                              w.type === "patent" && "border-warning/30 text-warning",
+                              w.type === "generic" && "border-success/30 text-success"
                             )}>
                               {w.type === "brand" ? "品牌词" : w.type === "patent" ? "专利描述词" : "通用词"}
                             </Badge>
                           </td>
                           <td className="px-4 py-2.5">
                             <Badge variant="outline" className={cn(
-                              "text-[10px]",
-                              w.risk === "high" ? "border-red-500/30 text-red-400 bg-red-500/5" : "border-emerald-500/30 text-emerald-400 bg-emerald-500/5"
+                              "text-tiny",
+                              w.risk === "high" ? "border-destructive/30 text-destructive bg-destructive/5" : "border-success/30 text-success bg-success/5"
                             )}>
                               {w.risk === "high" ? "高风险" : "安全"}
                             </Badge>
@@ -237,11 +234,11 @@ export function AiListingClient({ infringementWords, categoryRecs, bulletPoints,
                 <Card className="border-l-2 border-l-amber-500">
                   <CardContent className="p-3">
                     <p className="text-xs text-muted-foreground">
-                      <span className="text-amber-400 font-medium">⚠ 侵权风险提醒:</span> 检测到{" "}
+                      <span className="text-warning font-medium">⚠ 侵权风险提醒:</span> 检测到{" "}
                       {infringementWords.filter((w) => w.type !== "generic").map((w, i) => (
                         <span key={w.word}>
                           {i > 0 && "、"}
-                          <span className="text-red-400 font-medium">{w.word} ({w.type === "brand" ? "品牌词" : "专利描述词"})</span>
+                          <span className="text-destructive font-medium">{w.word} ({w.type === "brand" ? "品牌词" : "专利描述词"})</span>
                         </span>
                       ))}，已在 AI 生成时自动替换为安全表述
                     </p>
@@ -250,7 +247,7 @@ export function AiListingClient({ infringementWords, categoryRecs, bulletPoints,
               )}
 
               {genError && (
-                <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                <div className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
                   {genError}
                 </div>
               )}
@@ -295,18 +292,18 @@ export function AiListingClient({ infringementWords, categoryRecs, bulletPoints,
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm">类目推荐</CardTitle>
-                  <Badge variant="outline" className="text-[10px]">AI 分析 1000 个竞品</Badge>
+                  <Badge variant="outline" className="text-tiny">AI 分析 1000 个竞品</Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 {categoryRecs.map((cat, i) => (
-                  <div key={cat.id} className={cn("p-4 rounded-lg border", i === 0 && "ring-1 ring-emerald-500/30 bg-emerald-500/5")}>
+                  <div key={cat.id} className={cn("p-4 rounded-lg border", i === 0 && "ring-1 ring-success/30 bg-success/5")}>
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium">{cat.name}</span>
-                        {i === 0 && <Badge className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20">推荐</Badge>}
+                        {i === 0 && <Badge className="text-tiny bg-success/10 text-success border-success/20">推荐</Badge>}
                       </div>
-                      <AnimatedNumber value={cat.confidence} suffix="%" className={cn("text-sm font-bold", i === 0 ? "text-emerald-400" : "text-muted-foreground")} />
+                      <AnimatedNumber value={cat.confidence} suffix="%" className={cn("text-sm font-bold", i === 0 ? "text-success" : "text-muted-foreground")} />
                     </div>
                     <p className="text-xs text-muted-foreground mb-2">{cat.reason}</p>
                     <div className="flex gap-4 text-xs text-muted-foreground">
@@ -326,9 +323,9 @@ export function AiListingClient({ infringementWords, categoryRecs, bulletPoints,
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm">AI 生成五点描述</CardTitle>
                     <div className="flex gap-1.5">
-                      <Badge variant="outline" className="text-[10px]">美式英语</Badge>
-                      <Badge variant="outline" className="text-[10px]">英式英语</Badge>
-                      <Badge variant="outline" className="text-[10px]">日语</Badge>
+                      <Badge variant="outline" className="text-tiny">美式英语</Badge>
+                      <Badge variant="outline" className="text-tiny">英式英语</Badge>
+                      <Badge variant="outline" className="text-tiny">日语</Badge>
                     </div>
                   </div>
                 </CardHeader>
@@ -345,11 +342,11 @@ export function AiListingClient({ infringementWords, categoryRecs, bulletPoints,
                           </div>
                           <div className="flex items-center gap-2">
                             <div className="flex items-center gap-1">
-                              <span className="text-[10px] text-muted-foreground">SEO</span>
-                              <AnimatedNumber value={seoScore} className={cn("text-xs font-bold", seoScore >= 90 ? "text-emerald-400" : seoScore >= 80 ? "text-amber-400" : "text-red-400")} />
+                              <span className="text-tiny text-muted-foreground">SEO</span>
+                              <AnimatedNumber value={seoScore} className={cn("text-xs font-bold", seoScore >= 90 ? "text-success" : seoScore >= 80 ? "text-warning" : "text-destructive")} />
                             </div>
                             {bp?.rufus && (
-                              <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-400 bg-emerald-500/5">
+                              <Badge variant="outline" className="text-tiny border-success/30 text-success bg-success/5">
                                 Rufus 友好
                               </Badge>
                             )}
@@ -444,21 +441,21 @@ export function AiListingClient({ infringementWords, categoryRecs, bulletPoints,
                   </div>
 
                   {publishResult ? (
-                    <Card className="border-l-2 border-l-emerald-500">
+                    <Card className="border-l-2 border-l-success">
                       <CardContent className="p-3">
                         <div className="flex items-center gap-2 mb-1">
-                          <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                          <span className="text-sm font-medium text-emerald-400">发布成功</span>
+                          <CheckCircle2 className="h-4 w-4 text-success" />
+                          <span className="text-sm font-medium text-success">发布成功</span>
                         </div>
                         <p className="text-xs text-muted-foreground">Listing ID: {publishResult.listingId}</p>
                       </CardContent>
                     </Card>
                   ) : (
-                    <Card className="border-l-2 border-l-emerald-500">
+                    <Card className="border-l-2 border-l-success">
                       <CardContent className="p-3">
                         <div className="flex items-center gap-2 mb-1">
-                          <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                          <span className="text-sm font-medium text-emerald-400">所有检测通过</span>
+                          <CheckCircle2 className="h-4 w-4 text-success" />
+                          <span className="text-sm font-medium text-success">所有检测通过</span>
                         </div>
                         <p className="text-xs text-muted-foreground">侵权检测: 通过 | SEO 评分: {genResult?.result?.seoScore ?? avgSeoScore}/100 | Rufus 友好度: 良好</p>
                       </CardContent>
@@ -505,11 +502,11 @@ export function AiListingClient({ infringementWords, categoryRecs, bulletPoints,
               {steps.map((s, i) => (
                 <div key={s.id} className="flex items-center gap-2">
                   {i < currentIdx ? (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                    <CheckCircle2 className="h-4 w-4 text-success" />
                   ) : s.id === currentStep ? (
                     <Zap className="h-4 w-4 text-primary" />
                   ) : (
-                    <span className="h-4 w-4 rounded-full border text-[10px] flex items-center justify-center text-muted-foreground/40">{i + 1}</span>
+                    <span className="h-4 w-4 rounded-full border text-tiny flex items-center justify-center text-muted-foreground/40">{i + 1}</span>
                   )}
                   <span className={cn("text-xs", s.id === currentStep ? "text-primary font-medium" : i < currentIdx ? "text-muted-foreground" : "text-muted-foreground/40")}>
                     {s.label}
@@ -531,11 +528,11 @@ export function AiListingClient({ infringementWords, categoryRecs, bulletPoints,
                   <div className="space-y-2 mt-3">
                     {bulletPoints.map((bp) => (
                       <div key={bp.id} className="flex items-center gap-2">
-                        <span className="text-[11px] text-muted-foreground w-14 truncate">{bp.title}</span>
+                        <span className="text-caption text-muted-foreground w-14 truncate">{bp.title}</span>
                         <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                          <div className={cn("h-full rounded-full", bp.seoScore >= 90 ? "bg-emerald-500" : bp.seoScore >= 80 ? "bg-amber-500" : "bg-red-500")} style={{ width: `${bp.seoScore}%` }} />
+                          <div className={cn("h-full rounded-full", bp.seoScore >= 90 ? "bg-success" : bp.seoScore >= 80 ? "bg-warning" : "bg-destructive")} style={{ width: `${bp.seoScore}%` }} />
                         </div>
-                        <span className="text-[10px] metric-value text-muted-foreground w-8 text-right">{bp.seoScore}</span>
+                        <span className="text-tiny metric-value text-muted-foreground w-8 text-right">{bp.seoScore}</span>
                       </div>
                     ))}
                   </div>

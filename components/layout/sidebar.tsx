@@ -73,7 +73,7 @@ export function Sidebar() {
     <aside
       className={cn(
         "fixed left-0 top-0 z-30 flex h-screen flex-col border-r bg-card transition-[width] duration-200",
-        collapsed ? "w-[64px]" : "w-[248px]"
+        collapsed ? "w-(--sidebar-width-collapsed)" : "w-(--sidebar-width)"
       )}
     >
       {/* Logo */}
@@ -98,7 +98,7 @@ export function Sidebar() {
             <Link
               href="/journeys"
               className={cn(
-                "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] transition-all duration-100",
+                "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-body transition-all duration-100",
                 pathname === "/journeys" || pathname.startsWith("/journeys/")
                   ? "bg-primary/8 text-primary font-medium"
                   : "text-muted-foreground hover:text-foreground hover:bg-secondary/60",
@@ -122,7 +122,7 @@ export function Sidebar() {
                   type="button"
                   onClick={() => !collapsed && toggleGroup(group.workspaceId)}
                   className={cn(
-                    "flex w-full items-center gap-1.5 rounded-md px-2.5 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/40",
+                    "flex w-full items-center gap-1.5 rounded-md px-2.5 pb-1 pt-0.5 text-tiny font-medium uppercase tracking-widest text-muted-foreground/40",
                     !collapsed && "cursor-pointer hover:text-muted-foreground"
                   )}
                   title={collapsed ? group.label : undefined}
@@ -157,7 +157,7 @@ export function Sidebar() {
                           key={item.href}
                           href={item.href}
                           className={cn(
-                            "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] transition-all duration-100",
+                            "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-body transition-all duration-100",
                             isActive
                               ? "bg-primary/8 text-primary font-medium"
                               : "text-muted-foreground hover:text-foreground hover:bg-secondary/60",

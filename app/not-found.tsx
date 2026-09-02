@@ -7,7 +7,7 @@ export default function NotFound() {
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 text-center">
       <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl bg-muted">
         <Workflow className="h-10 w-10 text-muted-foreground/40" />
-        <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
+        <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-tiny font-bold text-destructive-foreground">
           404
         </span>
       </div>

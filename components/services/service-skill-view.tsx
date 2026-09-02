@@ -83,9 +83,9 @@ export function ServiceSkillView({
     return (
       <div className="flex flex-col gap-4 p-6">
         <h1 className="text-2xl font-bold">{skillId}</h1>
-        <Card className="border-amber-500/30 bg-amber-500/5">
+        <Card className="border-warning/30 bg-warning/5">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-amber-600">
+            <CardTitle className="flex items-center gap-2 text-warning">
               <AlertCircle className="h-5 w-5" />
               服务未连接
             </CardTitle>
@@ -108,9 +108,9 @@ export function ServiceSkillView({
     return (
       <div className="flex flex-col gap-4 p-6">
         <h1 className="text-2xl font-bold">{skillId}</h1>
-        <Card className="border-red-500/30 bg-red-500/5">
+        <Card className="border-destructive/30 bg-destructive/5">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-red-600">
+            <CardTitle className="flex items-center gap-2 text-destructive">
               <AlertCircle className="h-5 w-5" />
               技能不存在
             </CardTitle>
@@ -174,7 +174,7 @@ export function ServiceSkillView({
                 <Label htmlFor={key}>
                   {key}
                   {required.includes(key) && (
-                    <span className="ml-1 text-red-500">*</span>
+                    <span className="ml-1 text-destructive">*</span>
                   )}
                   {schema.description && (
                     <span className="ml-2 text-xs font-normal text-muted-foreground">
@@ -215,18 +215,18 @@ export function ServiceSkillView({
           </CardHeader>
           <CardContent>
             {error && (
-              <div className="mb-4 flex items-center gap-2 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-600">
+              <div className="mb-4 flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 {error}
               </div>
             )}
 
             {result?.ok && (
-              <div className="mb-4 flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-600">
+              <div className="mb-4 flex items-center gap-2 rounded-md border border-success/30 bg-success/10 p-3 text-sm text-success">
                 <CheckCircle2 className="h-4 w-4 shrink-0" />
                 执行成功
                 {result.metrics?.degraded && (
-                  <span className="text-amber-600">
+                  <span className="text-warning">
                    （降级：{result.metrics.degradationReason}）
                   </span>
                 )}

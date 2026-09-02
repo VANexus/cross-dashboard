@@ -33,7 +33,7 @@ export function SkillDetail({ skill }: SkillDetailProps) {
       <div className="border-b border-border/50 p-4">
         <div className="flex items-start justify-between gap-2">
           <h3 className="text-sm font-semibold">{skill.name}</h3>
-          <Badge variant="outline" className="shrink-0 text-[10px]">
+          <Badge variant="outline" className="shrink-0 text-tiny">
             v{skill.version}
           </Badge>
         </div>
@@ -43,7 +43,7 @@ export function SkillDetail({ skill }: SkillDetailProps) {
         {(skill.tags?.length ?? 0) > 0 && (
           <div className="mt-2 flex flex-wrap gap-1">
             {skill.tags!.map((tag) => (
-              <Badge key={tag} variant="secondary" className="px-1.5 py-0 text-[10px]">
+              <Badge key={tag} variant="secondary" className="px-1.5 py-0 text-tiny">
                 {tag}
               </Badge>
             ))}
@@ -72,7 +72,7 @@ function SchemaSection({ title, schema }: { title: string; schema: JSONSchema | 
         <div className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground">
           <FileJson className="h-3.5 w-3.5" />
           {title}
-          <span className="ml-auto text-[10px]">无</span>
+          <span className="ml-auto text-tiny">无</span>
         </div>
       </div>
     );
@@ -96,7 +96,7 @@ function SchemaSection({ title, schema }: { title: string; schema: JSONSchema | 
 
       {open && (
         <div className="border-t border-border/50 bg-black/20 p-3">
-          <pre className="max-h-64 overflow-auto text-[11px] leading-relaxed text-muted-foreground">
+          <pre className="max-h-64 overflow-auto text-caption leading-relaxed text-muted-foreground">
             <code>{JSON.stringify(schema, null, 2)}</code>
           </pre>
         </div>

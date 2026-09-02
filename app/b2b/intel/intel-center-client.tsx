@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import { PageHeader } from "@/components/ui/page-header";
 import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { PageTransition } from "@/components/ui/page-transition";
@@ -52,7 +53,7 @@ async function post(path: string, body: unknown) {
 
 function StateBox({ loading, warn, empty, children }: { loading: boolean; warn: string | null; empty: boolean; children: React.ReactNode }) {
   if (loading) return <div className="flex items-center justify-center py-20 gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> 拉取真实数据…</div>;
-  if (warn) return <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-200"><AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" /><span>{warn}</span></div>;
+  if (warn) return <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning"><AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" /><span>{warn}</span></div>;
   if (empty) return <p className="py-16 text-center text-sm text-muted-foreground">暂无数据</p>;
   return <>{children}</>;
 }
@@ -130,13 +131,11 @@ export function IntelCenterClient() {
 
   return (
     <PageTransition className="space-y-4">
-      <div className="flex items-center gap-3 mb-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10"><Satellite className="h-4 w-4 text-primary" /></div>
-        <div>
-          <h1 className="text-lg font-semibold">跨境情报中心</h1>
-          <p className="text-xs text-muted-foreground">TikHub 实时数据 — 热词 / 广告 / 选品 / 爆款视频 / 音乐 / 达人 / AtSign 一站检索</p>
-        </div>
-      </div>
+      <PageHeader
+        title="跨境情报中心"
+        description="TikHub 实时数据 — 热词 / 广告 / 选品 / 爆款视频 / 音乐 / 达人 / AtSign 一站检索"
+        icon={<Satellite className="h-6 w-6 text-primary" />}
+      />
 
       <div className="flex gap-1.5 flex-wrap">
         {TABS.map((t) => (
@@ -153,7 +152,7 @@ export function IntelCenterClient() {
           <CardContent className="pt-4">
             <div className="flex flex-wrap items-end gap-3">
               <div className="flex-1 min-w-[220px]">
-                <label className="text-[11px] text-muted-foreground">
+                <label className="text-caption text-muted-foreground">
                   {tab === "creators" ? "达人 handle（查档案，如 newsnews.69）" : "关键词"}
                 </label>
                 <Input className="mt-1 h-9" value={kw} onChange={(e) => setKw(e.target.value)}
@@ -162,7 +161,7 @@ export function IntelCenterClient() {
               </div>
               {(tab === "shop" || tab === "videos") && (
                 <div className="w-32">
-                  <label className="text-[11px] text-muted-foreground">地区</label>
+                  <label className="text-caption text-muted-foreground">地区</label>
                   <select value={region} onChange={(e) => setRegion(e.target.value)}
                     className="mt-1 h-9 w-full rounded-lg border border-input bg-background/60 px-2 text-sm">
                     {["US", "GB", "ID", "TH", "VN", "MY", "PH"].map((c) => <option key={c}>{c}</option>)}
@@ -171,7 +170,7 @@ export function IntelCenterClient() {
               )}
               {tab === "ig" && (
                 <div className="w-32">
-                  <label className="text-[11px] text-muted-foreground">排序</label>
+                  <label className="text-caption text-muted-foreground">排序</label>
                   <select value={feedType} onChange={(e) => setFeedType(e.target.value as "top" | "recent")}
                     className="mt-1 h-9 w-full rounded-lg border border-input bg-background/60 px-2 text-sm">
                     <option value="top">热门</option>
@@ -194,7 +193,7 @@ export function IntelCenterClient() {
             {trending.map((w, i) => (
               <Badge key={w.word + i} variant="outline" className="text-xs py-1.5 px-3 gap-1.5 cursor-pointer hover:bg-primary/10"
                 onClick={() => { setKw(w.word); setTab("videos"); }}>
-                <Flame className="h-3 w-3 text-pink-400" />{w.word}
+                <Flame className="h-3 w-3 text-price" />{w.word}
                 {w.type && <span className="text-muted-foreground">{w.type}</span>}
               </Badge>
             ))}
@@ -218,11 +217,11 @@ export function IntelCenterClient() {
                       <PlayCircle className="h-8 w-8 text-white/80" />
                     </a>
                   )}
-                  <span className="absolute left-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">{dur(a.durationS)}</span>
+                  <span className="absolute left-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-tiny text-white">{dur(a.durationS)}</span>
                 </div>
                 <CardContent className="p-2.5 space-y-1">
-                  <p className="text-[11px] line-clamp-2 min-h-[2rem]">{a.title || "（无文案）"}</p>
-                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                  <p className="text-caption line-clamp-2 min-h-[2rem]">{a.title || "（无文案）"}</p>
+                  <div className="flex justify-between text-tiny text-muted-foreground">
                     <span className="truncate">{a.brand}</span>
                     <span>CTR {typeof a.ctr === "number" ? `${a.ctr.toFixed(1)}%` : "—"} · 赞 {compact(a.likes)}</span>
                   </div>
@@ -246,13 +245,13 @@ export function IntelCenterClient() {
                     : <div className="flex h-full items-center justify-center"><ShoppingBag className="h-7 w-7 text-muted-foreground" /></div>}
                 </div>
                 <CardContent className="p-2.5 space-y-1">
-                  <p className="text-[11px] line-clamp-2 min-h-[2rem]">{p.title}</p>
+                  <p className="text-caption line-clamp-2 min-h-[2rem]">{p.title}</p>
                   <div className="flex items-baseline gap-1.5">
-                    <span className="text-sm font-semibold text-pink-400">{p.currency}{p.price}</span>
-                    {p.originalPrice && p.originalPrice !== p.price && <span className="text-[10px] line-through text-muted-foreground">{p.originalPrice}</span>}
+                    <span className="text-sm font-semibold text-price">{p.currency}{p.price}</span>
+                    {p.originalPrice && p.originalPrice !== p.price && <span className="text-tiny line-through text-muted-foreground">{p.originalPrice}</span>}
                   </div>
-                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                    <span className="flex items-center gap-0.5"><Star className="h-3 w-3 text-amber-400" />{p.rating ?? "—"}</span>
+                  <div className="flex items-center gap-2 text-tiny text-muted-foreground">
+                    <span className="flex items-center gap-0.5"><Star className="h-3 w-3 text-warning" />{p.rating ?? "—"}</span>
                     <span>售 {compact(p.soldCount)}</span>
                   </div>
                 </CardContent>
@@ -278,15 +277,15 @@ export function IntelCenterClient() {
                       <PlayCircle className="h-8 w-8 text-white/80" />
                     </a>
                   )}
-                  <span className="absolute left-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">{dur(v.durationS)}</span>
+                  <span className="absolute left-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-tiny text-white">{dur(v.durationS)}</span>
                 </div>
                 <CardContent className="p-2.5 space-y-1">
-                  <p className="text-[11px] line-clamp-2 min-h-[2rem]">{v.desc || "（无描述）"}</p>
-                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                  <p className="text-caption line-clamp-2 min-h-[2rem]">{v.desc || "（无描述）"}</p>
+                  <div className="flex justify-between text-tiny text-muted-foreground">
                     <span className="truncate">@{v.authorHandle || v.author}</span>
                     <span>播 {compact(v.play)} · 赞 {compact(v.likes)}</span>
                   </div>
-                  <div className="text-[10px] text-muted-foreground">作者粉丝 {compact(v.authorFollowers)}</div>
+                  <div className="text-tiny text-muted-foreground">作者粉丝 {compact(v.authorFollowers)}</div>
                 </CardContent>
               </Card>
             ))}
@@ -308,11 +307,11 @@ export function IntelCenterClient() {
                     : <div className="h-11 w-11 rounded bg-muted flex items-center justify-center"><Music className="h-4 w-4 text-muted-foreground" /></div>}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{m.title}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">{m.author} · {dur(m.durationS)} · {m.artists.join("/") || "—"}</p>
+                    <p className="text-caption text-muted-foreground truncate">{m.author} · {dur(m.durationS)} · {m.artists.join("/") || "—"}</p>
                   </div>
                   <div className="text-right">
                     <div className="text-xs">使用 <b className="metric-value">{compact(m.userCount)}</b></div>
-                    {m.trend != null && <div className="text-[10px] text-emerald-400">趋势 {m.trend}</div>}
+                    {m.trend != null && <div className="text-tiny text-success">趋势 {m.trend}</div>}
                   </div>
                 </CardContent>
               </Card>
@@ -335,8 +334,8 @@ export function IntelCenterClient() {
                   <div className="flex items-center gap-2">
                     <span className="font-semibold">{profile.nickname}</span>
                     <span className="text-xs text-muted-foreground">@{profile.uniqueId}</span>
-                    {profile.isStar && <Badge className="text-[10px]">星图</Badge>}
-                    {profile.customVerify && <Badge variant="outline" className="text-[10px]">{profile.customVerify}</Badge>}
+                    {profile.isStar && <Badge className="text-tiny">星图</Badge>}
+                    {profile.customVerify && <Badge variant="outline" className="text-tiny">{profile.customVerify}</Badge>}
                   </div>
                   <div className="flex gap-5 text-xs">
                     <span>粉丝 <b className="metric-value">{compact(profile.followers)}</b></span>
@@ -358,7 +357,7 @@ export function IntelCenterClient() {
                   <CardContent className="p-3 flex items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{it.query}</p>
-                      <div className="flex gap-3 text-[10px] text-muted-foreground mt-0.5">
+                      <div className="flex gap-3 text-tiny text-muted-foreground mt-0.5">
                         <span>热度 {compact(it.popularity)}</span>
                         <span>视频 {compact(it.videoNum)}</span>
                         {it.categoryL1 && <span>{it.categoryL1}</span>}
@@ -394,8 +393,8 @@ export function IntelCenterClient() {
                   )}
                 </div>
                 <CardContent className="p-2.5 space-y-1">
-                  <p className="text-[11px] line-clamp-2 min-h-[2rem]">{p.caption || "（无文案）"}</p>
-                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                  <p className="text-caption line-clamp-2 min-h-[2rem]">{p.caption || "（无文案）"}</p>
+                  <div className="flex justify-between text-tiny text-muted-foreground">
                     <span className="truncate">@{p.username}{p.verified && " ✓"}</span>
                     <span>❤ {compact(p.likes)} · 💬 {compact(p.comments)}</span>
                   </div>

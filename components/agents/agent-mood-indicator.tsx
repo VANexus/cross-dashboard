@@ -10,12 +10,12 @@ interface AgentMoodIndicatorProps {
 }
 
 const moodConfig: Record<MoodState, { emoji: string; label: string; color: string }> = {
-  focused: { emoji: "\u{1F3AF}", label: "专注", color: "text-blue-500" },
-  alert: { emoji: "\u{1F441}\u{FE0F}", label: "警觉", color: "text-amber-500" },
+  focused: { emoji: "\u{1F3AF}", label: "专注", color: "text-viz-1" },
+  alert: { emoji: "\u{1F441}\u{FE0F}", label: "警觉", color: "text-viz-3" },
   tired: { emoji: "\u{1F634}", label: "疲惫", color: "text-muted-foreground" },
-  stressed: { emoji: "\u{1F625}", label: "压力", color: "text-red-500" },
-  curious: { emoji: "\u{1F913}", label: "好奇", color: "text-purple-500" },
-  satisfied: { emoji: "\u{1F60A}", label: "满足", color: "text-emerald-500" },
+  stressed: { emoji: "\u{1F625}", label: "压力", color: "text-destructive" },
+  curious: { emoji: "\u{1F913}", label: "好奇", color: "text-viz-2" },
+  satisfied: { emoji: "\u{1F60A}", label: "满足", color: "text-viz-4" },
 };
 
 export function AgentMoodIndicator({ mood }: AgentMoodIndicatorProps) {
@@ -35,7 +35,7 @@ export function AgentMoodIndicator({ mood }: AgentMoodIndicatorProps) {
           <span className="text-3xl">{config.emoji}</span>
           <div>
             <p className={`text-sm font-medium ${config.color}`}>{config.label}</p>
-            <p className="text-[10px] text-muted-foreground">{mood.state}</p>
+            <p className="text-tiny text-muted-foreground">{mood.state}</p>
           </div>
         </div>
         <div className="space-y-1">
@@ -45,10 +45,10 @@ export function AgentMoodIndicator({ mood }: AgentMoodIndicatorProps) {
           </div>
           <Progress
             value={energyPercent}
-            className={`h-1.5 ${energyPercent < 30 ? "text-red-500" : energyPercent < 60 ? "text-amber-500" : "text-emerald-500"}`}
+            className={`h-1.5 ${energyPercent < 30 ? "text-destructive" : energyPercent < 60 ? "text-warning" : "text-success"}`}
           />
         </div>
-        <p className="text-[10px] text-muted-foreground">
+        <p className="text-tiny text-muted-foreground">
           更新: {new Date(mood.lastUpdated).toLocaleString("zh-CN")}
         </p>
       </CardContent>

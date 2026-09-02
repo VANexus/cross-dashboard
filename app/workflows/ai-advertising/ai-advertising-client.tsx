@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/page-header";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -101,8 +102,8 @@ export function AiAdvertisingClient({ recentAnalyses = [] }: AiAdvertisingClient
   const groups = useMemo(() => {
     const sorted = [...materials].sort((a, b) => (b.ctr ?? 0) - (a.ctr ?? 0));
     return [
-      { key: "highCtr" as const, label: "高 CTR 标杆（优先拆解）", icon: CheckCircle2, color: "text-emerald-400", items: sorted.filter((m) => (m.ctr ?? 0) >= (stats.avgCtr ?? 0) && m.ctr != null).slice(0, 10) },
-      { key: "longVideo" as const, label: "长素材（>20s，讲卖点）", icon: Zap, color: "text-blue-400", items: materials.filter((m) => (m.durationS ?? 0) > 20).slice(0, 10) },
+      { key: "highCtr" as const, label: "高 CTR 标杆（优先拆解）", icon: CheckCircle2, color: "text-success", items: sorted.filter((m) => (m.ctr ?? 0) >= (stats.avgCtr ?? 0) && m.ctr != null).slice(0, 10) },
+      { key: "longVideo" as const, label: "长素材（>20s，讲卖点）", icon: Zap, color: "text-info", items: materials.filter((m) => (m.durationS ?? 0) > 20).slice(0, 10) },
       { key: "weak" as const, label: "低互动素材（规避方向）", icon: XCircle, color: "text-zinc-400", items: sorted.filter((m) => (m.likes ?? 0) < 50).slice(0, 10) },
     ];
   }, [materials, stats.avgCtr]);
@@ -127,13 +128,11 @@ export function AiAdvertisingClient({ recentAnalyses = [] }: AiAdvertisingClient
 
   return (
     <PageTransition className="space-y-4">
-      <div className="flex items-center gap-3 mb-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-wf-ad/10"><BarChart3 className="h-4 w-4 text-wf-ad" /></div>
-        <div>
-          <h1 className="text-lg font-semibold">AI 广告投放</h1>
-          <p className="text-xs text-muted-foreground">基于 TikTok 真实在投竞品广告做投放参考 — 素材拆解 + AI 策略（自有账户投放数据走官方 MCP）</p>
-        </div>
-      </div>
+      <PageHeader
+        title="AI 广告投放"
+        description="基于 TikTok 真实在投竞品广告做投放参考 — 素材拆解 + AI 策略（自有账户投放数据走官方 MCP）"
+        icon={<BarChart3 className="h-6 w-6 text-wf-ad" />}
+      />
 
       <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
         <div className="space-y-4">
@@ -153,7 +152,7 @@ export function AiAdvertisingClient({ recentAnalyses = [] }: AiAdvertisingClient
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <p className="text-[11px] text-muted-foreground mb-1">排序</p>
+                  <p className="text-caption text-muted-foreground mb-1">排序</p>
                   <select value={orderBy} onChange={(e) => setOrderBy(e.target.value as "for_you" | "likes")}
                     className="h-9 w-full rounded-lg border border-input bg-background/60 px-2 text-xs">
                     <option value="likes">点赞优先</option>
@@ -161,7 +160,7 @@ export function AiAdvertisingClient({ recentAnalyses = [] }: AiAdvertisingClient
                   </select>
                 </div>
                 <div>
-                  <p className="text-[11px] text-muted-foreground mb-1">时间窗</p>
+                  <p className="text-caption text-muted-foreground mb-1">时间窗</p>
                   <select value={period} onChange={(e) => setPeriod(Number(e.target.value))}
                     className="h-9 w-full rounded-lg border border-input bg-background/60 px-2 text-xs">
                     <option value={7}>近 7 天</option>
@@ -201,7 +200,7 @@ export function AiAdvertisingClient({ recentAnalyses = [] }: AiAdvertisingClient
               <div className="flex items-center justify-between text-xs"><span className="text-muted-foreground">在投广告总量</span><AnimatedNumber value={total} className="font-bold" /></div>
               <div className="flex items-center justify-between text-xs"><span className="text-muted-foreground">本页素材</span><span className="font-bold">{stats.count}</span></div>
               <div className="flex items-center justify-between text-xs"><span className="text-muted-foreground">平均 CTR</span>
-                <span className="font-bold text-emerald-400">{stats.avgCtr !== null ? `${stats.avgCtr.toFixed(2)}%` : "—"}</span></div>
+                <span className="font-bold text-success">{stats.avgCtr !== null ? `${stats.avgCtr.toFixed(2)}%` : "—"}</span></div>
               <div className="flex items-center justify-between text-xs"><span className="text-muted-foreground">在投品牌数</span><span className="font-bold">{stats.brands}</span></div>
               <div className="flex items-center justify-between text-xs"><span className="text-muted-foreground">累计点赞</span><span className="font-bold">{compact(stats.likes)}</span></div>
             </CardContent>
@@ -209,13 +208,13 @@ export function AiAdvertisingClient({ recentAnalyses = [] }: AiAdvertisingClient
         </div>
 
         <div className="space-y-4 min-w-0">
-          <div className="flex items-start gap-2 rounded-lg border border-blue-500/20 bg-blue-500/5 p-2.5 text-[11px] text-muted-foreground">
-            <Info className="h-4 w-4 text-blue-400 shrink-0 mt-0.5" />
+          <div className="flex items-start gap-2 rounded-lg border border-info/20 bg-info/5 p-2.5 text-caption text-muted-foreground">
+            <Info className="h-4 w-4 text-info shrink-0 mt-0.5" />
             <span>下表为 TikTok Creative Center 真实在投竞品广告（非自有账户花费数据）。花费/ACOS 等自有投放指标需授权广告账户后走官方 TikTok for Business 连接器。</span>
           </div>
 
           {warn && (
-            <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-200">
+            <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
               <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" /><span>{warn}</span>
             </div>
           )}
@@ -263,7 +262,7 @@ export function AiAdvertisingClient({ recentAnalyses = [] }: AiAdvertisingClient
                           <td className="px-3 py-2 text-right font-medium">{typeof m.ctr === "number" ? `${m.ctr.toFixed(2)}%` : "—"}</td>
                           <td className="px-3 py-2 text-right">{compact(m.likes)}</td>
                           <td className="px-3 py-2 text-right text-muted-foreground">{fmtDuration(m.durationS)}</td>
-                          <td className="px-3 py-2 text-center">{m.objective ? <Badge variant="outline" className="text-[9px] capitalize">{m.objective}</Badge> : "—"}</td>
+                          <td className="px-3 py-2 text-center">{m.objective ? <Badge variant="outline" className="text-tiny capitalize">{m.objective}</Badge> : "—"}</td>
                           <td className="px-3 py-2 text-center">
                             {m.videoUrl ? (
                               <a href={m.videoUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
@@ -297,9 +296,9 @@ export function AiAdvertisingClient({ recentAnalyses = [] }: AiAdvertisingClient
                     </button>
                     {isOpen && (
                       <div className="mt-2 space-y-1 pt-2 border-t max-h-48 overflow-auto">
-                        {g.items.length === 0 && <p className="text-[11px] text-muted-foreground">无符合素材</p>}
+                        {g.items.length === 0 && <p className="text-caption text-muted-foreground">无符合素材</p>}
                         {g.items.map((m) => (
-                          <div key={m.id} className="flex items-center justify-between text-[11px] py-0.5 gap-2">
+                          <div key={m.id} className="flex items-center justify-between text-caption py-0.5 gap-2">
                             <span className="text-muted-foreground truncate">{m.brand || "未知"} · {m.title?.slice(0, 24) || "无文案"}</span>
                             <span className="font-medium shrink-0">{typeof m.ctr === "number" ? `${m.ctr.toFixed(1)}%` : compact(m.likes)}</span>
                           </div>

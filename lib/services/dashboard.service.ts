@@ -3,10 +3,11 @@
  * Aggregated dashboard data from all domains
  */
 import os from "os";
+import { cache } from "react";
 import { getSupabase } from "../db";
-import * as agentRepo from "../repositories/agent.repository";
 import * as riskRepo from "../repositories/risk.repository";
 import { parseJsonField } from "../repositories/base";
+import { getAgentsShared } from "../repositories/agent.repository";
 import type {
   DashboardStats, SystemMetrics, BusinessMetrics,
   Alert, WorkflowStatus,
@@ -16,13 +17,16 @@ import * as workflowRepo from "../repositories/workflow.repository";
 export class DashboardService {
   async getStats(): Promise<DashboardStats> {
     const sb = getSupabase();
-    const agents = await agentRepo.getAgents();
+    const agents = await getAgentsShared();
     const risks = await riskRepo.getRiskEvents({});
 
-    const { count: totalCount } = await sb.from("tasks").select("*", { count: "exact", head: true });
-    const { count: runningCount } = await sb.from("tasks").select("*", { count: "exact", head: true }).eq("status", "running");
-    const { count: completedCount } = await sb.from("tasks").select("*", { count: "exact", head: true }).eq("status", "completed");
-    const { count: failedCount } = await sb.from("tasks").select("*", { count: "exact", head: true }).eq("status", "failed");
+    // 单次 select 拉回 status 列本地聚合，替代 4 次独立 count 远程往返
+    const { data: taskRows } = await sb.from("tasks").select("status");
+    const statuses = ((taskRows ?? []) as Array<{ status: string | null }>).map((r) => r.status);
+    const totalTasks = statuses.length;
+    const runningTasks = statuses.filter((s) => s === "running").length;
+    const completedTasks = statuses.filter((s) => s === "completed").length;
+    const failedTasks = statuses.filter((s) => s === "failed").length;
 
     return {
       totalAgents: agents.length,
@@ -30,10 +34,10 @@ export class DashboardService {
       busyAgents: agents.filter((a) => a.status === "busy").length,
       errorAgents: agents.filter((a) => a.status === "error").length,
       offlineAgents: agents.filter((a) => a.status === "offline").length,
-      totalTasks: totalCount ?? 0,
-      runningTasks: runningCount ?? 0,
-      completedTasks: completedCount ?? 0,
-      failedTasks: failedCount ?? 0,
+      totalTasks,
+      runningTasks,
+      completedTasks,
+      failedTasks,
       riskEvents24h: risks.items.length,
       activeCircuitBreakers: 1,
     };
@@ -54,17 +58,18 @@ export class DashboardService {
     } catch {}
     const memory = Math.round(((totalMem - freeMem) / totalMem) * 100);
 
-    const { count: totalCount } = await sb.from("tasks").select("*", { count: "exact", head: true });
-    const { count: completedCount } = await sb.from("tasks").select("*", { count: "exact", head: true }).eq("status", "completed");
-    const { count: queuedCount } = await sb.from("tasks").select("*", { count: "exact", head: true }).in("status", ["pending", "running"]);
-    const { count: failedCount } = await sb.from("tasks").select("*", { count: "exact", head: true }).eq("status", "failed");
-    const { count: onlineAgentCount } = await sb.from("agents").select("*", { count: "exact", head: true }).in("status", ["online", "busy"]);
+    // 单次 select 拉回 status 列本地聚合，替代 5 次独立 count 远程往返
+    const { data: taskRows } = await sb.from("tasks").select("status");
+    const statuses = ((taskRows ?? []) as Array<{ status: string | null }>).map((r) => r.status);
+    const total = statuses.length;
+    const completed = statuses.filter((s) => s === "completed").length;
+    const queued = statuses.filter((s) => s === "pending" || s === "running").length;
+    const failed = statuses.filter((s) => s === "failed").length;
 
-    const total = totalCount ?? 0;
-    const completed = completedCount ?? 0;
-    const queued = queuedCount ?? 0;
-    const failed = failedCount ?? 0;
-    const onlineAgents = onlineAgentCount ?? 0;
+    const { data: agentRows } = await sb.from("agents").select("status");
+    const onlineAgents = ((agentRows ?? []) as Array<{ status: string | null }>).filter(
+      (r) => r.status === "online" || r.status === "busy"
+    ).length;
 
     return {
       cpu,
@@ -97,9 +102,18 @@ export class DashboardService {
       ? Math.round((totalDailySales * 365 / totalStock) * 10) / 10
       : 0;
 
-    const { count: unresolved } = await sb.from("risk_events").select("*", { count: "exact", head: true }).eq("resolved", false);
-    const { count: level1 } = await sb.from("risk_events").select("*", { count: "exact", head: true }).eq("level", "level1").eq("resolved", false);
-    const accountHealth = Math.max(0, 100 - (unresolved ?? 0) * 5 - (level1 ?? 0) * 15);
+    // 单次 select 拉回 level/resolved 列本地聚合，替代 2 次独立 count 远程往返
+    // 注意：resolved 列兼容 boolean(false) 与 integer(0) 两种表示，统一用 truthy 判断
+    const { data: riskRows } = await sb
+      .from("risk_events")
+      .select("level, resolved");
+    const unresolved = ((riskRows ?? []) as Array<{ level: string | null; resolved: unknown }>).filter(
+      (r) => !r.resolved
+    ).length;
+    const level1 = ((riskRows ?? []) as Array<{ level: string | null; resolved: unknown }>).filter(
+      (r) => !r.resolved && r.level === "level1"
+    ).length;
+    const accountHealth = Math.max(0, 100 - unresolved * 5 - level1 * 15);
 
     const { data: adRows } = await sb.from("wf_ad_keywords").select("spend, sales, conversion");
     let totalSpend = 0;
@@ -211,6 +225,11 @@ export class DashboardService {
   }
 
   async getDashboardData() {
+    if (process.env.DASH_BENCH) {
+      const g = globalThis as any;
+      g.__dashExec = (g.__dashExec ?? 0) + 1;
+      console.error(`[dash-bench] getDashboardData exec #${g.__dashExec} ts=${Date.now()}`);
+    }
     const [stats, systemMetrics, businessMetrics, alerts, workflows, trends] = await Promise.all([
       this.getStats(),
       this.getSystemMetrics(),
@@ -222,3 +241,13 @@ export class DashboardService {
     return { stats, systemMetrics, businessMetrics, alerts, workflows, trends };
   }
 }
+
+/**
+ * Dashboard 聚合数据的 RSC 请求级共享访问点。
+ * React cache() 保证同一个 RSC render pass 内（dashboard 页面的多个 island）
+ * 只执行一次 getDashboardData()，消除 3 个 island 各自查询导致的 3 倍往返；
+ * 在 route handler / 非 render 作用域中 cache() 每次都会执行（与 getDbAsync 语义一致）。
+ */
+export const getDashboardDataShared = cache(async function getDashboardDataShared() {
+  return new DashboardService().getDashboardData();
+});

@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/page-header";
 import { useState, useEffect, useCallback } from "react";
 import { PageTransition } from "@/components/ui/page-transition";
 import { Badge } from "@/components/ui/badge";
@@ -39,10 +40,10 @@ import {
 
 const statusMeta: Record<string, { label: string; color: string; bg: string; border: string }> = {
   queued: { label: "排队中", color: "text-zinc-400", bg: "bg-zinc-500/10", border: "border-zinc-500/20" },
-  running: { label: "处理中", color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" },
-  retrying: { label: "重试中", color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20" },
-  completed: { label: "已完成", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
-  failed: { label: "失败", color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20" },
+  running: { label: "处理中", color: "text-info", bg: "bg-info/10", border: "border-info/20" },
+  retrying: { label: "重试中", color: "text-warning", bg: "bg-warning/10", border: "border-warning/20" },
+  completed: { label: "已完成", color: "text-success", bg: "bg-success/10", border: "border-success/20" },
+  failed: { label: "失败", color: "text-destructive", bg: "bg-destructive/10", border: "border-destructive/20" },
   cancelled: { label: "已取消", color: "text-zinc-400", bg: "bg-zinc-500/10", border: "border-zinc-500/20" },
   not_found: { label: "未找到", color: "text-zinc-400", bg: "bg-zinc-500/10", border: "border-zinc-500/20" },
   unknown: { label: "未知", color: "text-zinc-400", bg: "bg-zinc-500/10", border: "border-zinc-500/20" },
@@ -209,18 +210,14 @@ export function VideoLocalizationClient({ initialTasks, initialHealth }: VideoLo
 
   return (
     <PageTransition className="space-y-4">
-      <div className="flex items-center gap-3 mb-2">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-[var(--wf-localize)]/20 to-[var(--wf-localize)]/5">
-          <Clapperboard className="h-5 w-5 text-[var(--wf-localize)]" />
-        </div>
-        <div>
-          <h1 className="text-lg font-semibold">视频本地化</h1>
-          <p className="text-xs text-muted-foreground">ASR → OCR 定位 → 翻译 → 擦除重绘 → TTS 配音 — 全云端流水线</p>
-        </div>
-      </div>
+      <PageHeader
+        title="视频本地化"
+        description="ASR → OCR 定位 → 翻译 → 擦除重绘 → TTS 配音 — 全云端流水线"
+        icon={<Clapperboard className="h-6 w-6 text-[var(--wf-localize)]" />}
+      />
 
       {!health.ok && (
-        <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-400">
+        <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span>
             video-localizer 后端不可达（{health.error ?? "unknown"}，{health.apiBase}）。当前展示本地缓存任务，提交/取消/重试等实时操作不可用。
@@ -244,7 +241,7 @@ export function VideoLocalizationClient({ initialTasks, initialHealth }: VideoLo
                   placeholder={"https://cdn.example.com/videos/car-launch-zh.mp4\n/opt/videos/product-demo.mp4"}
                   className="min-h-[96px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 />
-                {formError && <p className="mt-1 text-xs text-red-400">{formError}</p>}
+                {formError && <p className="mt-1 text-xs text-destructive">{formError}</p>}
               </div>
 
               <div className="flex flex-wrap items-center gap-4">
@@ -286,18 +283,18 @@ export function VideoLocalizationClient({ initialTasks, initialHealth }: VideoLo
               {submitResult && (
                 <div className={cn(
                   "p-3 rounded-lg border text-xs space-y-1.5",
-                  submitResult.failureCategory ? "border-red-500/30 bg-red-500/5" : "border-emerald-500/30 bg-emerald-500/5"
+                  submitResult.failureCategory ? "border-destructive/30 bg-destructive/5" : "border-success/30 bg-success/5"
                 )}>
                   {submitResult.failureCategory ? (
                     <>
-                      <p className="flex items-center gap-1.5 text-red-400 font-medium">
+                      <p className="flex items-center gap-1.5 text-destructive font-medium">
                         <AlertTriangle className="h-3.5 w-3.5" /> 提交失败（{submitResult.failureCategory}）
                       </p>
                       {submitResult.warning && <p className="text-muted-foreground">{submitResult.warning}</p>}
                     </>
                   ) : (
                     <>
-                      <p className="flex items-center gap-1.5 text-emerald-400 font-medium">
+                      <p className="flex items-center gap-1.5 text-success font-medium">
                         <CheckCircle2 className="h-3.5 w-3.5" /> 已提交 {submitResult.submittedCount} 个视频
                         {submitResult.rejectedCount > 0 && `（拒绝 ${submitResult.rejectedCount} 个）`}
                       </p>
@@ -308,7 +305,7 @@ export function VideoLocalizationClient({ initialTasks, initialHealth }: VideoLo
                         <p className="text-muted-foreground">被拒路径：{submitResult.rejectedPaths.join("、")}</p>
                       )}
                       {submitResult.batchSizeWarning && (
-                        <p className="text-amber-400">批量超过 100 条，已提交服务端批量处理。</p>
+                        <p className="text-warning">批量超过 100 条，已提交服务端批量处理。</p>
                       )}
                     </>
                   )}
@@ -322,7 +319,7 @@ export function VideoLocalizationClient({ initialTasks, initialHealth }: VideoLo
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">任务列表</CardTitle>
-                <Button variant="outline" size="sm" className="h-6 gap-1 text-[10px]" onClick={refresh}>
+                <Button variant="outline" size="sm" className="h-6 gap-1 text-tiny" onClick={refresh}>
                   <RefreshCw className={cn("h-3 w-3", tasksHook.loading && "animate-spin")} /> 刷新
                 </Button>
               </div>
@@ -363,11 +360,11 @@ export function VideoLocalizationClient({ initialTasks, initialHealth }: VideoLo
                               <FileVideo className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                               <span className="truncate font-mono text-xs" title={task.videoPath}>{task.videoPath}</span>
                             </div>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">#{task.id}</p>
+                            <p className="text-tiny text-muted-foreground mt-0.5">#{task.id}</p>
                           </td>
                           <td className="px-4 py-2.5 text-center text-xs">{langLabels[task.targetLang] ?? task.targetLang}</td>
                           <td className="px-4 py-2.5 text-center">
-                            <Badge variant="outline" className={cn("text-[10px]", meta.color, meta.bg, meta.border)}>
+                            <Badge variant="outline" className={cn("text-tiny", meta.color, meta.bg, meta.border)}>
                               {meta.label}
                             </Badge>
                           </td>
@@ -411,7 +408,7 @@ export function VideoLocalizationClient({ initialTasks, initialHealth }: VideoLo
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm font-semibold">任务详情</h3>
-                    <Badge variant="outline" className={cn("text-[10px]", statusMeta[selectedTask.status]?.color, statusMeta[selectedTask.status]?.bg, statusMeta[selectedTask.status]?.border)}>
+                    <Badge variant="outline" className={cn("text-tiny", statusMeta[selectedTask.status]?.color, statusMeta[selectedTask.status]?.bg, statusMeta[selectedTask.status]?.border)}>
                       {statusMeta[selectedTask.status]?.label ?? selectedTask.status}
                     </Badge>
                   </div>
@@ -432,14 +429,14 @@ export function VideoLocalizationClient({ initialTasks, initialHealth }: VideoLo
                   <div className="p-3 rounded-lg bg-muted/30">
                     <div className="flex items-center gap-1.5 mb-1">
                       <FileVideo className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-[10px] text-muted-foreground">源视频</span>
+                      <span className="text-tiny text-muted-foreground">源视频</span>
                     </div>
                     <p className="text-xs font-mono break-all">{selectedTask.videoPath}</p>
                   </div>
                   <div className="p-3 rounded-lg bg-muted/30">
                     <div className="flex items-center gap-1.5 mb-1">
                       <Languages className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-[10px] text-muted-foreground">参数</span>
+                      <span className="text-tiny text-muted-foreground">参数</span>
                     </div>
                     <p className="text-xs">
                       {langLabels[selectedTask.targetLang] ?? selectedTask.targetLang}
@@ -468,8 +465,8 @@ export function VideoLocalizationClient({ initialTasks, initialHealth }: VideoLo
                 </div>
 
                 {selectedTask.error && (
-                  <div className="p-3 rounded-lg border border-red-500/30 bg-red-500/5 mb-4">
-                    <p className="flex items-center gap-1.5 text-xs text-red-400 font-medium mb-1">
+                  <div className="p-3 rounded-lg border border-destructive/30 bg-destructive/5 mb-4">
+                    <p className="flex items-center gap-1.5 text-xs text-destructive font-medium mb-1">
                       <AlertTriangle className="h-3.5 w-3.5" /> 错误信息
                     </p>
                     <p className="text-xs text-muted-foreground break-all">{selectedTask.error}</p>
@@ -484,9 +481,9 @@ export function VideoLocalizationClient({ initialTasks, initialHealth }: VideoLo
                         <div key={name} className="flex items-center justify-between gap-2">
                           <div className="min-w-0">
                             <p className="text-xs font-mono truncate">{name}</p>
-                            <p className="text-[10px] text-muted-foreground truncate">{path}</p>
+                            <p className="text-tiny text-muted-foreground truncate">{path}</p>
                           </div>
-                          <Button variant="outline" size="sm" className="h-6 gap-1 text-[10px] shrink-0"
+                          <Button variant="outline" size="sm" className="h-6 gap-1 text-tiny shrink-0"
                             onClick={() => handleDownload(selectedTask.id, name)}>
                             <Download className="h-3 w-3" /> 下载
                           </Button>
@@ -497,7 +494,7 @@ export function VideoLocalizationClient({ initialTasks, initialHealth }: VideoLo
                 )}
 
                 {actionMsg && actionMsg.id === selectedTask.id && (
-                  <p className={cn("mt-2 text-xs", actionMsg.ok ? "text-emerald-400" : "text-red-400")}>
+                  <p className={cn("mt-2 text-xs", actionMsg.ok ? "text-success" : "text-destructive")}>
                     {actionMsg.text}
                   </p>
                 )}
@@ -521,9 +518,9 @@ export function VideoLocalizationClient({ initialTasks, initialHealth }: VideoLo
               <div className="flex items-center gap-2">
                 <span className={cn(
                   "h-2 w-2 rounded-full",
-                  health.ok ? "bg-emerald-400 status-glow-success" : "bg-red-400 status-glow-danger"
+                  health.ok ? "bg-success status-glow-success" : "bg-destructive status-glow-danger"
                 )} />
-                <span className={cn("text-sm font-medium", health.ok ? "text-emerald-400" : "text-red-400")}>
+                <span className={cn("text-sm font-medium", health.ok ? "text-success" : "text-destructive")}>
                   {health.ok ? "运行正常" : "不可达"}
                 </span>
               </div>
@@ -549,15 +546,15 @@ export function VideoLocalizationClient({ initialTasks, initialHealth }: VideoLo
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">已完成</span>
-                <span className="font-medium text-emerald-400 metric-value">{completedCount}</span>
+                <span className="font-medium text-success metric-value">{completedCount}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">处理中</span>
-                <span className="font-medium text-blue-400 metric-value">{runningCount}</span>
+                <span className="font-medium text-info metric-value">{runningCount}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">失败</span>
-                <span className="font-medium text-red-400 metric-value">{failedCount}</span>
+                <span className="font-medium text-destructive metric-value">{failedCount}</span>
               </div>
             </CardContent>
           </Card>

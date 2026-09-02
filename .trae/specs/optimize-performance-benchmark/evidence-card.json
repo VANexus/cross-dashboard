@@ -1,0 +1,121 @@
+{
+  "delta": "dashboard-service-n1-reduction",
+  "baseline": {
+    "revision": "master @ 5759505 (工作区含未提交修改，dashboard.service.ts 未被改动)",
+    "runtime": "bun 1.4.0 / next 16.2.6 / @supabase/supabase-js",
+    "measurement": "GET http://localhost:3100/api/dashboard (next start, PORT=3100)",
+    "raw_samples_ms": [10939, 9313, 17951, 11106, 8557, 10077, 9618, 17303],
+    "median_ms": 10508,
+    "min_ms": 8557,
+    "max_ms": 17951,
+    "sample_count": 8,
+    "db_rows": { "tasks": 0, "agents": 0, "risk_events": 0, "wf_inventory": 0, "wf_ad_keywords": 0 }
+  },
+  "diag": {
+    "supabase_single_query_rtt_ms": [3229, 357, 357, 355, 361],
+    "dashboard_serial_total_ms": 39084,
+    "slowest_single_query_ms": 6766,
+    "round_trips_per_getDashboardData": 18,
+    "ssr_islands_calling_getDashboardData": 3,
+    "client_fetch": 1
+  },
+  "mechanism": "N+1 远程网络往返：count(*)/独立查询各自付出 0.34-6.8s RTT，与数据量无关",
+  "candidate_delta_1": "合并 getStats/getSystemMetrics/getBusinessMetrics 内部 count 查询为单次 select 本地聚合，减少往返次数，方法签名不变",
+  "candidate_delta_2": "dashboard 3 个 SSR island（stats/trends/alerts）各自完整调用 getDashboardData() 导致 3 倍查询；新增 getDashboardDataShared = React cache() 包裹共享访问点，3 island 改调它，同一 RSC render-pass 内仅执行 1 次（route handler 中 cache 不生效，API 实时性不受影响）",
+  "delta_2_verdict": {
+    "status": "ACCEPT",
+    "execution_count_evidence": {
+      "method": "DASH_BENCH=1 环境变量门控计数 seam，7 次页面请求（1 预热+6 配对）统计 server 日志",
+      "baseline_exec_per_request": 3,
+      "candidate_exec_per_request": 1,
+      "baseline_total_exec_7req": 21,
+      "candidate_total_exec_7req": 7,
+      "round_trips_estimate": "baseline ~33/页 (11×3), candidate ~11/页"
+    },
+    "page_ssr_ab": {
+      "baseline_n6_ms": [9147, 9284, 14182, 7694, 8972, 7942],
+      "baseline_median_ms": 9059.5,
+      "candidate_n6_ms": [4411, 5454, 4601, 4579, 3089, 4277],
+      "candidate_median_ms": 4495,
+      "median_diff_ms": -4564.5,
+      "bootstrap_95ci_ms": [-7300, -3316.5],
+      "all_samples_lt_zero": true,
+      "improvement_x": 2.02
+    },
+    "semantic_oracle": {
+      "html_len_equal": "58898 = 58898（两侧页面 HTML 长度一致）",
+      "key_markers_equal": ["仪表盘", "发起编排", "Agent 协同拓扑", "workflows 数据(b2b-listing/货品一键上架/running)"],
+      "residual_diff": "仅构建产物引用（BUILD_ID / chunk 哈希 / client 模块引用编号），非数据差异",
+      "route_handler_not_polluted": "candidate 下 /api/dashboard 连续 2 次请求各独立执行 1 次（cache 不跨 route handler），client shell 实时 fetch 不受影响"
+    },
+    "dist": {
+      "baseline_d2": ".next-build-baseline-d2 (BUILD_ID 11T_dPKugUSpce_G_dbRR, 无 shared)",
+      "candidate_d2": ".next-build-candidate-d2 (BUILD_ID AGyhuxn3Id9ZdF6EO9lvo, 含 shared)"
+    }
+  },
+  "verdict": {
+    "status": "ACCEPT",
+    "method_level": {
+      "baseline_n9_ms": [7728, 8036, 8048, 8857, 9906, 10420, 11586, 12588, 14730],
+      "baseline_median_ms": 9906,
+      "candidate_n9_ms": [1220, 1592, 1628, 1747, 2214, 3397, 3483, 4125, 5161],
+      "candidate_median_ms": 2214,
+      "median_diff_ms": -7692,
+      "bootstrap_95ci_ms": [-9958, -4639],
+      "all_samples_lt_zero": true,
+      "improvement_x": 4.47,
+      "seed": 42
+    },
+    "http_e2e_trusted": {
+      "note": "首轮 HTTP A/B 因双 server 未真正启动（bun 包装器残留 node 进程占用端口，EADDRINUSE）作废；修复进程清理+cmd环境变量透传后重测",
+      "baseline_n8_ms": [21154, 13280, 16522, 10042, 12176, 9325, 17870, 12193],
+      "baseline_median_ms": 12736.5,
+      "candidate_n8_ms": [4444, 5031, 4382, 4085, 5106, 4825, 8412, 5139],
+      "candidate_median_ms": 4928,
+      "median_diff_ms": -7808.5,
+      "bootstrap_95ci_ms": [-12814, -5407.5],
+      "all_samples_lt_zero": true,
+      "improvement_x": 2.58
+    },
+    "semantic_oracle": {
+      "empty_db_export_equal": true,
+      "six_sections_all_equal": true,
+      "resolved_integer_semantics": "baseline .eq(resolved,false) 对 INTEGER 列恒返回 null→0 为 bug；candidate !r.resolved 返回正确值（行为修正，非纯同语义优化，须披露）"
+    }
+  },
+  "delta_3_verdict": {
+    "status": "ACCEPT",
+    "mechanism": "dashboard 剩余 island 重复查询消除：Heartbeat/Topology 独立查 agents + WorkflowsIsland 独立查 wf_workflow_statuses；新增 getAgentsShared=React cache() 共享 agents 查询（getStats/heartbeat/topology 共用），WorkflowsIsland 改用 getDashboardDataShared().workflows",
+    "execution_count_evidence": {
+      "method": "DASH_BENCH=1 门控文件 seam（fs.appendFileSync 到 dash-bench-agents.log / dash-bench-wf.log），冷启动首请求（PPR 缓存为空）直接计数",
+      "baseline_getAgents": 4,
+      "candidate_getAgents": 2,
+      "baseline_getWorkflowStatuses": 2,
+      "candidate_getWorkflowStatuses": 1,
+      "explanation": "baseline agents=4(getStats+getSystemMetrics+heartbeat+topology 各查)；candidate=2(getAgentsShared 共享 getStats/heartbeat/topology→1 次 + getSystemMetrics 独立 filter 查询 1 次)；wf 2→1(WorkflowsIsland 复用 shared)",
+      "round_trips_estimate": "页面往返 14→11（省 3 次网络往返）"
+    },
+    "cold_start_ab": {
+      "note": "dashboard 为 PPR 页面（x-nextjs-prerender/postponed:1, stale 300s），连续请求命中 PPR 缓存（~600ms）；真实查询只在冷启动首请求发生，故配对采用每次重启 server 清缓存的冷启动首请求",
+      "baseline_n6_ms": [1848, 1754, 1761, 1787, 1757, 2050],
+      "baseline_median_ms": 1774,
+      "candidate_n6_ms": [1754, 1682, 1741, 1735, 1773, 1706],
+      "candidate_median_ms": 1738,
+      "median_diff_ms": -36,
+      "bootstrap_95ci_ms": [-211, -4],
+      "all_samples_lt_zero": false,
+      "improvement_x": 1.02,
+      "verdict": "方向正确但统计未显著——RTT 波动(0.34-6.8s)主导 wall-time，削减 3 次往返(~1s 理论收益)被噪声淹没；机制削减(往返 14→11)由执行次数 seam 确定性证明"
+    },
+    "semantic_oracle": {
+      "method": "scripts/diff-html-data.mjs 数据内容级对比（抓取两侧 /dashboard HTML）",
+      "all_data_equal": true,
+      "key_markers_equal": ["货品一键上架", "b2b-listing", "Agent 协同拓扑", "拖拽旋转", "发起编排"],
+      "residual_diff": "仅 BUILD_ID / chunk 模块引用编号 / 模块渲染顺序（base 先 DashboardWorkflows，can 先 AgentTopologyClient），非数据差异"
+    },
+    "dist": {
+      "baseline_d3": ".next-build-baseline-d3 (BUILD_ID mYwpH2fxghZJMLUdiI37Y, 无 getAgentsShared)",
+      "candidate_d3": ".next-build-candidate-d3 (BUILD_ID OL110YxCm304lBkzmohVi, 含 getAgentsShared)"
+    }
+  }
+}

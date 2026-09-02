@@ -69,7 +69,7 @@ export function DonutChart({ data, centerValue, centerLabel, size = 148, thickne
           <span className="font-heading text-2xl font-bold leading-none tracking-tight">{centerValue}</span>
         )}
         {centerLabel && (
-          <span className="mt-1 font-mono text-[10px] text-muted-foreground">{centerLabel}</span>
+          <span className="mt-1 font-mono text-tiny text-muted-foreground">{centerLabel}</span>
         )}
       </div>
     </div>

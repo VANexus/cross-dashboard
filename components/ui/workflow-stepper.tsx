@@ -16,13 +16,15 @@ interface WorkflowStepperProps {
   onStepClick?: (stepId: string) => void;
   orientation?: "vertical" | "horizontal";
   compact?: boolean;
+  /** 允许点击任意步骤跳转（默认只允许点击已完成步骤） */
+  navigable?: boolean;
   className?: string;
 }
 
 function StepIcon({ status }: { status: StepItem["status"] }) {
   switch (status) {
     case "completed":
-      return <CheckCircle2 className="h-5 w-5 text-emerald-500" />;
+      return <CheckCircle2 className="h-5 w-5 text-success" />;
     case "active":
       return <Loader2 className="h-5 w-5 text-primary animate-spin" />;
     case "error":
@@ -38,6 +40,7 @@ export function WorkflowStepper({
   onStepClick,
   orientation = "vertical",
   compact = false,
+  navigable = false,
   className,
 }: WorkflowStepperProps) {
   const currentIndex = steps.findIndex((s) => s.id === currentStep);
@@ -51,18 +54,18 @@ export function WorkflowStepper({
           return (
             <button
               key={step.id}
-              onClick={() => step.status === "completed" && onStepClick?.(step.id)}
+              onClick={() => (navigable || step.status === "completed") && onStepClick?.(step.id)}
               className={cn(
                 "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
                 isActive && "bg-primary/10 text-primary font-medium",
                 isCompleted && "text-muted-foreground hover:text-foreground cursor-pointer",
-                !isActive && !isCompleted && "text-muted-foreground/50"
+                !isActive && !isCompleted && (navigable ? "text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer" : "text-muted-foreground/50")
               )}
             >
               <StepIcon status={isCompleted ? "completed" : isActive ? "active" : "pending"} />
               <span className="hidden sm:inline">{step.label}</span>
               {i < steps.length - 1 && (
-                <div className={cn("w-8 h-px mx-1", isCompleted ? "bg-emerald-500/40" : "bg-border")} />
+                <div className={cn("w-8 h-px mx-1", isCompleted ? "bg-success/40" : "bg-border")} />
               )}
             </button>
           );
@@ -84,7 +87,7 @@ export function WorkflowStepper({
               <div
                 className={cn(
                   "absolute left-[13px] top-8 w-px h-[calc(100%-16px)]",
-                  isCompleted ? "bg-emerald-500/40" : "bg-border"
+                  isCompleted ? "bg-success/40" : "bg-border"
                 )}
               />
             )}

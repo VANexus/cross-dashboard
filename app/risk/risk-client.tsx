@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/page-header";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { PageTransition } from "@/components/ui/page-transition";
@@ -33,10 +34,10 @@ const Sparkline = dynamic(
 );
 
 const levelConfig: Record<import("@/lib/types").RiskLevel, { label: string; color: string; bg: string; dot: "danger" | "warning" | "info" | "success" }> = {
-  level1: { label: "P1", color: "text-red-500", bg: "bg-red-500/10", dot: "danger" },
-  level2: { label: "P2", color: "text-amber-500", bg: "bg-amber-500/10", dot: "warning" },
-  level3: { label: "P3", color: "text-blue-500", bg: "bg-blue-500/10", dot: "info" },
-  safe: { label: "安全", color: "text-emerald-500", bg: "bg-emerald-500/10", dot: "success" },
+  level1: { label: "P1", color: "text-destructive", bg: "bg-destructive/10", dot: "danger" },
+  level2: { label: "P2", color: "text-warning", bg: "bg-warning/10", dot: "warning" },
+  level3: { label: "P3", color: "text-info", bg: "bg-info/10", dot: "info" },
+  safe: { label: "安全", color: "text-success", bg: "bg-success/10", dot: "success" },
 };
 
 interface RiskClientProps {
@@ -84,14 +85,10 @@ export function RiskClient({ initialEvents }: RiskClientProps) {
 
   return (
     <PageTransition className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">风控中心</h1>
-          <p className="text-muted-foreground text-sm">
-            账号安全、合规性与风险监控
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="风控中心"
+        description="账号安全、合规性与风险监控"
+      />
 
       <div className="grid gap-6 grid-cols-1 md:grid-cols-3">
         <Card className="col-span-1">
@@ -109,7 +106,7 @@ export function RiskClient({ initialEvents }: RiskClientProps) {
                   <circle
                     cx="50" cy="50" r="40" fill="none" strokeWidth="8"
                     stroke="currentColor"
-                    className="text-emerald-500"
+                    className="text-success"
                     strokeDasharray={`${healthScore * 2.51} 251`}
                     strokeLinecap="round"
                   />
@@ -125,7 +122,7 @@ export function RiskClient({ initialEvents }: RiskClientProps) {
                     <div key={dim.name} className="flex items-center gap-2 text-xs">
                       <Icon className="h-3 w-3 text-muted-foreground" />
                       <span className="flex-1">{dim.name}</span>
-                      <span className={cn("font-medium", dim.score >= 90 ? "text-emerald-500" : dim.score >= 80 ? "text-amber-500" : "text-red-500")}>
+                      <span className={cn("font-medium", dim.score >= 90 ? "text-success" : dim.score >= 80 ? "text-warning" : "text-destructive")}>
                         {dim.score}
                       </span>
                     </div>
@@ -155,11 +152,11 @@ export function RiskClient({ initialEvents }: RiskClientProps) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-muted-foreground">{indicator.name}</span>
-                        <span className={cn("text-xs font-medium", isGood ? "text-emerald-500" : "text-amber-500")}>
+                        <span className={cn("text-xs font-medium", isGood ? "text-success" : "text-warning")}>
                           {indicator.value}{indicator.unit}
                         </span>
                       </div>
-                      <Sparkline data={indicator.trend} width={80} height={16} color={isGood ? "#22c55e" : "#f59e0b"} />
+                      <Sparkline data={indicator.trend} width={80} height={16} color={isGood ? "var(--success)" : "var(--warning)"} />
                     </div>
                   </div>
                 );
@@ -201,7 +198,7 @@ export function RiskClient({ initialEvents }: RiskClientProps) {
                       <Badge variant="outline" className={cn(level.color, level.bg, "border-0 text-xs")}>
                         {level.label}
                       </Badge>
-                      <Badge variant="outline" className={cn(event.resolved ? "text-emerald-500 bg-emerald-500/10" : "text-red-500 bg-red-500/10", "border-0 text-xs")}>
+                      <Badge variant="outline" className={cn(event.resolved ? "text-success bg-success/10" : "text-destructive bg-destructive/10", "border-0 text-xs")}>
                         {event.resolved ? "已解决" : "活跃"}
                       </Badge>
                       {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
@@ -213,7 +210,7 @@ export function RiskClient({ initialEvents }: RiskClientProps) {
                         {event.actions.length > 0 && (
                           <div className="flex gap-1 mt-2">
                             {event.actions.map((action, i) => (
-                              <Badge key={i} variant="secondary" className="text-[10px]">{action}</Badge>
+                              <Badge key={i} variant="secondary" className="text-tiny">{action}</Badge>
                             ))}
                           </div>
                         )}
@@ -245,12 +242,12 @@ export function RiskClient({ initialEvents }: RiskClientProps) {
               <div className="space-y-4">
                 {timeline.map((item, i) => (
                   <div key={i} className="relative flex items-start gap-3 pl-1">
-                    <div className={cn("relative z-10 h-3 w-3 rounded-full border-2 border-background", item.type === "danger" ? "bg-red-500" : item.type === "warning" ? "bg-amber-500" : "bg-blue-500")} />
+                    <div className={cn("relative z-10 h-3 w-3 rounded-full border-2 border-background", item.type === "danger" ? "bg-destructive" : item.type === "warning" ? "bg-warning" : "bg-info")} />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium">{item.message}</p>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px] text-muted-foreground">{item.time}</span>
-                        <span className="text-[10px] text-muted-foreground">{item.agent}</span>
+                        <span className="text-tiny text-muted-foreground">{item.time}</span>
+                        <span className="text-tiny text-muted-foreground">{item.agent}</span>
                       </div>
                     </div>
                   </div>
@@ -273,9 +270,9 @@ export function RiskClient({ initialEvents }: RiskClientProps) {
             {isolationChecklist.map((item) => (
               <div
                 key={item.id}
-                className={cn("flex items-center gap-3 p-3 rounded-lg border transition-colors", item.checked ? "bg-emerald-500/5 border-emerald-500/20" : "bg-amber-500/5 border-amber-500/20")}
+                className={cn("flex items-center gap-3 p-3 rounded-lg border transition-colors", item.checked ? "bg-success/5 border-success/20" : "bg-warning/5 border-warning/20")}
               >
-                <div className={cn("flex h-5 w-5 items-center justify-center rounded-full", item.checked ? "bg-emerald-500 text-white" : "bg-amber-500 text-white")}>
+                <div className={cn("flex h-5 w-5 items-center justify-center rounded-full", item.checked ? "bg-success text-white" : "bg-warning text-white")}>
                   {item.checked ? <CheckCircle2 className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
                 </div>
                 <span className="text-xs">{item.text}</span>

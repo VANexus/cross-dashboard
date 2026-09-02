@@ -87,7 +87,7 @@ export function SkillPage({ skill }: { skill: SkillPageSkill }) {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="font-heading text-2xl font-bold tracking-tight">{skill.name}</h1>
-              <Badge variant="outline" className="font-mono text-[10px]">
+              <Badge variant="outline" className="font-mono text-tiny">
                 {skill.version}
               </Badge>
             </div>
@@ -153,7 +153,7 @@ export function SkillPage({ skill }: { skill: SkillPageSkill }) {
             </button>
           </div>
           {showSchema && skill.input_schema ? (
-            <pre className="max-h-72 overflow-auto rounded-lg bg-muted/60 p-3 font-mono text-[11px] leading-relaxed text-muted-foreground">
+            <pre className="max-h-72 overflow-auto rounded-lg bg-muted/60 p-3 font-mono text-caption leading-relaxed text-muted-foreground">
               {JSON.stringify(skill.input_schema, null, 2)}
             </pre>
           ) : (

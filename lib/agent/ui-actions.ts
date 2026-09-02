@@ -5,11 +5,13 @@
 import { getClientKernel } from '@/lib/kernel';
 import type { UIActionDef } from '@/lib/kernel/plugins/ui-actions';
 
-export type { UIActionDef, GlobalActionOptions } from '@/lib/kernel/plugins/ui-actions';
+export type { UIActionDef, GlobalActionOptions, ActionRiskLevel } from '@/lib/kernel/plugins/ui-actions';
 export {
   createGlobalActions,
   runHighlight,
   installAgentTestHook,
+  riskLevelOf,
+  RISK_META,
 } from '@/lib/kernel/plugins/ui-actions';
 
 /** 注册全局通用动作（所有页面可用；应用启动时由 Agent 抽屉挂载一次）。 */

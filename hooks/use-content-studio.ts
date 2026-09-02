@@ -5,6 +5,7 @@ import type {
   AuditResult, ContentIdea, ContentImageResult, ContentPlatform,
   ContentPlatformMeta, ContentWorks, CopyDraft, HotTopicsResult,
 } from "@/lib/types";
+import type { HotEngineResult, HotBoardType } from "@/lib/content/hot-engine";
 
 export function usePlatforms() {
   return useFetch<ContentPlatformMeta[]>("/api/content-studio/platforms");
@@ -17,6 +18,18 @@ export function useIdeas(platform?: ContentPlatform) {
 export function useHotTopics(platform: ContentPlatform, refresh = false) {
   return useFetch<HotTopicsResult>(
     `/api/content-studio/hot-topics?platform=${platform}${refresh ? "&refresh=1" : ""}`,
+  );
+}
+
+/** 热榜引擎（多榜）消费 hook：综合/垂类/话题/灵感 + 选题卡 */
+export function useHotBoards(
+  platform: ContentPlatform,
+  categories: string[] = [],
+  key = "",
+) {
+  const cats = categories.join(",");
+  return useFetch<HotEngineResult>(
+    `/api/content-studio/hot-boards?platform=${platform}${cats ? `&categories=${encodeURIComponent(cats)}` : ""}${key ? `&boards=${key}` : ""}`,
   );
 }
 
@@ -38,6 +51,13 @@ export async function generateIdeas(data: {
 
 export async function refreshHotTopics(data: { platform: ContentPlatform }): Promise<HotTopicsResult> {
   return apiPost<HotTopicsResult>("/api/content-studio/hot-topics", data);
+}
+
+/** 热榜引擎刷新：指定平台 + 可选品类偏好 + 可选榜型子集 */
+export async function refreshHotBoards(data: {
+  platform: ContentPlatform; categories?: string[]; boards?: HotBoardType[];
+}): Promise<HotEngineResult> {
+  return apiPost<HotEngineResult>("/api/content-studio/hot-boards", data);
 }
 
 export async function generateCopy(data: {

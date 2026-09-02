@@ -18,9 +18,9 @@ const PAGE_SIZE = 8;
 
 const STATUS_META: Record<TaskStatus, { label: string; className: string }> = {
   pending: { label: "待执行", className: "bg-muted text-muted-foreground" },
-  running: { label: "运行中", className: "bg-blue-500/15 text-blue-600 dark:text-blue-400" },
-  completed: { label: "已完成", className: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
-  failed: { label: "失败", className: "bg-red-500/15 text-red-500" },
+  running: { label: "运行中", className: "bg-info/15 text-info" },
+  completed: { label: "已完成", className: "bg-success/15 text-success" },
+  failed: { label: "失败", className: "bg-destructive/15 text-destructive" },
   cancelled: { label: "已取消", className: "bg-muted text-muted-foreground" },
 };
 
@@ -109,7 +109,7 @@ export function AiLivePanel() {
                 className="ln group flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/50"
               >
                 <span className="t shrink-0">{fmtTime(t.createdAt)}</span>
-                <span className={cn("shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium", meta.className)}>
+                <span className={cn("shrink-0 rounded-md px-1.5 py-0.5 text-tiny font-medium", meta.className)}>
                   {meta.label}
                 </span>
                 <span className="flex-1 truncate text-foreground/80 group-hover:text-foreground">

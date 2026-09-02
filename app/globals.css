@@ -95,8 +95,23 @@
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-width: 248px;
+  --sidebar-width-collapsed: 64px;
+
+  /* ── Token v3 · 字号阶梯（替代 text-[9..13px] 任意值）── */
+  --font-size-tiny: 0.625rem;      /* 10px — 微型标注 */
+  --font-size-caption: 0.6875rem;  /* 11px — 说明小字 */
+  --font-size-body: 0.8125rem;     /* 13px — 紧凑正文 */
+
+  /* ── Token v3 · 品牌/装饰专色 ── */
+  --brand-wechat: #07c160;         /* 微信公众号品牌绿 */
+  --price: #f472b6;                /* TikTok 商品价格粉 */
+  --radius-card: 1.25rem;          /* 卡片统一圆角 20px */
+
+  /* ── Token v3 · 语义渐变（审计卡等柔色背景）── */
+  --gradient-success: linear-gradient(160deg, #cfe8d8, #7fbfa5);
+  --gradient-warning: linear-gradient(160deg, #f4e3c4, #e0a06a);
 }
 
 .dark {
@@ -139,6 +154,8 @@
   --wf-listing: #10b981;
   --wf-inventory: #06b6d4;
   --wf-competitor: #ec4899;
+  --price: #fb7185;
+  --brand-wechat: #07c160;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -202,6 +219,12 @@
   --color-wf-listing: var(--wf-listing);
   --color-wf-inventory: var(--wf-inventory);
   --color-wf-competitor: var(--wf-competitor);
+  --color-brand-wechat: var(--brand-wechat);
+  --color-price: var(--price);
+  --text-tiny: var(--font-size-tiny);
+  --text-caption: var(--font-size-caption);
+  --text-body: var(--font-size-body);
+  --radius-card: var(--radius-card);
   --color-surface-0: var(--surface-0);
   --color-surface-1: var(--surface-1);
   --color-surface-2: var(--surface-2);
@@ -289,6 +312,22 @@ body {
   }
 }
 
+  /* ── 统一页面容器（全站一致的行宽与留白）── */
+  .page-container {
+    width: 100%;
+    max-width: 1200px;
+    margin-inline: auto;
+    padding: 28px clamp(16px, 3vw, 32px);
+  }
+
+  /* ── stagger 入场（复用 fade-in-up 动效）── */
+  .stagger-in > * { animation: fade-in-up 0.35s ease-out both; }
+  .stagger-in > *:nth-child(2) { animation-delay: 0.05s; }
+  .stagger-in > *:nth-child(3) { animation-delay: 0.1s; }
+  .stagger-in > *:nth-child(4) { animation-delay: 0.15s; }
+  .stagger-in > *:nth-child(5) { animation-delay: 0.2s; }
+  .stagger-in > *:nth-child(6) { animation-delay: 0.25s; }
+
 /* ── Animations — minimal, purposeful ── */
 @keyframes fade-in-up {
   from { opacity: 0; transform: translateY(6px); }
@@ -361,7 +400,7 @@ body {
 .glass-surface {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: var(--radius-card);
   box-shadow:
     0 1px 2px oklch(0 0 0 / 0.04),
     0 12px 32px -20px oklch(0 0 0 / 0.14);

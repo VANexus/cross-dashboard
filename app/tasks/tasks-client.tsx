@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/page-header";
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion, LayoutGroup } from "framer-motion";
@@ -168,14 +169,10 @@ export function TasksClient({ initialTasks, agents }: TasksClientProps) {
 
   return (
     <PageTransition className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">任务管理</h1>
-          <p className="text-muted-foreground text-sm">
-            查看和管理所有工作流任务的执行状态
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="任务管理"
+        description="查看和管理所有工作流任务的执行状态"
+      />
 
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-sm">
@@ -348,7 +345,7 @@ export function TasksClient({ initialTasks, agents }: TasksClientProps) {
                   <div className="flex items-center gap-2 px-1.5">
                     <config.icon className="h-3.5 w-3.5" />
                     <span className="text-xs font-semibold text-muted-foreground">{config.label}</span>
-                    <span className="metric-value ml-auto text-[11px] text-muted-foreground">{columnTasks.length}</span>
+                    <span className="metric-value ml-auto text-caption text-muted-foreground">{columnTasks.length}</span>
                   </div>
                   {columnTasks.map((task) => {
                     const agent = agentMap[task.assignedAgents[0]];
@@ -367,7 +364,7 @@ export function TasksClient({ initialTasks, agents }: TasksClientProps) {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm font-medium leading-snug">{task.title}</p>
-                          <Badge variant="outline" className="shrink-0 border-0 text-[10px]">
+                          <Badge variant="outline" className="shrink-0 border-0 text-tiny">
                             {priorityConfig[task.priority]?.label || task.priority}
                           </Badge>
                         </div>

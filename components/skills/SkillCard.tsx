@@ -39,7 +39,7 @@ export function SkillCard({ skill, onClick, compact }: SkillCardProps) {
         <h4 className={cn("font-semibold leading-snug", compact ? "text-xs" : "text-sm")}>
           {skill.name}
         </h4>
-        <span className="shrink-0 text-[10px] text-muted-foreground">v{skill.version}</span>
+        <span className="shrink-0 text-tiny text-muted-foreground">v{skill.version}</span>
       </div>
 
       {/* 描述 */}
@@ -47,7 +47,7 @@ export function SkillCard({ skill, onClick, compact }: SkillCardProps) {
         <p
           className={cn(
             "line-clamp-2 text-muted-foreground",
-            compact ? "text-[11px]" : "text-xs",
+            compact ? "text-caption" : "text-xs",
           )}
         >
           {skill.description}
@@ -58,7 +58,7 @@ export function SkillCard({ skill, onClick, compact }: SkillCardProps) {
       <div className={cn("flex items-center gap-2", compact ? "mt-auto pt-1" : "mt-auto pt-2")}>
         <Gauge className="h-3 w-3 shrink-0 text-primary/70" />
         <Progress value={confidencePct} className="h-1.5 flex-1" />
-        <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+        <span className="shrink-0 text-tiny tabular-nums text-muted-foreground">
           {confidencePct}%
         </span>
       </div>

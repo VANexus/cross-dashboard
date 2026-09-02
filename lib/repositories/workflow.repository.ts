@@ -269,6 +269,12 @@ export async function getCompetitors(): Promise<CompetitorEntry[]> {
 }
 
 export async function getWorkflowStatuses(): Promise<WorkflowStatus[]> {
+  if (process.env.DASH_BENCH) {
+    const g = globalThis as any;
+    g.__wfExec = (g.__wfExec ?? 0) + 1;
+    const fs = await import("fs");
+    fs.appendFileSync("dash-bench-wf.log", `[dash-bench] getWorkflowStatuses exec #${g.__wfExec} ts=${Date.now()}\n`);
+  }
   const sb = getSupabase();
   const { data } = await sb.from("wf_workflow_statuses").select("*").order("id", { ascending: true });
   const rows = (data as Array<{

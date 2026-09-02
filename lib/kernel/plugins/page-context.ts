@@ -13,7 +13,7 @@ import { usePathname } from 'next/navigation';
 import { Context, Service } from '../../../src/kernel/vendor/cordis';
 import { usePresence } from '@/stores/agent-presence';
 import { getClientKernel, whenKernelReady } from '../index';
-import type { UIActionDef } from './ui-actions';
+import { riskLevelOf, type ActionRiskLevel, type UIActionDef } from './ui-actions';
 
 declare module '../../../src/kernel/vendor/cordis/context' {
   interface Context {
@@ -36,7 +36,7 @@ export interface ChatPageContext {
   title: string;
   snapshot: string;
   state?: Record<string, unknown>;
-  actions: { id: string; description: string }[];
+  actions: { id: string; description: string; riskLevel: ActionRiskLevel }[];
 }
 
 const SNAPSHOT_MAX = 2 * 1024;   // snapshot ≤2KB
@@ -99,7 +99,10 @@ export class PageContextService extends Service {
       state,
       // 通用动作（navigate/refresh 等，抽屉全局注册）+ 本页动作合并上报，
       // 否则 system prompt 只列页面动作，模型会拒绝调用 navigate 这类全局能力。
-      actions: getClientKernel().actions?.getPageActions().map(({ id, description }) => ({ id, description })) ?? [],
+      actions:
+        getClientKernel()
+          .actions?.getPageActions()
+          .map((a) => ({ id: a.id, description: a.description, riskLevel: riskLevelOf(a) })) ?? [],
     };
   }
 }
@@ -140,10 +143,13 @@ export function useAgentPage(cfg: UseAgentPageOptions): void {
         const actions = kernel.actions;
 
         // 页面动作注册代理：execute 时解析最新动作定义，页面热更新/重渲染不失效
+        // riskLevel/confirmText 必须原样透传，否则 L2 确认门会在包装层丢失分级
         const registered: UIActionDef[] = (latest.current.actions ?? []).map((a) => ({
           id: a.id,
           description: a.description,
           schema: a.schema,
+          riskLevel: a.riskLevel,
+          confirmText: a.confirmText,
           execute: (params: Record<string, unknown>) => {
             const live = latest.current.actions?.find((x) => x.id === a.id);
             if (!live) return `动作 ${a.id} 已随页面更新失效`;

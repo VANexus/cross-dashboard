@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { getSupabase } from "../db";
 import type { Agent, AgentConfig, SubAgent } from "../types";
 import { parseJsonField } from "./base";
@@ -53,6 +54,12 @@ function mapSubAgent(row: SubAgentRow): SubAgent {
 }
 
 export async function getAgents(filters?: { status?: string; type?: string }): Promise<Agent[]> {
+  if (process.env.DASH_BENCH) {
+    const g = globalThis as any;
+    g.__agentsExec = (g.__agentsExec ?? 0) + 1;
+    const fs = await import("fs");
+    fs.appendFileSync("dash-bench-agents.log", `[dash-bench] getAgents exec #${g.__agentsExec} ts=${Date.now()}\n`);
+  }
   const sb = getSupabase();
   let qb = sb.from("agents").select("*");
   if (filters?.status) qb = qb.eq("status", filters.status);
@@ -60,6 +67,15 @@ export async function getAgents(filters?: { status?: string; type?: string }): P
   const { data } = await qb.order("name");
   return ((data ?? []) as AgentRow[]).map(mapAgent);
 }
+
+/**
+ * Agent 列表的 RSC 请求级共享访问点（无 filters 版）。
+ * 同一 RSC render-pass 内（dashboard 的 Heartbeat/Topology island 与 getStats）
+ * 只执行一次 getAgents()，消除重复的 agents 查询；route handler 中每次执行。
+ */
+export const getAgentsShared = cache(async function getAgentsShared(): Promise<Agent[]> {
+  return getAgents();
+});
 
 export async function getAgentById(id: string): Promise<(Agent & { subAgents: SubAgent[] }) | null> {
   const sb = getSupabase();

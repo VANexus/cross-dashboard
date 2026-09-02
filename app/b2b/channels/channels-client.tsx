@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { z } from "zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,8 @@ import {
   KeyRound, Loader2, RefreshCw, ShieldCheck, Trash2, AlertTriangle,
 } from "lucide-react";
 import { JourneyBar } from "@/components/journey/journey-bar";
+import { useAgentPage } from "@/lib/agent/page-context";
+import type { UIActionDef } from "@/lib/agent/ui-actions";
 import type { ChannelPlatform } from "@/lib/types";
 
 interface AccountView {
@@ -109,6 +112,71 @@ export function ChannelsClient() {
       setBuz(`del-${id}`, false);
     }
   }, [refresh]);
+
+  // 「UI 即工具」：账号只读为 L0，校验为 L1，导入会话凭证属敏感 L2（需用户确认）
+  const agentActions: UIActionDef[] = [
+    {
+      id: "listChannelAccounts",
+      description: "只读汇总当前渠道账号保险库：各平台账号数量、有效/过期/风控状态",
+      riskLevel: "L0",
+      execute: () => {
+        if (accounts.length === 0) return "账号保险库为空（趋势数据走 TikHub 免登录，不依赖此处会话）";
+        const summary = accounts
+          .map((a) => `${a.platform}/${a.label || "未命名"}:${STATUS_BADGE[a.status].label}`)
+          .join("；");
+        return `共 ${accounts.length} 个账号：${summary}`;
+      },
+    },
+    {
+      id: "verifyChannelAccount",
+      description: "对指定渠道账号做一次会话有效性校验（不对外发布，仅更新状态）",
+      riskLevel: "L1",
+      schema: z.object({ id: z.string().min(1).describe("账号 id") }),
+      execute: async (p) => {
+        const id = String(p.id);
+        if (!accounts.some((a) => a.id === id)) throw new Error(`未找到账号 ${id}`);
+        await handleVerify(id);
+        return `已触发账号 ${id} 的校验，结果见该账号状态`;
+      },
+    },
+    {
+      id: "importChannelSession",
+      description: "把手动复制的平台会话 cookie 加密导入账号保险库（AES-256-GCM）",
+      riskLevel: "L2",
+      confirmText: (p) =>
+        `将把一段 ${String(p.platform)} 会话 cookie 加密写入账号保险库。会话等同登录凭证，请确认来源可信、确为你本人操作。`,
+      schema: z.object({
+        platform: z.enum(["tiktok", "instagram", "alibaba"]),
+        session: z.string().min(10).describe("完整 cookie 串，须含 sessionid"),
+        label: z.string().optional().describe("账号备注"),
+      }),
+      execute: async (p) => {
+        const platform = p.platform as ChannelPlatform;
+        const res = await fetch("/api/b2b/channels", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ platform, label: typeof p.label === "string" ? p.label : "", session: String(p.session) }),
+        });
+        const d = await res.json();
+        if (!d.success) throw new Error(d.error ?? "导入失败");
+        await refresh();
+        return `已加密导入 ${platform} 账号会话`;
+      },
+    },
+  ];
+
+  useAgentPage({
+    title: "渠道账号（TikTok·国际站铺货）",
+    snapshot: () => {
+      const byStatus = ["active", "expired", "risk_control"].map((s) => {
+        const n = accounts.filter((a) => a.status === s).length;
+        return n ? `${STATUS_BADGE[s as AccountView["status"]].label}${n}` : "";
+      }).filter(Boolean).join("/");
+      return `账号保险库 ${accounts.length} 个${byStatus ? `（${byStatus}）` : ""} · 趋势数据走 TikHub 免登录，会话仅作兜底`;
+    },
+    state: () => ({ accountCount: accounts.length, accounts: accounts.map((a) => ({ id: a.id, platform: a.platform, status: a.status })), loading }),
+    actions: agentActions,
+  });
 
   return (
     <div className="space-y-6">

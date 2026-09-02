@@ -20,7 +20,7 @@ test.describe("流程编排中心", () => {
     await expect(page.getByRole("heading", { name: "流程编排中心" })).toBeVisible({ timeout: 10000 });
     // J1/J2 由 journey registry 派生
     await expect(page.getByText("内容发布旅程").first()).toBeVisible();
-    await expect(page.getByText("选品上架旅程").first()).toBeVisible();
+    await expect(page.getByText("TikTok·国际站铺货旅程").first()).toBeVisible();
   });
 
   test("root redirect 到 /journeys", async ({ page }) => {
@@ -135,29 +135,31 @@ test.describe("M2 内容工坊 · 4 步 stepper 与旅程条", () => {
 test.describe("M3 上架运营 · J2 全步走通", () => {
   test("J2 四页依序流转：趋势 → Listing → 生图 → 渠道", async ({ page }) => {
     await ready(page);
-    expect(await run(page, "startJourney", { id: "listing-launch" })).toContain("已发起旅程「选品上架旅程」");
+    // 客户端导航进入 async SSR island 时，Next dev 可能残留一个 hidden 旧子树，
+    // 故旅程条一律只取「可见」的那一个（生产构建无此现象）。
+    const jbar = page.locator('[data-journey-bar="listing-launch"] >> visible=true');
+    expect(await run(page, "startJourney", { id: "listing-launch" })).toContain("已发起旅程「TikTok·国际站铺货旅程」");
     await expect(page).toHaveURL(/\/journeys\/listing-launch$/, { timeout: 10000 });
 
     // 第 1 步：关键词趋势（直达步页面，旅程条出现）
     await page.goto("/b2b/keyword-trends?journey=listing-launch&step=1");
-    await expect(page.locator('[data-journey-bar="listing-launch"]')).toBeVisible({ timeout: 15000 });
+    await expect(jbar).toBeVisible({ timeout: 15000 });
 
     // 推进到第 2 步：Listing 生成
     await run(page, "advanceJourney");
     await expect(page).toHaveURL(/\/b2b\/listing\?journey=listing-launch&step=2$/, { timeout: 10000 });
-    await expect(page.locator('[data-journey-bar="listing-launch"]')).toBeVisible({ timeout: 15000 });
-    await page.locator('[data-journey-bar="listing-launch"] [data-agent-action="journey-next"]').click();
+    await expect(jbar).toBeVisible({ timeout: 15000 });
+    await jbar.locator('[data-agent-action="journey-next"]').click();
 
     // 第 3 步：生图素材
     await expect(page).toHaveURL(/\/b2b\/image-skills\?journey=listing-launch&step=3$/, { timeout: 10000 });
-    await expect(page.locator('[data-journey-bar="listing-launch"]')).toBeVisible({ timeout: 15000 });
-    await page.locator('[data-journey-bar="listing-launch"] [data-agent-action="journey-next"]').click();
+    await expect(jbar).toBeVisible({ timeout: 15000 });
+    await jbar.locator('[data-agent-action="journey-next"]').click();
 
     // 第 4 步：渠道上架（最后一步）
     await expect(page).toHaveURL(/\/b2b\/channels\?journey=listing-launch&step=4$/, { timeout: 10000 });
-    const bar4 = page.locator('[data-journey-bar="listing-launch"]');
-    await expect(bar4).toBeVisible({ timeout: 15000 });
-    await expect(bar4.getByRole("button", { name: "标记完成 · 结束旅程" })).toBeVisible();
+    await expect(jbar).toBeVisible({ timeout: 15000 });
+    await expect(jbar.getByRole("button", { name: "标记完成 · 结束旅程" })).toBeVisible();
   });
 
   test("无 journey query 时 b2b 页不渲染旅程条（零侵入）", async ({ page }) => {

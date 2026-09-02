@@ -9,6 +9,7 @@
  * 旅程接入：URL 带 ?journey=content-publish&step=n 时顶部出现 JourneyBar，
  * Agent 可经 data-agent-action="journey-next" 推进步骤。
  */
+import { PageHeader } from "@/components/ui/page-header";
 import { useCallback, useMemo, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -24,16 +25,20 @@ import { WorkflowStepper, type StepItem } from "@/components/ui/workflow-stepper
 import {
   PenLine, Sparkles, Flame, ShieldCheck, Image as ImageIcon,
   CheckCircle2, AlertTriangle, XCircle, Library, Copy, Check, RefreshCw,
-  Loader2, ExternalLink, Clock, Send, ArrowRight,
+  Loader2, ExternalLink, Clock, Send, ArrowRight, Download,
 } from "lucide-react";
 import {
-  generateCopy, generateIdeas, generateImages, refreshHotTopics,
-  auditDraft, useHotTopics, useWorks,
+  generateCopy, generateIdeas, generateImages,
+  auditDraft, useWorks, useHotBoards,
 } from "@/hooks/use-content-studio";
 import type {
   AuditResult, ContentIdea, ContentImageResult, ContentPlatform,
-  ContentPlatformMeta, ContentWorks, CopyDraft, HotTopicsResult,
+  ContentPlatformMeta, ContentWorks, CopyDraft,
 } from "@/lib/types";
+import {
+  HOT_BOARD_LABELS, HOT_BOARD_ORDER,
+  type HotBoardType, type HotEngineResult, type TopicCard,
+} from "@/lib/content/hot-engine";
 
 const CATEGORY_LABELS: Record<string, string> = {
   absolute: "绝对化用语",
@@ -90,14 +95,21 @@ function ContentStudioInner({ platforms, works: initialWorks }: ContentStudioCli
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [hotOverride, setHotOverride] = useState<HotTopicsResult | null>(null);
 
-  const { data: hot } = useHotTopics(platform);
+  // 热榜引擎（多榜）
+  const [categories, setCategories] = useState("");
+  const [boardTab, setBoardTab] = useState<HotBoardType>("general");
+  const [tagPreset, setTagPreset] = useState<string[]>([]);
+  const cats = useMemo(
+    () => categories.split(/[,，]/).map((s) => s.trim()).filter(Boolean),
+    [categories],
+  );
+  const { data: hotEngine, refetch: refetchHotBoards } = useHotBoards(platform, cats);
+
   const { data: liveWorks, refetch: refetchWorks } = useWorks();
 
   const works = liveWorks ?? initialWorks;
   const activePlatform = platforms.find((p) => p.id === platform) ?? platforms[0];
-  const hotData = hotOverride ?? hot;
 
   // 平台切换：重置与平台强绑定的状态
   const switchPlatform = (p: ContentPlatform) => {
@@ -106,7 +118,8 @@ function ContentStudioInner({ platforms, works: initialWorks }: ContentStudioCli
     setCurrentDraft(null);
     setAudit(null);
     setImages(null);
-    setHotOverride(null);
+    setBoardTab("general");
+    setCategories("");
     setError(null);
   };
 
@@ -130,7 +143,10 @@ function ContentStudioInner({ platforms, works: initialWorks }: ContentStudioCli
     void run("all", async () => {
       const [ideaRes, draft] = await Promise.all([
         generateIdeas({ platform, subject: subject.trim() }),
-        generateCopy({ platform, subject: subject.trim(), angle: angle.trim() || undefined }),
+        generateCopy({
+          platform, subject: subject.trim(), angle: angle.trim() || undefined,
+          keywords: tagPreset.length ? tagPreset : undefined,
+        }),
       ]);
       setIdeas(ideaRes);
       setCurrentDraft(draft);
@@ -167,11 +183,18 @@ function ContentStudioInner({ platforms, works: initialWorks }: ContentStudioCli
     });
   };
 
-  const handleRefreshHot = () => {
-    void run("hot", async () => {
-      const result = await refreshHotTopics({ platform });
-      setHotOverride(result);
+  const handleRefreshHotBoards = () => {
+    void run("hotBoards", async () => {
+      await refetchHotBoards();
     });
+  };
+
+  const selectTopic = (card: TopicCard) => {
+    // 从选题卡自动预填主题 + 标签 + 角度，并进入创作步
+    setSubject(card.topic);
+    if (card.tags.length > 0) setTagPreset(card.tags);
+    if (card.angleSuggestion) setAngle(card.angleSuggestion);
+    setStep("create");
   };
 
   const copyAll = async () => {
@@ -182,6 +205,47 @@ function ContentStudioInner({ platforms, works: initialWorks }: ContentStudioCli
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
     } catch { /* clipboard unavailable */ }
+  };
+
+  const copyTitle = async () => {
+    if (!currentDraft) return;
+    try {
+      await navigator.clipboard.writeText(currentDraft.title);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch { /* clipboard unavailable */ }
+  };
+
+  const copyBody = async () => {
+    if (!currentDraft) return;
+    const text = `${currentDraft.body}\n\n${currentDraft.tags.map((t) => `#${t}`).join(" ")}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch { /* clipboard unavailable */ }
+  };
+
+  /** 打包下载配图：逐张真实下载（不依赖 zip 库，标注为打包下载） */
+  const downloadImages = () => {
+    if (!images || images.images.length === 0) return;
+    void run("download", async () => {
+      for (const img of images.images) {
+        try {
+          const resp = await fetch(img.url);
+          if (!resp.ok) continue;
+          const blob = await resp.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `xhs-${(currentDraft?.title ?? "note").slice(0, 12).replace(/[\\/:*?"<>|]/g, "")}-${img.index + 1}.jpg`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        } catch { /* 单张下载失败跳过 */ }
+      }
+    });
   };
 
   // 「前端即 Agent」一行接入：注册本页上下文快照 + 可被 agent 调用的页面动作
@@ -253,26 +317,23 @@ function ContentStudioInner({ platforms, works: initialWorks }: ContentStudioCli
   }, [currentDraft, searchParams]);
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-7">
+    <div>
       <JourneyBar />
 
-      <div className="mb-5 flex flex-wrap items-end gap-4">
-        <div>
-          <p className="dash-crumbs">内容工坊 / <b>内容创作中心</b></p>
-          <h1 className="font-heading text-2xl font-bold tracking-tight">内容创作中心</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            洞察 → 创作 → 审计配图 → 发布，一条流水线走完内容生产
-          </p>
-        </div>
-        <div className="ml-auto flex gap-2">
+      <PageHeader
+        className="mb-5"
+        breadcrumb={<><span>内容工坊</span> / <b>内容创作中心</b></>}
+        title="内容创作中心"
+        description="洞察 → 创作 → 审计配图 → 发布，一条流水线走完内容生产"
+        actions={<div className="flex gap-2">
           <Button variant="ghost" size="sm" onClick={() => setTab("library")} className={cn(tab === "library" && "text-primary")}>
             <Library className="h-4 w-4" /> 成果库
           </Button>
           <Button size="sm" onClick={() => setTab("copy")}>
             <PenLine className="h-4 w-4" /> 新建文案
           </Button>
-        </div>
-      </div>
+        </div>}
+      />
 
       {error && (
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3.5 py-2.5 text-sm text-destructive">
@@ -345,54 +406,148 @@ function ContentStudioInner({ platforms, works: initialWorks }: ContentStudioCli
                 </CardContent>
               </Card>
 
-              {/* 热点雷达 */}
+              {/* 热榜引擎 · 选题雷达（多榜专门处理逻辑） */}
               <Card>
                 <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <Flame className="h-4 w-4 text-primary" /> 热点雷达
-                      </CardTitle>
-                      <CardDescription className="hidden sm:block">
-                        {hotData?.source && hotData.source !== "cache" ? `平台趋势热词 · 源 /${hotData.source}` : "平台趋势热词"}
-                      </CardDescription>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <Flame className="h-4 w-4 text-primary" /> 热榜引擎 · 选题雷达
+                    </CardTitle>
+                    <CardDescription className="hidden sm:block">
+                      综合/垂类/话题/灵感多榜归一化 · 打分排序（PRD §3）
+                    </CardDescription>
+                    <div className="ml-auto flex items-center gap-2">
+                      <Input
+                        className="h-8 w-44 text-xs"
+                        placeholder="品类偏好，如 美妆,穿搭"
+                        value={categories}
+                        onChange={(e) => setCategories(e.target.value)}
+                      />
+                      <Button variant="outline" size="sm" onClick={handleRefreshHotBoards} disabled={busy !== null} data-agent-action="hot-boards-refresh">
+                        {busy === "hotBoards" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                        刷新
+                      </Button>
                     </div>
-                    <Button variant="outline" size="sm" onClick={handleRefreshHot} disabled={busy !== null}>
-                      {busy === "hot" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                      刷新
-                    </Button>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  {hotData?.degraded && (
-                    <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-600">
+                <CardContent className="space-y-3">
+                  {hotEngine?.degraded && (
+                    <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-warning">
                       <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                      {hotData.warning ?? "热榜 API 不可达，展示种子数据"}
+                      {hotEngine.warning ?? "全部热榜源不可达，暂无真实热点；可手工输入主题创作"}
                     </div>
                   )}
-                  {hotData && hotData.topics.length > 0 ? (
-                    <div className="flex flex-wrap gap-2.5">
-                      {hotData.topics.map((h) => (
-                        <a
-                          key={h.word}
-                          href={h.url || undefined}
-                          target={h.url ? "_blank" : undefined}
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm hover:border-primary/40 transition-colors"
-                        >
-                          {h.word}
-                          <span className="font-mono text-xs font-semibold text-primary">{h.heat}</span>
-                          {h.delta !== null && h.delta !== undefined && (
-                            <span className={cn("font-mono text-[11px]", h.delta >= 0 ? "text-emerald-500" : "text-muted-foreground")}>
-                              {h.delta >= 0 ? "▲" : "▽"}{Math.abs(h.delta)}
-                            </span>
+
+                  {/* 榜型 Tab */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {HOT_BOARD_ORDER.map((b) => {
+                      const board = hotEngine?.boards.find((x) => x.id === b);
+                      const down = board?.degraded;
+                      return (
+                        <button
+                          key={b}
+                          onClick={() => setBoardTab(b)}
+                          className={cn(
+                            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                            boardTab === b ? "border-border bg-card shadow-sm" : "border-transparent text-muted-foreground hover:text-foreground",
                           )}
-                          {h.url && <ExternalLink className="h-3 w-3 text-muted-foreground/40" />}
-                        </a>
-                      ))}
+                        >
+                          {HOT_BOARD_LABELS[b]}
+                          {down && <span className="text-warning">·不可用</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* 当前榜内容 */}
+                  {(() => {
+                    const board = hotEngine?.boards.find((x) => x.id === boardTab);
+                    if (!board || board.degraded) {
+                      return (
+                        <p className="text-sm text-muted-foreground">
+                          {board?.warning ?? "该榜数据暂不可用，可切换其他榜型或刷新重试。"}
+                        </p>
+                      );
+                    }
+                    if (board.topics.length === 0) {
+                      return <p className="text-sm text-muted-foreground">该榜暂无热点数据。</p>;
+                    }
+                    return (
+                      <div className="flex flex-wrap gap-2">
+                        {board.topics.slice(0, 20).map((h) => (
+                          <a
+                            key={`${h.board}-${h.rank}-${h.title}`}
+                            href={h.url || undefined}
+                            target={h.url ? "_blank" : undefined}
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm hover:border-primary/40 transition-colors"
+                          >
+                            <span className="font-mono text-xs text-muted-foreground">#{h.rank}</span>
+                            {h.title}
+                            <span className="font-mono text-xs font-semibold text-primary">{h.heat}</span>
+                            {h.url && <ExternalLink className="h-3 w-3 text-muted-foreground/40" />}
+                          </a>
+                        ))}
+                      </div>
+                    );
+                  })()}
+
+                  {/* 选题卡（聚合去重 + 打分排序） */}
+                  {hotEngine && hotEngine.cards.length > 0 && (
+                    <div className="border-t pt-3">
+                      <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                        <Sparkles className="h-3.5 w-3.5" /> 选题卡（综合分排序 · 点击预填创作）
+                        {cats.length > 0 && <span className="text-primary">品类命中已加权</span>}
+                      </div>
+                      <div className="grid gap-2.5 md:grid-cols-2">
+                        {hotEngine.cards.slice(0, 10).map((c) => (
+                          <button
+                            key={c.topic}
+                            onClick={() => selectTopic(c)}
+                            className="rounded-xl border p-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/40"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="text-sm font-medium leading-snug">{c.topic}</span>
+                              <span className="shrink-0 rounded-md bg-primary/10 px-1.5 py-0.5 font-mono text-xs font-bold text-primary">
+                                {c.score.total}
+                              </span>
+                            </div>
+                            <div className="mt-1.5 flex flex-wrap gap-1">
+                              {c.hitBoards.map((b) => (
+                                <span key={b} className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                  {HOT_BOARD_LABELS[b]}
+                                </span>
+                              ))}
+                              <span className={cn(
+                                "rounded px-1.5 py-0.5 text-[10px]",
+                                c.competition === "high" ? "bg-warning/15 text-warning"
+                                  : c.competition === "medium" ? "bg-muted text-muted-foreground" : "bg-success/15 text-success",
+                              )}>
+                                {c.competition === "high" ? "竞争高" : c.competition === "medium" ? "竞争中" : "竞争低"}
+                              </span>
+                              <span className={cn(
+                                "rounded px-1.5 py-0.5 text-[10px]",
+                                c.freshness === "fresh" ? "bg-success/15 text-success" : "bg-muted text-muted-foreground",
+                              )}>
+                                {c.freshness === "fresh" ? "新上榜" : c.freshness === "day" ? "24h内" : "较早"}
+                              </span>
+                            </div>
+                            <div className="mt-1.5 text-xs text-muted-foreground">
+                              <span className="font-mono text-[10px]">
+                                名次 {c.bestRank} · 热度 {c.bestHeat} · 命中 {c.hitBoards.length} 榜
+                              </span>
+                              {c.angleSuggestion && (
+                                <div className="mt-0.5 truncate text-[11px]">角度建议：{c.angleSuggestion}</div>
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">暂无热点数据，点击「刷新」抓取。</p>
+                  )}
+
+                  {hotEngine && hotEngine.cards.length === 0 && !hotEngine.degraded && (
+                    <p className="text-sm text-muted-foreground">暂无选题卡——刷新热榜或检查品类偏好。</p>
                   )}
                 </CardContent>
               </Card>
@@ -429,7 +584,7 @@ function ContentStudioInner({ platforms, works: initialWorks }: ContentStudioCli
                     <div className="grid gap-3 md:grid-cols-3">
                       {ideas.map((idea) => (
                         <div key={idea.id} className="rounded-xl border p-4 transition-colors hover:border-primary/40">
-                          <div className="text-[11px] font-semibold text-primary">{idea.angle}</div>
+                          <div className="text-caption font-semibold text-primary">{idea.angle}</div>
                           <div className="mt-1.5 text-sm font-medium leading-snug">{idea.title}</div>
                         </div>
                       ))}
@@ -449,7 +604,7 @@ function ContentStudioInner({ platforms, works: initialWorks }: ContentStudioCli
                       <PenLine className="h-4 w-4 text-primary" /> 生成文案
                     </CardTitle>
                     <Button variant="outline" size="sm" onClick={copyAll} disabled={!currentDraft}>
-                      {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                      {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
                       {copied ? "已复制" : "复制全部"}
                     </Button>
                   </div>
@@ -494,7 +649,7 @@ function ContentStudioInner({ platforms, works: initialWorks }: ContentStudioCli
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <ShieldCheck className="h-4 w-4 text-emerald-500" /> 平台规则审计
+                        <ShieldCheck className="h-4 w-4 text-success" /> 平台规则审计
                       </CardTitle>
                       <Button variant="outline" size="sm" onClick={handleAudit} disabled={busy !== null || !currentDraft} data-agent-action="studio-audit">
                         {busy === "audit" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
@@ -508,7 +663,7 @@ function ContentStudioInner({ platforms, works: initialWorks }: ContentStudioCli
                         规则库扫描（广告法 + {activePlatform?.label} 平台规范）+ AI 复核。先在创作步生成文案。
                       </p>
                     ) : audit.findings.length === 0 ? (
-                      <div className="flex items-start gap-2.5 text-sm text-emerald-600">
+                      <div className="flex items-start gap-2.5 text-sm text-success">
                         <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
                         <div>
                           <div className="font-medium">未检出违规项，可通过</div>
@@ -522,7 +677,7 @@ function ContentStudioInner({ platforms, works: initialWorks }: ContentStudioCli
                         <div key={i} className="flex items-start gap-2.5 text-sm">
                           {f.severity === "error"
                             ? <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-                            : <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />}
+                            : <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />}
                           <div>
                             <div className="font-medium">
                               {CATEGORY_LABELS[f.category] ?? f.category}
@@ -622,14 +777,60 @@ function ContentStudioInner({ platforms, works: initialWorks }: ContentStudioCli
                       选稿 → AI 排版 → 发布设置 → 人工确认 → 发布/群发，草稿会自动带上
                     </span>
                   </div>
+                ) : platform === "xhs" || currentDraft?.platform === "xhs" ? (
+                  /* xhs 发布就绪卡：一键复制 + 配图打包下载（真实能力边界内最完整的发布闭环） */
+                  <div className="space-y-3 rounded-xl border border-success/20 bg-success/5 p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-success" />
+                      <span className="text-sm font-medium">发布就绪卡</span>
+                      <span className="text-xs text-muted-foreground">
+                        小红书暂无站内发布通道，一键复制后到小红书 App 粘贴发布
+                      </span>
+                    </div>
+                    {currentDraft && (
+                      <div className="space-y-3">
+                        <div className="flex flex-wrap gap-2">
+                          <Button size="sm" onClick={copyAll} disabled={!currentDraft} data-agent-action="xhs-copy-all">
+                            {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
+                            {copied ? "已复制" : "复制完整笔记"}
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={copyTitle} disabled={!currentDraft}>复制标题</Button>
+                          <Button size="sm" variant="outline" onClick={copyBody} disabled={!currentDraft}>复制正文+话题</Button>
+                          {images && images.images.length > 0 && (
+                            <Button size="sm" variant="outline" onClick={downloadImages} disabled={busy === "download"}>
+                              {busy === "download" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                              打包下载配图（{images.images.length} 张）
+                            </Button>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">{currentDraft.title}</span>
+                          <span> · {currentDraft.body.length} 字 · {currentDraft.tags.length} 个话题</span>
+                          {currentDraft.tags.length > 0 && (
+                            <span className="block">{currentDraft.tags.map((t) => `#${t}`).join(" ")}</span>
+                          )}
+                        </div>
+                        {images && images.images.length > 0 && (
+                          <div className="flex gap-2">
+                            {images.images.map((img) => (
+                              <div key={img.index} className="h-16 w-12 overflow-hidden rounded border bg-muted">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={img.url} alt={`配图 ${img.index}`} className="h-full w-full object-cover" />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="flex flex-wrap items-center gap-3">
                     <Button size="sm" variant="outline" onClick={copyAll} disabled={!currentDraft}>
-                      {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                      {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
                       {copied ? "已复制" : "复制文案"}
                     </Button>
                     <span className="text-xs text-muted-foreground">
-                      {PLATFORM_LABEL[platform]}暂无站内发布通道，复制文案后到平台 App 发布；公众号文案可走工作台
+                      {PLATFORM_LABEL[platform]}暂无站内发布通道，复制文案后到平台 App 发布
                     </span>
                   </div>
                 )}
@@ -700,7 +901,7 @@ function LibraryView({ works, onSelect }: { works: ContentWorks; onSelect: (d: C
             >
               <div
                 className="h-10 w-10 shrink-0 rounded-lg"
-                style={{ background: d.auditPassed ? "linear-gradient(160deg,#cfe8d8,#7fbfa5)" : "linear-gradient(160deg,#f4e3c4,#e0a06a)" }}
+                style={{ background: d.auditPassed ? "var(--gradient-success)" : "var(--gradient-warning)" }}
               />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">{d.title}</div>

@@ -5,8 +5,8 @@ import dynamic from "next/dynamic";
 const JourneyRunClient = dynamic(() => import("./journey-run-client").then((m) => ({ default: m.JourneyRunClient })), {
   loading: () => (
     <div className="space-y-4 p-6">
-      <div className="h-8 w-64 animate-pulse rounded-md bg-muted/60" />
-      <div className="h-[420px] w-full animate-pulse rounded-2xl bg-muted/40" />
+      <div className="h-8 w-64 skeleton rounded-md" />
+      <div className="h-[420px] w-full skeleton rounded-2xl" />
     </div>
   ),
 });

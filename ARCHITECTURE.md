@@ -2,7 +2,16 @@
 
 > 跨境电商智能编排系统 — RAK 跨物种智能体协同网络后端架构
 
-## 1. 系统概览
+> **⚠️ 现状纠偏（2026-09-02，以此为准）**：下文描述的 RAK 引擎 / SQLite / Agent 自主运行时是**上一代设计，已不是运行时主链**。当前权威架构为 **Cordis 4.0 前后端同构微内核**：
+> - **后端内核** `src/kernel/*`：5 个 service 插件（生命周期/DI/事件），统一对话入口 `app/api/agent/chat/route.ts`（SSE）；业务能力 = 12 个工具（9 本地 `lib/mastra/tools/local-tools.ts` + 3 MCP `mcp-tools.ts`，MCP 返回含 degraded/warning/cache 诚实标注）。
+> - **前端内核** `lib/kernel/*`：`actions`（UI 即工具，含 L0/L1/L2 风险分级 `ui-actions.ts`）、`pageContext`（页面快照/状态/动作上报 `page-context.ts`）、`components`（动态组件）。
+> - **三层动态生成**：M3 render_component（对话内组件）→ M4 plan/run_workflow（动态工作流，落 `wf_workflow_specs`，即"保存为团队 SOP"）→ M5 generate_page（`app/p/[slug]`，落 `wf_page_specs`）。
+> - **子代理**：`src/kernel/plugins/pi-subagent`（LongCat + 4 桥接工具，关闭内置危险工具）。
+> - **数据库**：已从 SQLite 迁移到 **Supabase（Postgres）**，客户端 anon key、`persistSession:false`、当前自用不鉴权；多租户归属列由 `supabase/migrations/00013_saas_groundwork.sql` 预留（终局 SaaS 再收紧 RLS）。
+> - **`lib/rak/*` 为 0-import 死代码**，不参与运行时，仅作历史参考，勿据此新增代码，计划后续归档。
+> - 产品方向与 P0 落地清单见 `PRODUCT-PLAN.md`（楔子=TikTok Shop+阿里国际站铺货；终局 SaaS、当前自用；L0/L1/L2 人在环中）。
+
+## 1. 系统概览（上一代 RAK 视图，仅历史参考）
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐

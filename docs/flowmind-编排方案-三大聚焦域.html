@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FlowMind 三大聚焦域 · 总体功能编排方案 v0.2</title>
+<style>
+  :root{
+    --text:#1A1B1C; --sec:#5B6470; --bg:#F7F7F5; --card:#FFFFFF;
+    --border:#E6E5E0; --accent:#1F6FEB; --accent-soft:#EAF1FD;
+    --green:#07C160; --green-soft:#E6F7EE;
+    --red:#FF2442; --red-soft:#FFEDEF;
+    --cyan:#00B8D4; --cyan-soft:#E4F6FA;
+    --amber:#B8860B; --amber-soft:#FBF3E0;
+    --slate:#46505C; --slate-soft:#EDF1F5;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,"PingFang SC","Microsoft YaHei","Segoe UI",sans-serif;background:var(--bg);color:var(--text);line-height:1.7;padding:32px 16px;}
+  .wrap{max-width:900px;margin:0 auto;}
+  header{border-bottom:3px solid var(--accent);padding-bottom:18px;margin-bottom:24px;}
+  .kicker{font-size:13px;letter-spacing:.12em;color:var(--accent);font-weight:600;}
+  h1{font-size:25px;font-weight:700;margin:6px 0 8px;line-height:1.4;}
+  .sub{font-size:14px;color:var(--sec);}
+  h2{font-size:18px;font-weight:700;margin:32px 0 12px;padding-left:12px;border-left:4px solid var(--accent);}
+  h3{font-size:15px;font-weight:700;margin:20px 0 8px;}
+  p{font-size:14px;margin:8px 0;}
+  .claim{background:var(--accent-soft);border:1px solid #C9DCFB;border-radius:10px;padding:14px 16px;font-size:14px;margin:12px 0;}
+  .claim b{color:var(--accent);}
+  ul,ol{margin:8px 0 8px 22px;font-size:14px;}
+  li{margin:5px 0;}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin:12px 0;background:var(--card);border-radius:8px;overflow:hidden;}
+  th{background:var(--slate-soft);color:var(--slate);text-align:left;padding:9px 12px;font-weight:600;}
+  td{padding:9px 12px;border-top:1px solid var(--border);vertical-align:top;}
+  .chip{display:inline-block;font-size:12px;font-weight:600;padding:1px 9px;border-radius:99px;margin:2px 4px 2px 0;}
+  .chip.g{background:var(--green-soft);color:#0B7A43;}
+  .chip.r{background:var(--red-soft);color:#C0112C;}
+  .chip.c{background:var(--cyan-soft);color:#0A7C92;}
+  .chip.a{background:var(--amber-soft);color:#8A6A08;}
+  .tag{font-size:12px;font-weight:600;padding:1px 8px;border-radius:6px;}
+  .tag.have{background:var(--green-soft);color:#0B7A43;}
+  .tag.new{background:var(--red-soft);color:#C0112C;}
+  .tag.later{background:var(--slate-soft);color:var(--slate);}
+  .decision{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin:10px 0;}
+  .decision .d-title{font-weight:700;font-size:14px;}
+  .decision .d-body{font-size:13px;color:var(--slate);margin-top:4px;}
+  .code{background:#0F172A;color:#E2E8F0;border-radius:8px;padding:12px 14px;font-family:"SF Mono",Consolas,monospace;font-size:12px;overflow-x:auto;margin:10px 0;line-height:1.6;}
+  .code .k{color:#7DD3FC;} .code .c{color:#94A3B8;}
+  .non-goal{background:var(--amber-soft);border-radius:10px;padding:12px 14px;font-size:13.5px;margin:8px 0;}
+  .card{border:1px solid var(--border);border-radius:10px;padding:12px 14px;background:var(--card);margin:10px 0;}
+  .card .c-title{font-weight:700;font-size:14px;}
+  .mini{font-size:12px;color:var(--sec);}
+  .layer{border:1px solid var(--border);border-radius:8px;padding:9px 12px;background:var(--card);margin:8px 0;font-size:13.5px;}
+  .layers{margin:14px 0;}
+  .foot{margin-top:40px;padding-top:14px;border-top:1px solid var(--border);font-size:12px;color:var(--sec);}
+  @media(max-width:560px){ h1{font-size:21px;} body{padding:20px 12px;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="kicker">FLOWMIND · 功能编排设计 · v0.2（已拍板）</div>
+  <h1>三大聚焦域总体功能编排方案</h1>
+  <div class="sub">微信公众号运营 · 小红书运营 · 跨境电商便捷（对标 Accio Work）｜2026-09-03 四项决策已锁定</div>
+</header>
+
+<h2>0. 一页主张</h2>
+<div class="claim"><b>域（Domain）定入口与边界 → 剧本（Playbook）定端到端闭环 → 动作（Action）定原子能力与权限。</b><br>
+侧边栏从"功能目录"升级为<b>情境式侧边栏（Agent 方向盘）</b>——不再是"你有哪些功能"，而是"系统当前认为你最该干什么"。<b>跨境商业域独立成域，通过 import 引用机制复用其他域/工作空间的能力</b>，框架零改动。</div>
+
+<h2>1. 已拍板的四项决策</h2>
+<table>
+  <tr><th>#</th><th>决策</th><th>含义</th></tr>
+  <tr><td>D-A</td><td>内容域本期只做公众号 + 小红书</td><td>抖音 Profile 后置为二期；内容矩阵同步覆盖 2 渠道</td></tr>
+  <tr><td>D-B</td><td>跨境商业独立成域，再引用其他能力</td><td>新增 domain manifest + import 引用机制；不复用旧的"大杂烩"结构</td></tr>
+  <tr><td>D-C</td><td>侧边栏改版接受，设计必须真正高级</td><td>不做"域入口 + 列表"的换皮，做情境式侧边栏（见 §4）</td></tr>
+  <tr><td>D-D</td><td>跨境便捷优先级：询盘/RFQ、合规便捷 &gt; 数据复盘</td><td>两个剧本进入 P1 首轮；数据复盘后置</td></tr>
+</table>
+
+<h2>2. 现状盘点（事实-代码）</h2>
+<h3>2.1 已有资产</h3>
+<ul>
+  <li><b>基座</b>：cordis 微内核（前后端同构、DI/事件/生命周期）<span class="mini">src/kernel · lib/kernel</span></li>
+  <li><b>前端插件三件套</b>：ui-actions（动作注册表，L0/L1/L2）、page-context（页面即上下文）、component-kit（生成式 UI）</li>
+  <li><b>三层动态生成</b>：M3 对话内组件 / M4 动态工作流（保存团队 SOP）/ M5 动态页面</li>
+  <li><b>编排骨架</b>：workspace 注册表（7 空间派生侧边栏）+ journey 注册表（listing-launch、content-publish）</li>
+  <li><b>渠道元数据</b>：PLATFORMS 已含 xhs / wechat / douyin</li>
+  <li><b>公众号</b>：端到端发布已实现（content-studio/wechat + wechat.service）</li>
+  <li><b>跨境</b>：TikTok·国际站铺货 4 步旅程 + b2b 域（关键词趋势/Listing/生图/渠道/情报）</li>
+  <li><b>权限与入口</b>：L0/L1/L2 三级动作权限 + L2 确认卡；全局 Agent（智体球 + 抽屉 + ⌘K）</li>
+  <li><b>在场层种子</b>：agent-presence store（活动遥测）</li>
+</ul>
+<h3>2.2 缺口</h3>
+<ul>
+  <li>无「域」抽象（workspace 只有页面货架，journey 只有跨页旅程）</li>
+  <li>小红书只有元数据，无创作/配图/审计/发布闭环</li>
+  <li>跨境便捷缺口：询盘/RFQ、合规便捷（HS code/关税/清关）</li>
+  <li>侧边栏仍是"功能目录"形态，与 Agent 状态无关</li>
+</ul>
+
+<h2>3. 编排模型：域 / 剧本 / 动作 / 渠道</h2>
+<div class="layers">
+  <div class="layer"><b>入口层</b>：情境式侧边栏 · 全局 Agent（智体球/抽屉/⌘K）· 命令面板</div>
+  <div class="layer"><b>域层 Domain（薄壳）</b>：内容运营域 · 跨境商业域 · 运行监控域</div>
+  <div class="layer"><b>剧本层 Playbook</b>：端到端闭环步骤链 = journey + M4 团队 SOP</div>
+  <div class="layer"><b>动作层 Action</b>：工具/MCP/技能 + 渠道 Profile + L0/L1/L2 权限</div>
+  <div class="layer"><b>基座层</b>：cordis · page-context · ui-actions · component-kit · agent-runtime · discovery · M3/M4/M5</div>
+</div>
+
+<h2>4. 情境式侧边栏（核心 · 真正高级的前台设计）</h2>
+
+<h3>4.1 哲学转换</h3>
+<div class="claim">旧：侧边栏 = <b>功能目录</b>（人找功能，越滚越长 → ERP 感）。<br>新：侧边栏 = <b>Agent 方向盘</b>（系统当前认为你最该干什么 + 现在进行到哪一步，人在环中确认）。它从"静态导航"变成"在场层（Ambient）的载体"。</div>
+
+<h3>4.2 三层结构（自上而下）</h3>
+<table>
+  <tr><th>分区</th><th>内容</th><th>驱动源</th></tr>
+  <tr><td><b>A 情境区</b>（顶部·动态）</td><td>Agent 状态胶囊（空闲/工作中/等待确认/出错）· 当前旅程进度条与步骤 · 下一步建议（可点执行）· L2 风险确认徽标</td><td>agent-runtime 决策 + journey 进度 + ui-actions 权限态</td></tr>
+  <tr><td><b>B 域区</b>（中部）</td><td>3 个域入口 + 域内高频剧本（非全部功能页）· 动态角标（待采纳数/渠道状态/风险数）· 点击进入「域工作台」</td><td>domain manifest + channel 状态 + 待办/草稿计数</td></tr>
+  <tr><td><b>C 系统区</b>（底部·最小化）</td><td>⌘K 命令面板 · 设置 · Agent 管理 · 记忆/自进化</td><td>workspace registry（收容非高频入口）</td></tr>
+</table>
+
+<h3>4.3 动态状态机（侧边栏"活"起来）</h3>
+<table>
+  <tr><th>系统状态</th><th>侧边栏表现</th></tr>
+  <tr><td>Agent 空闲</td><td>情境区显示"建议下一步"（来自 Agent 决策输出），点击即触发</td></tr>
+  <tr><td>旅程进行中</td><td>情境区切换为步骤时间线（可跳转，失败步标红，L2 步带确认标记）</td></tr>
+  <tr><td>L2 挂起</td><td>顶部红色确认徽标 + 影响面摘要，点击展开确认卡</td></tr>
+  <tr><td>有草稿待采纳</td><td>显示"待采纳 N 项"，点击展开草稿列表（L1）</td></tr>
+  <tr><td>渠道异常</td><td>域入口角标告警（如公众号 token 过期、小红书登录失效）</td></tr>
+</table>
+
+<h3>4.4 交互高级感</h3>
+<ul>
+  <li><b>域入口 → 域工作台</b>：不是跳静态列表页，而是打开该域的 M5 动态页（剧本墙 + 渠道连接状态 + Agent 建议卡），随域配置生长</li>
+  <li><b>快捷键</b>：⌘K 全局命令面板（已有）；⌘1/⌘2/⌘3 切域；⌘G 回到当前旅程</li>
+  <li><b>折叠 = 胶囊条</b>：Agent 状态点 + 当前域图标 + 待办数——状态面板永不消失，折叠不是图标菜单</li>
+  <li><b>情境区信息密度闸</b>：同一时刻最多展示 1 条建议 + 1 条提醒，超出收进下拉，避免噪音（防"高级"变"吵"）</li>
+</ul>
+
+<h3>4.5 代码支撑</h3>
+<ul>
+  <li><b>复用</b>：useSidebar store、agent-presence store、journey registry、workspace registry、ui-actions</li>
+  <li><b>新增</b>：`contextual-sidebar` 组件（情境区）+ `agent-context` store（情境状态聚合）+ domain manifest 扩展字段（playbooks/channels/imports）</li>
+</ul>
+
+<h2>5. 域引用机制（跨境独立成域再引用）</h2>
+<h3>5.1 domain manifest 扩展</h3>
+<div class="code"><span class="c">// lib/domains/types.ts — 新增域抽象</span><br>
+<span class="k">interface</span> DomainManifest {<br>
+&nbsp;&nbsp;id: string; label: string; icon: Icon;<br>
+&nbsp;&nbsp;playbooks: PlaybookRef[];      <span class="c">// 域内剧本（对应 journey/M4）</span><br>
+&nbsp;&nbsp;channels?: ChannelRef[];       <span class="c">// 渠道 Profile（xhs/wechat/...）</span><br>
+&nbsp;&nbsp;imports?: DomainImport[];      <span class="c">// 复用其他域/工作空间的能力</span><br>
+&nbsp;&nbsp;dataSources?: DataSourceRef[];  <span class="c">// 数据源声明</span><br>
+}</div>
+<ul>
+  <li>注册表做<b>拓扑校验</b>：引用循环检测、缺失引用检测、孤儿能力检测（与 M4 工具白名单校验同构）</li>
+  <li>侧边栏 / 编排中心 / 命令面板据此渲染「域聚合视图」：一个域 = 自身剧本 + 被引用能力的聚合入口</li>
+</ul>
+<h3>5.2 跨境商业域 manifest（示意）</h3>
+<div class="code"><span class="k">export</span> <span class="k">const</span> crossBorderDomain: DomainManifest = {<br>
+&nbsp;&nbsp;id: <span class="c">'cross-border-commerce'</span>,<br>
+&nbsp;&nbsp;imports: [<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{ from: <span class="c">'insight'</span>,    reuses: [<span class="c">'keyword-trends'</span>, <span class="c">'intel'</span>] },  <span class="c">// 市场调研</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;{ from: <span class="c">'listing'</span>,   reuses: [<span class="c">'listing-generate'</span>, <span class="c">'imaging'</span>] }, <span class="c">// Listing/配图</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;{ from: <span class="c">'channels'</span>, reuses: [<span class="c">'channel-accounts'</span>] },        <span class="c">// 渠道上架</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;{ from: <span class="c">'content-ops'</span>, reuses: [<span class="c">'content-matrix'</span>] },        <span class="c">// 可选：营销内容</span><br>
+&nbsp;&nbsp;],<br>
+&nbsp;&nbsp;playbooks: [<span class="c">'market-intel'</span>, <span class="c">'listing-launch'</span>, <span class="c">'rfq-quote'</span>, <span class="c">'compliance-kit'</span>, <span class="c">'data-review'</span>],<br>
+}</div>
+
+<h2>6. 内容运营域落地（公众号 + 小红书，抖音后置）</h2>
+<ul>
+  <li><b>渠道 Profile ×2</b>：公众号（长文 · 16:9 头图 · 排版 · 群发 L2）、小红书（图文笔记 · 3:4 · 话题标签 · 发布 L2）</li>
+  <li><b>剧本</b>：
+    <ul>
+      <li>内容流水线（复用 content-publish，扩展小红书渠道）</li>
+      <li>内容矩阵同步（新增）：一次创作 → 双平台改稿 → 分渠道审计 → 分渠道发布（各自 L2 确认）</li>
+    </ul>
+  </li>
+  <li><b>域工作台</b>：剧本墙 + 渠道连接状态（公众号/小红书） + Agent 选题建议</li>
+</ul>
+
+<h2>7. 跨境商业域落地（独立成域 · 询盘/RFQ 与合规便捷优先）</h2>
+
+<h3>7.1 询盘 / RFQ 剧本（P1 首轮）</h3>
+<div class="card">
+  <div class="c-title">需求卡 · 询盘报价闭环</div>
+  <ul>
+    <li><b>触发</b>：用户在「询盘工作台」导入询盘（粘贴文本 / 上传文件；邮箱/IM 自动接入为 P2）</li>
+    <li><b>系统行为</b>：解析询盘（品名/规格/数量/目标市场）→ 匹配已有产品或供应商 → 生成报价草稿（价格策略/MOQ/交期）→ 合规预检（HS code/关税）→ 汇总为报价卡</li>
+    <li><b>用户可见</b>：可编辑报价卡（价格可改）· 合规预检结果 · L2 发送前确认（影响面展示）</li>
+    <li><b>异常恢复</b>：解析失败→人工补充结构化字段；价格策略缺失→用默认模板并标注"待校准"；合规数据缺失→明示降级</li>
+    <li><b>验收</b>：*成功* 给定询盘，产出可编辑报价卡 + 预检结果，L2 未批准绝不对外发送；*边界* 重复发送幂等</li>
+    <li><b>依赖</b>：产品/供应商库、报价策略源（默认模板 → 历史成交，待定）、合规便捷剧本</li>
+  </ul>
+</div>
+
+<h3>7.2 合规便捷剧本（P1 首轮）</h3>
+<div class="card">
+  <div class="c-title">需求卡 · 合规便捷卡</div>
+  <ul>
+    <li><b>触发</b>：在 Listing/询盘流程中或独立入口输入商品（关键词或图片）</li>
+    <li><b>系统行为</b>：HS code 识别 → 目标国关税税率 → 清关文件清单 → 目的国法规提示 → 生成合规卡</li>
+    <li><b>用户可见</b>：合规卡（HS code / 税率 / 所需文件清单），可导出；数据缺失明确标注，不给看似精确的假数</li>
+    <li><b>异常恢复</b>：数据源不可用→知识库/手工兜底并标注降级（对齐需求卡 D 诚实标注）</li>
+    <li><b>验收</b>：*成功* 输入商品产出可导出合规卡；*边界* 无可靠数据时显示"暂无数据"而非编造</li>
+    <li><b>依赖</b>：合规数据源（P1 内置知识库/手工录入，MCP 数据源后置待定）</li>
+  </ul>
+</div>
+
+<h3>7.3 数据复盘剧本（P1 后置）</h3>
+<p>毛利/广告/销量一键分析报表——排在询盘/RFQ、合规便捷之后，作为域内第三剧本。</p>
+
+<h2>8. 与现有代码映射</h2>
+<table>
+  <tr><th>现有代码</th><th>编排模型角色</th><th>动作</th></tr>
+  <tr><td>lib/workspaces/*</td><td>域层雏形</td><td>升级为 domain manifest（playbooks/channels/imports）</td></tr>
+  <tr><td>lib/journeys/* + M4</td><td>剧本层</td><td>新增 rfq-quote / compliance-kit / content-matrix</td></tr>
+  <tr><td>lib/kernel/plugins/*</td><td>动作层 + 基座</td><td>沿用；渠道 Profile 挂接 ui-actions L0/L1/L2</td></tr>
+  <tr><td>lib/content/platforms.ts</td><td>渠道 Profile 起点</td><td>升级为 channel profile manifest</td></tr>
+  <tr><td>components/layout/sidebar.tsx + useSidebar + agent-presence</td><td>入口层</td><td>重构为情境式侧边栏（A/B/C 三区 + 状态机）</td></tr>
+  <tr><td>app/content-studio/wechat</td><td>内容域 · 公众号渠道</td><td>已实现，作为渠道 Profile 化参照</td></tr>
+  <tr><td>app/b2b/*</td><td>跨境商业域素材</td><td>被 imports 引用，不再作为顶层导航</td></tr>
+  <tr><td>app/p/[slug] + M3</td><td>产物层 + 域工作台</td><td>承载域工作台 / 报价卡 / 合规卡 / 公众号周报</td></tr>
+</table>
+
+<h2>9. Non-goals（本期明确不做）</h2>
+<div class="non-goal">抖音渠道 Profile（内容域二期）｜独立站搭建（Shopify 类）｜复杂财税自动申报（只做便捷查询）｜广告资金自动投放｜询盘邮箱/IM 自动接入（P2）｜第三方开发者插件市场｜多租户计费（数据层归属列已预留）</div>
+
+<h2>10. 落地顺序（最小路径）</h2>
+<ol>
+  <li><b>域抽象 + 情境式侧边栏骨架</b>：domain manifest + 情境区先行（Agent 状态胶囊 + 旅程进度 + 下一步建议）</li>
+  <li><b>内容运营域</b>：小红书 Profile（3:4 配图/笔记语气/xhs 发布 L2）+ 内容矩阵同步剧本；公众号沿用现有</li>
+  <li><b>跨境商业域独立</b>：询盘/RFQ 剧本（首轮）→ 合规便捷剧本 → data-review 后置</li>
+  <li><b>编排留存</b>：剧本保存为团队 SOP（M4 已有）；M5 动态页承载报价卡/合规卡/域工作台</li>
+</ol>
+
+<h2>11. 开放问题（收敛为 3 个）</h2>
+<ul>
+  <li>情境区信息密度上限：1 建议 + 1 提醒是否够？（先按此实现，走查后校准）</li>
+  <li>询盘/RFQ 的报价策略来源：默认模板 vs 调历史成交？（P1 先用模板 + 标注）</li>
+  <li>合规数据源：内置知识库 vs 接 MCP？（P1 先知识库 + 诚实降级）</li>
+</ul>
+
+<div class="foot">FlowMind 编排方案 v0.2 · 2026-09-03 · 四项决策已锁定（内容域=公众号+小红书 / 跨境独立成域再引用 / 情境式侧边栏 / 询盘与合规优先）。"已有"为代码可核验；"新增/推断"为方案建议，进入研发前转化为研发级 PRD 需求卡。</div>
+
+</div>
+</body>
+</html>

@@ -154,7 +154,7 @@ export function SkillPicker({
                       <div className="flex items-center gap-2">
                         <span className="truncate font-medium">{skill.name}</span>
                         {confidence !== undefined && (
-                          <Badge variant="secondary" className="shrink-0 px-1.5 py-0 text-[10px]">
+                          <Badge variant="secondary" className="shrink-0 px-1.5 py-0 text-tiny">
                             {Math.round(confidence * 100)}%
                           </Badge>
                         )}

@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/page-header";
 import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -61,15 +62,15 @@ export interface AiImagingClientProps {
 }
 
 function scoreColor(score: number) {
-  if (score >= 80) return "text-emerald-400";
-  if (score >= 60) return "text-amber-400";
-  return "text-red-400";
+  if (score >= 80) return "text-success";
+  if (score >= 60) return "text-warning";
+  return "text-destructive";
 }
 
 function scoreBarColor(score: number) {
-  if (score >= 80) return "bg-emerald-500";
-  if (score >= 60) return "bg-amber-500";
-  return "bg-red-500";
+  if (score >= 80) return "bg-success";
+  if (score >= 60) return "bg-warning";
+  return "bg-destructive";
 }
 
 export function AiImagingClient({ mainImages, sceneImages, storyboardFrames }: AiImagingClientProps) {
@@ -111,15 +112,11 @@ export function AiImagingClient({ mainImages, sceneImages, storyboardFrames }: A
 
   return (
     <PageTransition className="space-y-4">
-      <div className="flex items-center gap-3 mb-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-wf-imaging/10">
-          <ImageIcon className="h-4 w-4 text-wf-imaging" />
-        </div>
-        <div>
-          <h1 className="text-lg font-semibold">AI 作图</h1>
-          <p className="text-xs text-muted-foreground">解决AI作图效率低问题 — 一次生成，评分筛选，批量输出</p>
-        </div>
-      </div>
+      <PageHeader
+        title="AI 作图"
+        description="解决AI作图效率低问题 — 一次生成，评分筛选，批量输出"
+        icon={<ImageIcon className="h-6 w-6 text-wf-imaging" />}
+      />
 
       <Card>
         <CardContent className="p-4">
@@ -141,7 +138,7 @@ export function AiImagingClient({ mainImages, sceneImages, storyboardFrames }: A
               {generating ? "生成中..." : "开始生成"}
             </Button>
             {genMessage && (
-              <span className={`text-xs ${genMessage.includes("失败") ? "text-red-400" : "text-emerald-400"}`}>
+              <span className={`text-xs ${genMessage.includes("失败") ? "text-destructive" : "text-success"}`}>
                 {genMessage}
               </span>
             )}
@@ -163,7 +160,7 @@ export function AiImagingClient({ mainImages, sceneImages, storyboardFrames }: A
 
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <span>总计 <span className="font-medium text-foreground">{currentImages.length}</span> 张</span>
-          <span>最佳 <span className="font-medium text-emerald-400">{bestCount}</span> 张</span>
+          <span>最佳 <span className="font-medium text-success">{bestCount}</span> 张</span>
           <span>均分 <span className={cn("font-medium", scoreColor(avgScore))}>{avgScore}</span></span>
         </div>
       </div>
@@ -172,18 +169,18 @@ export function AiImagingClient({ mainImages, sceneImages, storyboardFrames }: A
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {currentImages.map((img) => (
-              <Card key={img.id} className={cn("workflow-card overflow-hidden", img.isBest && "ring-1 ring-emerald-500/30")}>
+              <Card key={img.id} className={cn("workflow-card overflow-hidden", img.isBest && "ring-1 ring-success/30")}>
                 <div className="relative aspect-square bg-muted/50 flex items-center justify-center overflow-hidden">
                   {img.url ? (
                     <Image src={img.url} alt={img.prompt} fill className="object-cover" sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" />
                   ) : (
                     <div className="text-center">
                       <ImageIcon className="h-12 w-12 text-muted-foreground/20 mx-auto mb-2" />
-                      <p className="text-[10px] text-muted-foreground/40 font-mono">seed: {img.seed}</p>
+                      <p className="text-tiny text-muted-foreground/40 font-mono">seed: {img.seed}</p>
                     </div>
                   )}
                   {img.isBest && (
-                    <div className="absolute top-2 right-2 flex items-center gap-1 rounded-md bg-emerald-500/90 px-2 py-0.5 text-[10px] text-white font-medium">
+                    <div className="absolute top-2 right-2 flex items-center gap-1 rounded-md bg-success/90 px-2 py-0.5 text-tiny text-white font-medium">
                       <Star className="h-3 w-3" /> 最佳
                     </div>
                   )}
@@ -193,7 +190,7 @@ export function AiImagingClient({ mainImages, sceneImages, storyboardFrames }: A
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-[10px] text-muted-foreground">CLIP</span>
+                        <span className="text-tiny text-muted-foreground">CLIP</span>
                         <span className={cn("text-xs font-bold metric-value", scoreColor(img.clipScore))}>{img.clipScore}</span>
                       </div>
                       <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
@@ -202,7 +199,7 @@ export function AiImagingClient({ mainImages, sceneImages, storyboardFrames }: A
                     </div>
                     <div>
                       <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-[10px] text-muted-foreground">CTR</span>
+                        <span className="text-tiny text-muted-foreground">CTR</span>
                         <span className={cn("text-xs font-bold metric-value", scoreColor(img.ctrScore))}>{img.ctrScore}</span>
                       </div>
                       <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
@@ -213,7 +210,7 @@ export function AiImagingClient({ mainImages, sceneImages, storyboardFrames }: A
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1">
-                      <span className="text-[10px] text-muted-foreground">综合</span>
+                      <span className="text-tiny text-muted-foreground">综合</span>
                       <span className={cn("text-sm font-bold", scoreColor(img.overall))}>{img.overall}</span>
                     </div>
                     <div className="flex gap-1">
@@ -235,7 +232,7 @@ export function AiImagingClient({ mainImages, sceneImages, storyboardFrames }: A
                   </div>
 
                   {expandedImg === img.id && (
-                    <div className="rounded-md bg-muted/50 p-2 text-[10px] space-y-1 font-mono">
+                    <div className="rounded-md bg-muted/50 p-2 text-tiny space-y-1 font-mono">
                       <p><span className="text-muted-foreground">prompt:</span> {img.prompt}</p>
                       <p><span className="text-muted-foreground">model:</span> {img.model}</p>
                       <p><span className="text-muted-foreground">seed:</span> {img.seed}</p>
@@ -272,8 +269,8 @@ export function AiImagingClient({ mainImages, sceneImages, storyboardFrames }: A
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm">视频分镜板</CardTitle>
               <div className="flex gap-2">
-                <Badge variant="outline" className="text-[10px]">总时长: {storyboardFrames.reduce((a, b) => a + parseInt(b.duration), 0)}s</Badge>
-                <Badge variant="outline" className="text-[10px]">{storyboardFrames.length} 个镜头</Badge>
+                <Badge variant="outline" className="text-tiny">总时长: {storyboardFrames.reduce((a, b) => a + parseInt(b.duration), 0)}s</Badge>
+                <Badge variant="outline" className="text-tiny">{storyboardFrames.length} 个镜头</Badge>
               </div>
             </div>
           </CardHeader>
@@ -288,14 +285,14 @@ export function AiImagingClient({ mainImages, sceneImages, storyboardFrames }: A
                     <div className="p-2.5 space-y-1.5">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-medium">镜头 {idx + 1}</span>
-                        <Badge variant="outline" className="text-[10px] h-4">{frame.duration}</Badge>
+                        <Badge variant="outline" className="text-tiny h-4">{frame.duration}</Badge>
                       </div>
-                      <p className="text-[11px] text-muted-foreground">{frame.desc}</p>
-                      <p className="text-[11px] italic text-foreground/80">&quot;{frame.script}&quot;</p>
+                      <p className="text-caption text-muted-foreground">{frame.desc}</p>
+                      <p className="text-caption italic text-foreground/80">&quot;{frame.script}&quot;</p>
                       <div className="flex items-center gap-1.5">
-                        <Badge variant="outline" className="text-[10px] h-4">运镜: {frame.camera}</Badge>
+                        <Badge variant="outline" className="text-tiny h-4">运镜: {frame.camera}</Badge>
                         {frame.source && (
-                          <Badge className={cn("text-[10px] h-4", frame.source === "TikTok爆款" ? "bg-pink-500/10 text-pink-400 border-pink-500/20" : "bg-amber-500/10 text-amber-400 border-amber-500/20")}>
+                          <Badge className={cn("text-tiny h-4", frame.source === "TikTok爆款" ? "bg-price/10 text-price border-price/20" : "bg-warning/10 text-warning border-warning/20")}>
                             {frame.source}
                           </Badge>
                         )}

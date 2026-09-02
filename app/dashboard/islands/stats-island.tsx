@@ -1,11 +1,10 @@
 import { DashboardStatsCards } from "../dashboard-stats";
-import { DashboardService } from "@/lib/services";
+import { getDashboardDataShared } from "@/lib/services/dashboard.service";
 import { getDbAsync } from "@/lib/db";
 
 export async function StatsIsland() {
   await getDbAsync();
-  const dashboardService = new DashboardService();
-  const dashboard = await dashboardService.getDashboardData();
+  const dashboard = await getDashboardDataShared();
   const workflows = dashboard.workflows;
   const runningCount = workflows.filter((w) => w.status === "running").length;
   const warningCount = workflows.filter((w) => w.status === "warning").length;

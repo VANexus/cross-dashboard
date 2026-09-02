@@ -3,6 +3,7 @@
 import { useCallback, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,8 @@ import {
 import { B2BNav } from "../b2b-nav";
 import { DataFreshness } from "@/components/data-freshness";
 import { JourneyBar } from "@/components/journey/journey-bar";
+import { useAgentPage } from "@/lib/agent/page-context";
+import type { UIActionDef } from "@/lib/agent/ui-actions";
 import {
   recommendProducts, generateListing, publishListing, refreshProducts,
   useB2BProducts, useListings, useKeywordTrends,
@@ -121,8 +124,107 @@ function ListingInner({ initialProducts, initialListings }: {
     productId: p.productId, subject: p.subject, score: 0, reasons: [] as string[],
   }));
 
+  // 「UI 即工具」：铺货上架链路注册为 Agent 可调用动作；上传国际站是对外不可逆 L2，必须用户确认
+  const agentActions: UIActionDef[] = [
+    {
+      id: "setListingPreference",
+      description: "切换 Listing 关键词偏好：social 偏 TikTok/Ins 种草、alibaba 偏国际站搜索、mix 综合",
+      riskLevel: "L1",
+      schema: z.object({ preference: z.enum(["social", "alibaba", "mix"]) }),
+      execute: (p) => {
+        setPreference(p.preference as B2BPreference);
+        return `已切换偏好为「${PREF_LABEL[p.preference as B2BPreference]}」`;
+      },
+    },
+    {
+      id: "syncProductPool",
+      description: "从阿里国际站后台同步商品池（TOP product.list，需已授权）",
+      riskLevel: "L1",
+      execute: async () => {
+        await refreshProducts();
+        void refetchProducts();
+        return "已触发商品池同步";
+      },
+    },
+    {
+      id: "recommendToday",
+      description: "按当前偏好 + TikTok 热榜计算今日推荐上架 TOP5",
+      riskLevel: "L1",
+      execute: async () => {
+        const recs = await recommendProducts({
+          preference,
+          trendKeywords: trends?.keywords ?? [],
+          longtailKeywords: [],
+        });
+        setRecommendations(recs);
+        const sample = recs.slice(0, 5).map((r) => r.subject).join("、");
+        return recs.length ? `已给出 ${recs.length} 个推荐：${sample}` : "暂无推荐（商品池为空或未授权国际站）";
+      },
+    },
+    {
+      id: "generateListingDraft",
+      description: "为指定商品生成一条 Listing 草稿（标题/详情/关键词，落在草稿库，不对外发布）",
+      riskLevel: "L1",
+      schema: z.object({
+        productId: z.string().min(1).describe("商品货号 productId"),
+        subject: z.string().optional().describe("商品标题，缺省用商品池原标题"),
+      }),
+      execute: async (p) => {
+        const productId = String(p.productId);
+        const subject = typeof p.subject === "string" && p.subject.trim() ? p.subject
+          : (products.find((x) => x.productId === productId)?.subject ?? productId);
+        await generateListing({ productId, subject, keyword: keyword.trim() || undefined, preference });
+        void refetchListings();
+        return `已为商品 ${productId} 生成 Listing 草稿，可在草稿库查看（仍需 L2 确认才会上传国际站）`;
+      },
+    },
+    {
+      id: "publishListingToAlibaba",
+      description: "把指定 Listing 草稿上传/发布到阿里国际站（对外动作，会创建线上商品）",
+      riskLevel: "L2",
+      confirmText: (p) => {
+        const d = listings.find((x) => x.id === String(p.draftId));
+        return `将把草稿「${d?.title ?? String(p.draftId)}」上传到阿里国际站，创建线上商品，对外可见且无法自动撤销。确认继续？`;
+      },
+      schema: z.object({ draftId: z.string().min(1).describe("Listing 草稿 id") }),
+      execute: async (p) => {
+        const draftId = String(p.draftId);
+        const draft = listings.find((x) => x.id === draftId);
+        if (!draft) throw new Error(`未找到草稿 ${draftId}`);
+        const res = await publishListing(draftId);
+        setPublishResult((prev) => ({ ...prev, [draftId]: { warnings: res.warnings, error: res.error, posted: res.posted } }));
+        void refetchListings();
+        if (res.posted) return `已上传国际站，货号 ${res.strProductId || res.productId}${res.warnings?.length ? `，注意 ${res.warnings.length} 条警告` : ""}`;
+        return `未成功上传：${res.error ?? "接口返回 posted=false（可能未授权国际站）"}`;
+      },
+    },
+  ];
+
+  useAgentPage({
+    title: "一键上架（TikTok·国际站铺货）",
+    snapshot: () => {
+      const lines = [
+        `偏好 ${PREF_LABEL[preference]} · 商品池 ${products.length} 个${authorized ? "（国际站已授权）" : "（国际站未授权）"}`,
+        `推荐 ${draftable.length} 条 · Listing 草稿 ${listings.length} 条`,
+      ];
+      if (productsDegraded) lines.push(`商品数据降级：${productsWarning ?? "缓存/空"}`);
+      const drafts = listings.slice(0, 5).map((d) => `${d.id}:${d.uploadStatus}/${d.title.slice(0, 16)}`).join("；");
+      if (drafts) lines.push(`草稿：${drafts}`);
+      return lines.join(" · ");
+    },
+    state: () => ({
+      preference,
+      authorized,
+      productsCount: products.length,
+      draftsCount: listings.length,
+      draftIds: listings.map((d) => d.id),
+      busy,
+    }),
+    actions: agentActions,
+  });
+
   return (
-    <div className="mx-auto max-w-5xl px-6 py-7">
+    <div>
       <JourneyBar />
       <B2BNav />
 
@@ -176,13 +278,13 @@ function ListingInner({ initialProducts, initialListings }: {
                 商品池 {products.length} 个{products.length === 0 && authorized === false ? " · 未授权国际站" : ""}
               </span>
               {authorized ? (
-                <Badge variant="secondary" className="gap-1 text-[10px] border-emerald-500/30 text-emerald-600">
+                <Badge variant="secondary" className="gap-1 text-tiny border-success/30 text-success">
                   <CheckCircle2 className="h-3 w-3" /> 国际站已授权
                 </Badge>
               ) : (
                 <Link
                   href="/settings/b2b"
-                  className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/5 px-2 py-0.5 text-[11px] font-medium text-amber-700 hover:bg-amber-500/10 transition-colors"
+                  className="inline-flex items-center gap-1 rounded-md border border-warning/40 bg-warning/5 px-2 py-0.5 text-caption font-medium text-warning hover:bg-warning/10 transition-colors"
                 >
                   <AlertTriangle className="h-3 w-3" /> 去授权国际站
                   <ArrowUpRight className="h-3 w-3" />
@@ -203,13 +305,13 @@ function ListingInner({ initialProducts, initialListings }: {
         </CardHeader>
         <CardContent className="p-0">
           {(productsDegraded || productsWarning) && (
-            <div className="mx-4 mt-3 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-700">
+            <div className="mx-4 mt-3 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-warning">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <div className="flex-1 flex flex-wrap items-center gap-2">
                 <span>{productsWarning ?? "商品接口降级返回，数据可能是历史缓存或空。"}</span>
                 <Link
                   href="/settings/b2b"
-                  className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-white/70 px-2 py-0.5 text-[11px] font-medium text-amber-700 hover:bg-white transition-colors"
+                  className="inline-flex items-center gap-1 rounded-md border border-warning/40 bg-background/70 px-2 py-0.5 text-caption font-medium text-warning hover:bg-background transition-colors"
                 >
                   检查配置
                   <ArrowUpRight className="h-3 w-3" />
@@ -256,7 +358,7 @@ function ListingInner({ initialProducts, initialListings }: {
                   {rec.reasons.length > 0 && (
                     <div className="mt-1 flex flex-wrap gap-1.5">
                       {rec.reasons.map((r, j) => (
-                        <span key={j} className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                        <span key={j} className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-caption text-muted-foreground">
                           <Flame className="h-3 w-3 text-primary/70" /> {r}
                         </span>
                       ))}
@@ -327,11 +429,11 @@ function ListingInner({ initialProducts, initialListings }: {
                         上传国际站
                       </Button>
                     )}
-                    {d.uploadStatus === "uploaded" && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
-                    {d.uploadStatus === "failed" && <AlertTriangle className="h-4 w-4 text-amber-500" />}
+                    {d.uploadStatus === "uploaded" && <CheckCircle2 className="h-4 w-4 text-success" />}
+                    {d.uploadStatus === "failed" && <AlertTriangle className="h-4 w-4 text-warning" />}
                   </div>
                   {(d.warnings && d.warnings.length > 0) && (
-                    <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-700">
+                    <div className="mt-3 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-warning">
                       <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                       <ul className="list-disc space-y-0.5 pl-4">
                         {d.warnings.map((w, i) => <li key={i}>{w}</li>)}
@@ -339,7 +441,7 @@ function ListingInner({ initialProducts, initialListings }: {
                     </div>
                   )}
                   {pr?.warnings && pr.warnings.length > 0 && (
-                    <div className="mt-2 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-700">
+                    <div className="mt-2 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-warning">
                       <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                       <ul className="list-disc space-y-0.5 pl-4">
                         {pr.warnings.map((w, i) => <li key={`pw-${i}`}>{w}</li>)}

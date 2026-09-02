@@ -3,7 +3,7 @@ import { ListingIsland } from "./islands/listing-island";
 
 function ListingSkeleton() {
   return (
-    <div className="mx-auto max-w-5xl px-6 py-7 space-y-4 animate-pulse">
+    <div className="space-y-4">
       <div className="h-16 skeleton rounded-lg" />
       <div className="rounded-lg border p-4 space-y-3">
         <div className="flex gap-2">

@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/page-header";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -154,26 +155,22 @@ export function CompetitorAdsClient({ recentAnalyses = [] }: CompetitorAdsClient
 
   return (
     <PageTransition className="space-y-4">
-      <div className="flex items-center gap-3 mb-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-wf-competitor/10">
-          <Eye className="h-4 w-4 text-wf-competitor" />
-        </div>
-        <div>
-          <h1 className="text-lg font-semibold">竞品广告创意库</h1>
-          <p className="text-xs text-muted-foreground">TikTok Creative Center 真实在投广告 — 搜素材 / 看文案 / 拆解 CTR 与打法</p>
-        </div>
-      </div>
+      <PageHeader
+        title="竞品广告创意库"
+        description="TikTok Creative Center 真实在投广告 — 搜素材 / 看文案 / 拆解 CTR 与打法"
+        icon={<Eye className="h-6 w-6 text-wf-competitor" />}
+      />
 
       <Card>
         <CardContent className="pt-4">
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex-1 min-w-[220px]">
-              <label className="text-[11px] text-muted-foreground">关键词（品牌/品类/卖点）</label>
+              <label className="text-caption text-muted-foreground">关键词（品牌/品类/卖点）</label>
               <Input value={keyword} onChange={(e) => setKeyword(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && runSearch(1)} placeholder="如 skincare、leggings、coffee maker" className="mt-1 h-9" />
             </div>
             <div className="w-44">
-              <label className="text-[11px] text-muted-foreground">行业</label>
+              <label className="text-caption text-muted-foreground">行业</label>
               <select value={industry} onChange={(e) => setIndustry(e.target.value)}
                 className="mt-1 h-9 w-full rounded-lg border border-input bg-background/60 px-2 text-sm">
                 <option value="">全部行业</option>
@@ -181,7 +178,7 @@ export function CompetitorAdsClient({ recentAnalyses = [] }: CompetitorAdsClient
               </select>
             </div>
             <div className="w-36">
-              <label className="text-[11px] text-muted-foreground">营销目标</label>
+              <label className="text-caption text-muted-foreground">营销目标</label>
               <select value={objective} onChange={(e) => setObjective(e.target.value)}
                 className="mt-1 h-9 w-full rounded-lg border border-input bg-background/60 px-2 text-sm">
                 <option value="">全部目标</option>
@@ -189,7 +186,7 @@ export function CompetitorAdsClient({ recentAnalyses = [] }: CompetitorAdsClient
               </select>
             </div>
             <div className="w-32">
-              <label className="text-[11px] text-muted-foreground">时间窗</label>
+              <label className="text-caption text-muted-foreground">时间窗</label>
               <select value={period} onChange={(e) => setPeriod(Number(e.target.value))}
                 className="mt-1 h-9 w-full rounded-lg border border-input bg-background/60 px-2 text-sm">
                 <option value={7}>近 7 天</option>
@@ -198,7 +195,7 @@ export function CompetitorAdsClient({ recentAnalyses = [] }: CompetitorAdsClient
               </select>
             </div>
             <div className="w-32">
-              <label className="text-[11px] text-muted-foreground">排序</label>
+              <label className="text-caption text-muted-foreground">排序</label>
               <select value={orderBy} onChange={(e) => setOrderBy(e.target.value as "for_you" | "likes")}
                 className="mt-1 h-9 w-full rounded-lg border border-input bg-background/60 px-2 text-sm">
                 <option value="for_you">推荐</option>
@@ -217,7 +214,7 @@ export function CompetitorAdsClient({ recentAnalyses = [] }: CompetitorAdsClient
       <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
         <div className="space-y-4">
           {warning && (
-            <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-200">
+            <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
               <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
               <span>{warning}</span>
             </div>
@@ -248,11 +245,11 @@ export function CompetitorAdsClient({ recentAnalyses = [] }: CompetitorAdsClient
                           <Play className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="currentColor" />
                         </a>
                       )}
-                      <span className="absolute left-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
+                      <span className="absolute left-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-tiny text-white">
                         {fmtDuration(ad.durationS)}
                       </span>
                       {ad.objective && (
-                        <span className="absolute right-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white capitalize">
+                        <span className="absolute right-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-tiny text-white capitalize">
                           {ad.objective}
                         </span>
                       )}
@@ -260,14 +257,14 @@ export function CompetitorAdsClient({ recentAnalyses = [] }: CompetitorAdsClient
                     <CardContent className="p-3 space-y-2 flex-1">
                       <p className="text-xs leading-snug line-clamp-2 min-h-[2rem]">{ad.title || "（无广告文案）"}</p>
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-medium text-muted-foreground truncate">{ad.brand || "未知品牌"}</span>
+                        <span className="text-caption font-medium text-muted-foreground truncate">{ad.brand || "未知品牌"}</span>
                         {ad.videoUrl && (
                           <a href={ad.videoUrl} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-foreground">
                             <ExternalLink className="h-3.5 w-3.5" />
                           </a>
                         )}
                       </div>
-                      <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                      <div className="flex items-center gap-3 text-caption text-muted-foreground">
                         <span>CTR <b className="text-foreground metric-value">{typeof ad.ctr === "number" ? `${ad.ctr.toFixed(2)}%` : "—"}</b></span>
                         <span>赞 <b className="text-foreground metric-value">{compact(ad.likes)}</b></span>
                         <span className="ml-auto">#{ad.rank}</span>
@@ -350,7 +347,7 @@ export function CompetitorAdsClient({ recentAnalyses = [] }: CompetitorAdsClient
                 <BarChart3 className="h-3.5 w-3.5" /> 导出素材清单
               </Button>
               {analysisResult && (
-                <div className="rounded-md bg-muted/50 p-2 text-[10px] font-mono max-h-48 overflow-auto whitespace-pre-wrap">{analysisResult}</div>
+                <div className="rounded-md bg-muted/50 p-2 text-tiny font-mono max-h-48 overflow-auto whitespace-pre-wrap">{analysisResult}</div>
               )}
             </CardContent>
           </Card>

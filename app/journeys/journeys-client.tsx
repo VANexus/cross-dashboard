@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/page-header";
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import gsap from "gsap";
@@ -20,8 +21,8 @@ function StepStrip({ steps }: { steps: { id: string; label: string }[] }) {
       {steps.map((s, i) => (
         <span key={s.id} className="inline-flex items-center gap-1.5">
           {i > 0 && <span className="h-px w-4 bg-border" aria-hidden />}
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2 px-2.5 py-1 text-[11.5px] text-muted-foreground">
-            <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary/10 font-mono text-[10px] text-primary">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2 px-2.5 py-1 text-caption text-muted-foreground">
+            <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary/10 font-mono text-tiny text-primary">
               {i + 1}
             </span>
             {s.label}
@@ -71,27 +72,19 @@ export function JourneysClient() {
   };
 
   return (
-    <div className="min-h-screen bg-surface-0">
-      <div className="mx-auto max-w-6xl px-8 py-8">
+    <div>
+      <div>
         {/* 页头 */}
-        <header className="dash-pagehead">
-          <div>
-            <p className="dash-crumbs">FlowMind / <b>流程编排中心</b></p>
-            <h1 className="flex items-center gap-2.5">
-              <Route className="h-6 w-6 text-primary" />
-              流程编排中心
-            </h1>
-            <p className="dash-desc">
-              以端到端业务旅程为主线，串联全部工作流空间——发起后按步骤流转，Agent 全程伴随。
-            </p>
-          </div>
-          <div className="dash-actions">
-            <Badge variant="secondary" className="gap-1.5">
-              <Sparkles className="h-3 w-3" />
-              {sortedWorkspaces.length} 个空间已接入
-            </Badge>
-          </div>
-        </header>
+        <PageHeader
+          breadcrumb={<><span>FlowMind</span> / <b>流程编排中心</b></>}
+          title="流程编排中心"
+          description="以端到端业务旅程为主线，串联全部工作流空间——发起后按步骤流转，Agent 全程伴随。"
+          icon={<Route className="h-6 w-6 text-primary" />}
+          actions={<Badge variant="secondary" className="gap-1.5">
+            <Sparkles className="h-3 w-3" />
+            {sortedWorkspaces.length} 个空间已接入
+          </Badge>}
+        />
 
         {/* 可用旅程（bento） */}
         <section className="mt-8">
@@ -176,7 +169,7 @@ export function JourneysClient() {
                     <CardContent className="p-4">
                       <div className="flex items-center gap-2">
                         <Icon className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-[13px] font-medium">{j.label}</span>
+                        <span className="text-body font-medium">{j.label}</span>
                         <Lock className="ml-auto h-3 w-3 text-muted-foreground/50" />
                       </div>
                       <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{j.description}</p>

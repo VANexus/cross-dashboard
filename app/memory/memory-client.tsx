@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/page-header";
 import dynamic from "next/dynamic";
 import { useState, useMemo } from "react";
 import { PageTransition } from "@/components/ui/page-transition";
@@ -33,10 +34,10 @@ const Sparkline = dynamic(
 );
 
 const typeConfig = {
-  script: { label: "脚本", icon: Database, color: "text-blue-500", bg: "bg-blue-500/10" },
-  code: { label: "代码", icon: FileText, color: "text-emerald-500", bg: "bg-emerald-500/10" },
-  prompt: { label: "提示词", icon: Lightbulb, color: "text-amber-500", bg: "bg-amber-500/10" },
-  skill: { label: "技能", icon: BarChart3, color: "text-purple-500", bg: "bg-purple-500/10" },
+  script: { label: "脚本", icon: Database, color: "text-viz-1", bg: "bg-viz-1/10" },
+  code: { label: "代码", icon: FileText, color: "text-viz-4", bg: "bg-viz-4/10" },
+  prompt: { label: "提示词", icon: Lightbulb, color: "text-viz-3", bg: "bg-viz-3/10" },
+  skill: { label: "技能", icon: BarChart3, color: "text-viz-2", bg: "bg-viz-2/10" },
 };
 
 const typeIcons: Record<MemoryEntry["type"], React.ReactNode> = {
@@ -47,9 +48,9 @@ const typeIcons: Record<MemoryEntry["type"], React.ReactNode> = {
 };
 
 const zoneConfig = {
-  preset: { label: "预设区", color: "text-blue-500", bg: "bg-blue-500/10" },
-  dev: { label: "开发区", color: "text-amber-500", bg: "bg-amber-500/10" },
-  prompt: { label: "提示区", color: "text-emerald-500", bg: "bg-emerald-500/10" },
+  preset: { label: "预设区", color: "text-viz-1", bg: "bg-viz-1/10" },
+  dev: { label: "开发区", color: "text-viz-3", bg: "bg-viz-3/10" },
+  prompt: { label: "提示区", color: "text-viz-4", bg: "bg-viz-4/10" },
 };
 
 interface MemoryClientProps {
@@ -84,18 +85,14 @@ export function MemoryClient({ initialData }: MemoryClientProps) {
 
   return (
     <PageTransition className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">记忆系统</h1>
-          <p className="text-muted-foreground text-sm">
-            管理和查看系统积累的知识与经验
-          </p>
-        </div>
-        <Button size="sm">
+      <PageHeader
+        title="记忆系统"
+        description="管理和查看系统积累的知识与经验"
+        actions={<Button size="sm">
           <Zap className="h-4 w-4 mr-1" />
           重建索引
-        </Button>
-      </div>
+        </Button>}
+      />
 
       <div className="grid gap-6 grid-cols-4">
         <Card>
@@ -183,13 +180,13 @@ export function MemoryClient({ initialData }: MemoryClientProps) {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm">{memory.content}</p>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <span className="text-tiny text-muted-foreground flex items-center gap-1">
                           <Clock className="h-2.5 w-2.5" /> {memory.createdAt}
                         </span>
-                        <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <span className="text-tiny text-muted-foreground flex items-center gap-1">
                           <LinkIcon className="h-2.5 w-2.5" /> {memory.title}
                         </span>
-                        <Badge variant="outline" className={cn(zone.color, zone.bg, "border-0 text-[10px] h-4")}>
+                        <Badge variant="outline" className={cn(zone.color, zone.bg, "border-0 text-tiny h-4")}>
                           {zone.label}
                         </Badge>
                       </div>

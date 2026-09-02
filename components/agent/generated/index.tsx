@@ -96,15 +96,15 @@ function StatCard({ title, value, delta, hint }: z.infer<typeof statCardProps>) 
   const Arrow = up ? ArrowUpRight : down ? ArrowDownRight : ArrowRight;
   return (
     <div className="rounded-xl border border-border bg-card px-3.5 py-3">
-      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{title}</div>
+      <div className="text-caption font-medium uppercase tracking-wide text-muted-foreground">{title}</div>
       <div className="mt-1 flex items-baseline gap-2">
         <span className="text-xl font-bold tabular-nums text-foreground">{value}</span>
         {delta && (
           <span
             className={cn(
-              'flex items-center gap-0.5 text-[11px] font-semibold',
-              up && 'text-emerald-600 dark:text-emerald-400',
-              down && 'text-red-600 dark:text-red-400',
+              'flex items-center gap-0.5 text-caption font-semibold',
+              up && 'text-success',
+              down && 'text-destructive',
               !up && !down && 'text-muted-foreground',
             )}
           >
@@ -113,7 +113,7 @@ function StatCard({ title, value, delta, hint }: z.infer<typeof statCardProps>) 
           </span>
         )}
       </div>
-      {hint && <div className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{hint}</div>}
+      {hint && <div className="mt-1 text-caption leading-relaxed text-muted-foreground">{hint}</div>}
     </div>
   );
 }
@@ -121,9 +121,9 @@ function StatCard({ title, value, delta, hint }: z.infer<typeof statCardProps>) 
 function DataTable({ title, columns, rows }: z.infer<typeof dataTableProps>) {
   return (
     <div className="overflow-hidden rounded-xl border border-border">
-      {title && <div className="border-b border-border bg-muted/60 px-3 py-1.5 text-[11px] font-semibold text-foreground">{title}</div>}
+      {title && <div className="border-b border-border bg-muted/60 px-3 py-1.5 text-caption font-semibold text-foreground">{title}</div>}
       <div className="overflow-x-auto">
-        <table className="w-full text-[11.5px]">
+        <table className="w-full text-caption">
           <thead>
             <tr className="border-b border-border text-left text-muted-foreground">
               {columns.map((c) => (
@@ -159,21 +159,21 @@ function GeneratedForm({ title, submitLabel, fields }: z.infer<typeof formProps>
         setSubmitted(true);
       }}
     >
-      {title && <div className="mb-2 text-[11px] font-semibold text-foreground">{title}</div>}
+      {title && <div className="mb-2 text-caption font-semibold text-foreground">{title}</div>}
       <div className="space-y-2">
         {fields.map((f) => (
           <div key={f.name} className="space-y-1">
-            <Label className="text-[11px] text-muted-foreground">{f.label}</Label>
+            <Label className="text-caption text-muted-foreground">{f.label}</Label>
             {f.type === 'textarea' ? (
               <Textarea
-                className="min-h-16 text-[12px]"
+                className="min-h-16 text-xs"
                 placeholder={f.placeholder}
                 value={values[f.name] ?? ''}
                 onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
               />
             ) : f.type === 'select' ? (
               <select
-                className="h-8 w-full rounded-md border border-border bg-background px-2 text-[12px]"
+                className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs"
                 value={values[f.name] ?? ''}
                 onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
               >
@@ -185,7 +185,7 @@ function GeneratedForm({ title, submitLabel, fields }: z.infer<typeof formProps>
             ) : (
               <Input
                 type={f.type === 'number' ? 'number' : 'text'}
-                className="h-8 text-[12px]"
+                className="h-8 text-xs"
                 placeholder={f.placeholder}
                 value={values[f.name] ?? ''}
                 onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
@@ -194,11 +194,11 @@ function GeneratedForm({ title, submitLabel, fields }: z.infer<typeof formProps>
           </div>
         ))}
       </div>
-      <Button type="submit" size="sm" className="mt-2.5 h-7 text-[11px]">
+      <Button type="submit" size="sm" className="mt-2.5 h-7 text-caption">
         {submitted ? '已提交 ✓' : submitLabel ?? '提交'}
       </Button>
       {submitted && (
-        <p className="mt-1.5 font-mono text-[10.5px] text-muted-foreground">
+        <p className="mt-1.5 font-mono text-caption text-muted-foreground">
           {JSON.stringify(values).slice(0, 120)}
         </p>
       )}
@@ -209,7 +209,7 @@ function GeneratedForm({ title, submitLabel, fields }: z.infer<typeof formProps>
 function ActionList({ title, items }: z.infer<typeof actionListProps>) {
   return (
     <div className="rounded-xl border border-border bg-card p-2">
-      {title && <div className="px-1.5 pb-1 pt-0.5 text-[11px] font-semibold text-foreground">{title}</div>}
+      {title && <div className="px-1.5 pb-1 pt-0.5 text-caption font-semibold text-foreground">{title}</div>}
       <ul className="space-y-0.5">
         {items.map((item, i) => (
           <li key={i}>
@@ -222,9 +222,9 @@ function ActionList({ title, items }: z.infer<typeof actionListProps>) {
             >
               <ArrowRight className="mt-0.5 h-3 w-3 shrink-0 text-primary" />
               <span className="min-w-0">
-                <span className="block text-[12px] font-medium text-foreground">{item.label}</span>
+                <span className="block text-xs font-medium text-foreground">{item.label}</span>
                 {item.description && (
-                  <span className="block text-[11px] leading-relaxed text-muted-foreground">{item.description}</span>
+                  <span className="block text-caption leading-relaxed text-muted-foreground">{item.description}</span>
                 )}
               </span>
             </button>
@@ -237,16 +237,16 @@ function ActionList({ title, items }: z.infer<typeof actionListProps>) {
 
 const CALLOUT_TONES = {
   info: 'border-primary/40 bg-primary/5 text-primary',
-  success: 'border-emerald-500/40 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400',
-  warning: 'border-amber-500/40 bg-amber-500/5 text-amber-600 dark:text-amber-400',
-  danger: 'border-red-500/40 bg-red-500/5 text-red-600 dark:text-red-400',
+  success: 'border-success/40 bg-success/5 text-success',
+  warning: 'border-warning/40 bg-warning/5 text-warning',
+  danger: 'border-destructive/40 bg-destructive/5 text-destructive',
 } as const;
 
 function Callout({ tone, title, text }: z.infer<typeof calloutProps>) {
   return (
     <div className={cn('rounded-xl border px-3 py-2.5', CALLOUT_TONES[tone])}>
-      {title && <div className="text-[12px] font-semibold">{title}</div>}
-      <div className="whitespace-pre-wrap text-[12px] leading-relaxed text-foreground/90">{text}</div>
+      {title && <div className="text-xs font-semibold">{title}</div>}
+      <div className="whitespace-pre-wrap text-xs leading-relaxed text-foreground/90">{text}</div>
     </div>
   );
 }
@@ -318,7 +318,7 @@ interface ChartBlockProps {
 function ChartBlock({ kind, title, points, seriesName }: ChartBlockProps) {
   return (
     <div className="rounded-xl border border-border bg-card p-2">
-      {title && <div className="px-1 pb-1 pt-0.5 text-[11px] font-semibold text-foreground">{title}</div>}
+      {title && <div className="px-1 pb-1 pt-0.5 text-caption font-semibold text-foreground">{title}</div>}
       {kind === 'line' ? (
         <LineChartGenerated points={points} seriesName={seriesName} />
       ) : (
@@ -335,7 +335,7 @@ function ChartBlock({ kind, title, points, seriesName }: ChartBlockProps) {
 export function GeneratedComponent({ id, props }: { id: string; props: Record<string, unknown> }) {
   const def = componentDefs.find((d) => d.id === id);
   if (!def) {
-    return <p className="text-[12px] text-destructive">未注册的白名单组件：{id}</p>;
+    return <p className="text-xs text-destructive">未注册的白名单组件：{id}</p>;
   }
   return <div className="mt-1 max-w-[96%]">{def.render(props)}</div>;
 }

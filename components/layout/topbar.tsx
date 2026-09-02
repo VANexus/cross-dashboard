@@ -72,7 +72,7 @@ export function TopBar() {
         >
           <Search className="h-3.5 w-3.5" />
           <span>搜索...</span>
-          <kbd className="ml-auto pointer-events-none inline-flex h-4 select-none items-center rounded border bg-muted px-1 font-mono text-[10px] text-muted-foreground">
+          <kbd className="ml-auto pointer-events-none inline-flex h-4 select-none items-center rounded border bg-muted px-1 font-mono text-tiny text-muted-foreground">
             ⌘K
           </kbd>
         </Button>

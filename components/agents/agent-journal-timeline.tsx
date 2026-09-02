@@ -11,10 +11,10 @@ interface AgentJournalTimelineProps {
 }
 
 const typeConfig: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
-  thought: { icon: <Brain className="h-3 w-3" />, label: "思考", color: "text-blue-500 bg-blue-500/10" },
-  observation: { icon: <Eye className="h-3 w-3" />, label: "观察", color: "text-emerald-500 bg-emerald-500/10" },
-  decision: { icon: <GitBranch className="h-3 w-3" />, label: "决策", color: "text-amber-500 bg-amber-500/10" },
-  reflection: { icon: <Lightbulb className="h-3 w-3" />, label: "反思", color: "text-purple-500 bg-purple-500/10" },
+  thought: { icon: <Brain className="h-3 w-3" />, label: "思考", color: "text-viz-1 bg-viz-1/10" },
+  observation: { icon: <Eye className="h-3 w-3" />, label: "观察", color: "text-viz-4 bg-viz-4/10" },
+  decision: { icon: <GitBranch className="h-3 w-3" />, label: "决策", color: "text-viz-3 bg-viz-3/10" },
+  reflection: { icon: <Lightbulb className="h-3 w-3" />, label: "反思", color: "text-viz-2 bg-viz-2/10" },
 };
 
 function groupByDay(entries: JournalEntry[]): Record<string, JournalEntry[]> {
@@ -35,7 +35,7 @@ export function AgentJournalTimeline({ entries, loading }: AgentJournalTimelineP
         <CardTitle className="text-sm font-medium flex items-center gap-2">
           <BookOpen className="h-4 w-4 text-primary" />
           思考日志
-          <Badge variant="secondary" className="text-[10px] ml-auto">{entries.length}</Badge>
+          <Badge variant="secondary" className="text-tiny ml-auto">{entries.length}</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -47,13 +47,13 @@ export function AgentJournalTimeline({ entries, loading }: AgentJournalTimelineP
           <div className="space-y-4 max-h-96 overflow-y-auto">
             {Object.entries(grouped).map(([day, dayEntries]) => (
               <div key={day}>
-                <p className="text-[10px] font-medium text-muted-foreground mb-2">{day}</p>
+                <p className="text-tiny font-medium text-muted-foreground mb-2">{day}</p>
                 <div className="space-y-2 border-l-2 border-muted pl-3">
                   {dayEntries.map((entry) => {
                     const cfg = typeConfig[entry.type] ?? typeConfig.thought;
                     return (
                       <div key={entry.id} className="flex gap-2">
-                        <Badge variant="outline" className={`text-[10px] border-0 shrink-0 ${cfg.color}`}>
+                        <Badge variant="outline" className={`text-tiny border-0 shrink-0 ${cfg.color}`}>
                           {cfg.icon} {cfg.label}
                         </Badge>
                         <p className="text-xs text-muted-foreground leading-relaxed">{entry.content}</p>

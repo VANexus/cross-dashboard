@@ -14,6 +14,7 @@
  */
 import { ContentMCPClient, ContentMCPError } from "@/lib/content/mcp-client";
 import { PLATFORMS } from "@/lib/content/platforms";
+import { runHotEngine, type HotBoardRaw, type HotEngineResult } from "@/lib/content/hot-engine";
 import { getSupabase } from "@/lib/db";
 import { updateWorkflowStatus, getWorkflowStatuses } from "@/lib/repositories/workflow.repository";
 import {
@@ -129,6 +130,30 @@ export class ContentService {
       throw err;
     } finally {
       this.bump("hot-topic", "idle").catch(console.error);
+    }
+  }
+
+  // ── 热榜引擎（多榜：综合/垂类/话题/灵感）──
+
+  async fetchHotBoards(input: {
+    platform: ContentPlatform; categories?: string[]; boards?: string[]; limit?: number;
+  }): Promise<HotEngineResult> {
+    this.bump("hot-board", "running").catch(console.error);
+    try {
+      const boards = input.boards && input.boards.length > 0
+        ? input.boards
+        : ["general", "vertical", "topic", "inspiration"];
+      const raw = await this.mcp.call<{ boards: HotBoardRaw[] }>("content_hot_boards", {
+        platform: input.platform,
+        boards,
+        limit: input.limit ?? 20,
+      });
+      return runHotEngine(input.platform, raw.boards ?? [], { categories: input.categories });
+    } catch (err) {
+      // 技能不可达时也返回空引擎结果（不抛假数据），由前端显示降级态
+      return runHotEngine(input.platform, [], { categories: input.categories });
+    } finally {
+      this.bump("hot-board", "idle").catch(console.error);
     }
   }
 

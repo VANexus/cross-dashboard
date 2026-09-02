@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/page-header";
 import { PageTransition } from "@/components/ui/page-transition";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,23 +63,11 @@ export function AgentDetailClient({ agent, tasks, journal }: AgentDetailClientPr
   return (
     <PageTransition className="space-y-6">
       {/* Top bar */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/agents">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              返回
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              {agent.name}
-              <StatusDot status={config.dot} pulse={agent.status === "online"} />
-            </h1>
-            <p className="text-muted-foreground text-sm">{agent.type}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
+      <PageHeader
+        breadcrumb={<Link href="/agents" className="inline-flex items-center gap-1 hover:text-foreground"><ArrowLeft className="h-3 w-3" /> Agent 管理</Link>}
+        title={<span className="flex items-center gap-2">{agent.name}<StatusDot status={config.dot} pulse={agent.status === "online"} /></span>}
+        description={agent.type}
+        actions={<div className="flex items-center gap-3">
           <AgentHeartbeatViz
             mood={displayMood.state}
             energy={displayMood.energy}
@@ -87,8 +76,8 @@ export function AgentDetailClient({ agent, tasks, journal }: AgentDetailClientPr
           <Badge variant={config.variant}>
             {config.label}
           </Badge>
-        </div>
-      </div>
+        </div>}
+      />
 
       {/* Row 1: Persona + Mood + Goals */}
       <div className="grid gap-4 grid-cols-3">
@@ -164,12 +153,12 @@ export function AgentDetailClient({ agent, tasks, journal }: AgentDetailClientPr
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+              <CheckCircle2 className="h-4 w-4 text-success" />
               完成率
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-500">
+            <div className="text-2xl font-bold text-success">
               {tasks.length > 0
                 ? Math.round((tasks.filter((t) => t.status === "completed").length / tasks.length) * 100)
                 : 0}%
@@ -225,9 +214,9 @@ export function AgentDetailClient({ agent, tasks, journal }: AgentDetailClientPr
                   <Badge
                     variant="outline"
                     className={
-                      task.status === "completed" ? "text-emerald-500 bg-emerald-500/10 border-0" :
-                      task.status === "running" ? "text-blue-500 bg-blue-500/10 border-0" :
-                      task.status === "failed" ? "text-red-500 bg-red-500/10 border-0" :
+                      task.status === "completed" ? "text-success bg-success/10 border-0" :
+                      task.status === "running" ? "text-info bg-info/10 border-0" :
+                      task.status === "failed" ? "text-destructive bg-destructive/10 border-0" :
                       "text-muted-foreground bg-muted border-0"
                     }
                   >

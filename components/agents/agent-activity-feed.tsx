@@ -12,12 +12,12 @@ interface AgentActivityFeedProps {
 }
 
 const eventConfig: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
-  thought: { icon: <Brain className="h-3 w-3" />, label: "思考", color: "text-blue-400" },
-  observation: { icon: <Eye className="h-3 w-3" />, label: "观察", color: "text-emerald-400" },
-  decision: { icon: <GitBranch className="h-3 w-3" />, label: "决策", color: "text-amber-400" },
-  reflection: { icon: <Lightbulb className="h-3 w-3" />, label: "反思", color: "text-purple-400" },
-  mood_change: { icon: <Zap className="h-3 w-3" />, label: "情绪", color: "text-pink-400" },
-  memory_created: { icon: <Brain className="h-3 w-3" />, label: "记忆", color: "text-cyan-400" },
+  thought: { icon: <Brain className="h-3 w-3" />, label: "思考", color: "text-viz-1" },
+  observation: { icon: <Eye className="h-3 w-3" />, label: "观察", color: "text-viz-4" },
+  decision: { icon: <GitBranch className="h-3 w-3" />, label: "决策", color: "text-viz-3" },
+  reflection: { icon: <Lightbulb className="h-3 w-3" />, label: "反思", color: "text-viz-2" },
+  mood_change: { icon: <Zap className="h-3 w-3" />, label: "情绪", color: "text-viz-6" },
+  memory_created: { icon: <Brain className="h-3 w-3" />, label: "记忆", color: "text-viz-5" },
 };
 
 export function AgentActivityFeed({ events, connected }: AgentActivityFeedProps) {
@@ -33,10 +33,10 @@ export function AgentActivityFeed({ events, connected }: AgentActivityFeedProps)
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <Radio className={`h-4 w-4 ${connected ? "text-emerald-500 animate-pulse" : "text-muted-foreground"}`} />
+          <Radio className={`h-4 w-4 ${connected ? "text-success animate-pulse" : "text-muted-foreground"}`} />
           实时活动
-          {connected && <span className="text-[10px] text-emerald-500">LIVE</span>}
-          <Badge variant="secondary" className="text-[10px] ml-auto">{events.length}</Badge>
+          {connected && <span className="text-tiny text-success">LIVE</span>}
+          <Badge variant="secondary" className="text-tiny ml-auto">{events.length}</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -59,7 +59,7 @@ export function AgentActivityFeed({ events, connected }: AgentActivityFeedProps)
                        JSON.stringify(data)}
                     </p>
                   </div>
-                  <span className="text-[10px] text-muted-foreground shrink-0">
+                  <span className="text-tiny text-muted-foreground shrink-0">
                     {new Date(event.timestamp).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}
                   </span>
                 </div>

@@ -1,10 +1,9 @@
 import { DashboardTrends } from "../dashboard-trends";
-import { DashboardService } from "@/lib/services";
+import { getDashboardDataShared } from "@/lib/services/dashboard.service";
 import { getDbAsync } from "@/lib/db";
 
 export async function TrendsIsland() {
   await getDbAsync();
-  const service = new DashboardService();
-  const dashboard = await service.getDashboardData();
+  const dashboard = await getDashboardDataShared();
   return <DashboardTrends trends={dashboard.trends ?? { sales: [], acos: [], conversion: [] }} />;
 }

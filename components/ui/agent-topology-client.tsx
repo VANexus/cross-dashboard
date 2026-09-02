@@ -7,7 +7,7 @@ const AgentTopology = dynamic(
   () => import("./agent-topology").then((m) => ({ default: m.AgentTopology })),
   {
     ssr: false,
-    loading: () => <div className="h-[260px] w-full animate-pulse rounded-2xl bg-muted/40" />,
+    loading: () => <div className="h-[260px] w-full skeleton rounded-2xl" />,
   }
 );
 

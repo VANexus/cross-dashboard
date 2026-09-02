@@ -245,7 +245,7 @@ export function B2BTrendsClient({ initialTrends }: { initialTrends: KeywordTrend
   });
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-7">
+    <div>
       <JourneyBar />
       <B2BNav />
 
@@ -257,7 +257,7 @@ export function B2BTrendsClient({ initialTrends }: { initialTrends: KeywordTrend
       )}
 
       {pushMsg && (
-        <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3.5 py-2.5 text-sm text-emerald-600">
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-success/30 bg-success/5 px-3.5 py-2.5 text-sm text-success">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           {pushMsg}
         </div>
@@ -328,9 +328,9 @@ export function B2BTrendsClient({ initialTrends }: { initialTrends: KeywordTrend
               <div key={row.key} className="flex flex-wrap items-center gap-3">
                 <span className="text-sm font-medium">{row.label}</span>
                 {row.webhook ? (
-                  <Badge variant="secondary" className="text-[11px]">webhook 已配置</Badge>
+                  <Badge variant="secondary" className="text-caption">webhook 已配置</Badge>
                 ) : (
-                  <Badge variant="warning" className="text-[11px]">未配置 webhook</Badge>
+                  <Badge variant="warning" className="text-caption">未配置 webhook</Badge>
                 )}
                 <div className="ml-auto flex items-center gap-3">
                   <Button
@@ -377,9 +377,9 @@ export function B2BTrendsClient({ initialTrends }: { initialTrends: KeywordTrend
                 </span>
               )}
               {settings?.b2bDailyRefreshUrl ? (
-                <Badge variant="secondary" className="ml-auto text-[11px]">pg_cron 已配置回调</Badge>
+                <Badge variant="secondary" className="ml-auto text-caption">pg_cron 已配置回调</Badge>
               ) : (
-                <Badge variant="outline" className="ml-auto text-[11px]">未配置 pg_cron 回调（仅手动）</Badge>
+                <Badge variant="outline" className="ml-auto text-caption">未配置 pg_cron 回调（仅手动）</Badge>
               )}
             </div>
           </div>
@@ -407,13 +407,13 @@ export function B2BTrendsClient({ initialTrends }: { initialTrends: KeywordTrend
         </CardHeader>
         <CardContent className="p-0">
           {trends?.degraded && (
-            <div className="mx-4 mb-3 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-700">
+            <div className="mx-4 mb-3 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-warning">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <div className="flex-1 flex flex-wrap items-center gap-2">
                 <span>{trends.warning ?? "趋势 API 不可达，展示降级数据"}</span>
                 <Link
                   href="/settings/b2b"
-                  className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-white/70 px-2 py-0.5 text-[11px] font-medium text-amber-700 hover:bg-white transition-colors"
+                  className="inline-flex items-center gap-1 rounded-md border border-warning/40 bg-background/70 px-2 py-0.5 text-caption font-medium text-warning hover:bg-background transition-colors"
                 >
                   去配置 API
                   <ArrowUpRight className="h-3 w-3" />
@@ -473,7 +473,7 @@ export function B2BTrendsClient({ initialTrends }: { initialTrends: KeywordTrend
                   <span
                     className={cn(
                       "inline-flex w-16 items-center justify-end gap-0.5 font-mono text-xs",
-                      k.delta >= 0 ? "text-emerald-500" : "text-muted-foreground",
+                      k.delta >= 0 ? "text-success" : "text-muted-foreground",
                     )}
                   >
                     {k.delta >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
@@ -574,7 +574,7 @@ function TrendRisingCard({ platform }: { platform: TrendPlatform }) {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-emerald-500" /> 飙升榜（{dates.length} 天时序快照）
+            <TrendingUp className="h-4 w-4 text-success" /> 飙升榜（{dates.length} 天时序快照）
           </CardTitle>
           <CardDescription>每日刷新榜单后自动沉淀 · 按区间涨幅排序</CardDescription>
         </div>
@@ -591,7 +591,7 @@ function TrendRisingCard({ platform }: { platform: TrendPlatform }) {
             <div key={r.word} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/40 transition-colors">
               <span className={cn(
                 "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold font-mono",
-                i < 3 ? "bg-emerald-500/15 text-emerald-600" : "bg-muted text-muted-foreground",
+                i < 3 ? "bg-success/15 text-success" : "bg-muted text-muted-foreground",
               )}>{i + 1}</span>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">{r.word}</div>
@@ -602,7 +602,7 @@ function TrendRisingCard({ platform }: { platform: TrendPlatform }) {
               <span className="font-mono text-sm w-20 text-right text-primary">{r.heat.toLocaleString()}</span>
               <span className={cn(
                 "inline-flex w-20 items-center justify-end gap-0.5 font-mono text-xs",
-                (r.deltaPct ?? 0) >= 0 ? "text-emerald-500" : "text-muted-foreground",
+                (r.deltaPct ?? 0) >= 0 ? "text-success" : "text-muted-foreground",
               )}>
                 {(r.deltaPct ?? 0) >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
                 {Math.abs(r.deltaPct ?? 0).toFixed(1)}%

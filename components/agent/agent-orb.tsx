@@ -144,7 +144,7 @@ export function AgentOrb() {
       {/* 泊位上下文标签 */}
       <span
         ref={ctxTagRef}
-        className="pointer-events-none absolute right-[68px] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border border-border bg-popover/90 px-2.5 py-1 font-mono text-[10.5px] text-primary opacity-0 shadow-sm"
+        className="pointer-events-none absolute right-[68px] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border border-border bg-popover/90 px-2.5 py-1 font-mono text-caption text-primary opacity-0 shadow-sm"
         data-testid="orb-ctx-tag"
       >
         <CircleDot className="mr-1 inline h-3 w-3 align-[-1px]" />

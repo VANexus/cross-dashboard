@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/page-header";
 import { PageTransition } from "@/components/ui/page-transition";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,14 +61,10 @@ interface AgentsClientProps {
 export function AgentsClient({ initialData }: AgentsClientProps) {
   return (
     <PageTransition className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Agent 管理</h1>
-          <p className="text-muted-foreground text-sm">
-            管理和监控所有智能代理的状态与配置
-          </p>
-        </div>
-        <div className="flex gap-2">
+      <PageHeader
+        title="Agent 管理"
+        description="管理和监控所有智能代理的状态与配置"
+        actions={<>
           <Button variant="outline" size="sm">
             <Settings className="h-4 w-4 mr-1" />
             批量配置
@@ -76,8 +73,8 @@ export function AgentsClient({ initialData }: AgentsClientProps) {
             <Bot className="h-4 w-4 mr-1" />
             添加 Agent
           </Button>
-        </div>
-      </div>
+        </>}
+      />
 
       <div className="grid gap-4 grid-cols-2">
         {initialData.length === 0 && (
@@ -128,8 +125,8 @@ export function AgentsClient({ initialData }: AgentsClientProps) {
                   {topGoal && (
                     <div className="space-y-1">
                       <div className="flex items-center justify-between">
-                        <p className="text-[10px] text-muted-foreground truncate flex-1">{topGoal.text}</p>
-                        <span className="text-[10px] text-muted-foreground ml-2">{Math.round(topGoal.progress * 100)}%</span>
+                        <p className="text-tiny text-muted-foreground truncate flex-1">{topGoal.text}</p>
+                        <span className="text-tiny text-muted-foreground ml-2">{Math.round(topGoal.progress * 100)}%</span>
                       </div>
                       <Progress value={topGoal.progress * 100} className="h-1" />
                     </div>
@@ -139,7 +136,7 @@ export function AgentsClient({ initialData }: AgentsClientProps) {
                     <p className="text-xs font-medium text-muted-foreground">关联工作流</p>
                     <div className="flex flex-wrap gap-1">
                       {(agentWorkflows[agent.name] || []).map((wf) => (
-                        <Badge key={wf} variant="secondary" className="text-[10px]">
+                        <Badge key={wf} variant="secondary" className="text-tiny">
                           {wf}
                         </Badge>
                       ))}

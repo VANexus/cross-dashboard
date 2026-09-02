@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/page-header";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -201,7 +202,7 @@ export default function B2BSettingsPage() {
     const t = testResults[g];
     const best = t ?? h;
     if (!best) return <Badge variant="outline">未检测</Badge>;
-    if (best.ok) return <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white">已连通 {best.latencyMs ? `· ${best.latencyMs}ms` : ""}</Badge>;
+    if (best.ok) return <Badge className="bg-success hover:bg-success text-white">已连通 {best.latencyMs ? `· ${best.latencyMs}ms` : ""}</Badge>;
     return <Badge variant="destructive" title={best.error}>不可达 · 点击「测试连通」查看</Badge>;
   };
 
@@ -211,15 +212,11 @@ export default function B2BSettingsPage() {
   }, [health]);
 
   return (
-    <div className="space-y-6 max-w-5xl">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">B 端运营配置</h1>
-          <p className="text-sm text-muted-foreground">
-            渠道凭证 + 阿里 TOP / LongCat / AllIn / Webhook 密钥，保存后三功能页面将清除缓存并重试。
-          </p>
-        </div>
-        <Button
+    <div className="space-y-6">
+      <PageHeader
+        title="B 端运营配置"
+        description="渠道凭证 + 阿里 TOP / LongCat / AllIn / Webhook 密钥，保存后三功能页面将清除缓存并重试。"
+        actions={<Button
           variant="outline"
           size="sm"
           onClick={refreshHealth}
@@ -227,8 +224,8 @@ export default function B2BSettingsPage() {
         >
           {healthLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
           刷新健康检查
-        </Button>
-      </div>
+        </Button>}
+      />
 
       {/* Supabase 健康卡片 */}
       <Card>
@@ -252,7 +249,7 @@ export default function B2BSettingsPage() {
               </p>
             </div>
             {supabaseHealth.ok
-              ? <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white">连接正常</Badge>
+              ? <Badge className="bg-success hover:bg-success text-white">连接正常</Badge>
               : <Badge variant="destructive">连接异常</Badge>}
           </div>
           <div className="grid gap-3 sm:grid-cols-3 text-xs text-muted-foreground">

@@ -178,7 +178,7 @@ function AreaChart({ points }: { points: { x: string; y: number }[] }) {
           <circle key={i} cx={c.x} cy={c.y} r="3" fill="var(--card)" stroke="currentColor" strokeWidth="2" className="text-primary" />
         ))}
       </svg>
-      <div className="mt-1 flex justify-between px-6 font-mono text-[10px] text-muted-foreground">
+      <div className="mt-1 flex justify-between px-6 font-mono text-tiny text-muted-foreground">
         {points.map((p, i) => (
           <span key={i}>{p.x}</span>
         ))}
@@ -194,12 +194,12 @@ function BarChart({ items }: { items: { label: string; value: number }[] }) {
     <div className="flex items-end gap-2" style={{ height: 120 }}>
       {items.map((it, i) => (
         <div key={i} className="flex flex-1 flex-col items-center gap-1.5">
-          <span className="font-mono text-[10px] text-muted-foreground">{formatNumber(it.value)}</span>
+          <span className="font-mono text-tiny text-muted-foreground">{formatNumber(it.value)}</span>
           <div
             className="w-full rounded-t-md bg-primary/80 transition-all"
             style={{ height: `${Math.max((it.value / max) * 88, 4)}px` }}
           />
-          <span className="max-w-full truncate font-mono text-[10px] text-muted-foreground">{it.label}</span>
+          <span className="max-w-full truncate font-mono text-tiny text-muted-foreground">{it.label}</span>
         </div>
       ))}
     </div>
@@ -248,7 +248,7 @@ export function SkillOutput({ data }: SkillOutputProps) {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-border text-left font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+                  <tr className="border-b border-border text-left font-mono text-caption uppercase tracking-wider text-muted-foreground">
                     {Object.keys((m as { rows: Record<string, unknown>[] }).rows[0] ?? {}).map((k) => (
                       <th key={k} className="px-2 py-2 font-medium">
                         {k}
@@ -260,7 +260,7 @@ export function SkillOutput({ data }: SkillOutputProps) {
                   {(m as { rows: Record<string, unknown>[] }).rows.map((row, ri) => (
                     <tr key={ri} className="border-b border-border/50 last:border-0 hover:bg-accent/40">
                       {Object.values(row).map((v, ci) => (
-                        <td key={ci} className="px-2 py-2 font-mono text-[12.5px] tabular-nums">
+                        <td key={ci} className="px-2 py-2 font-mono text-xs tabular-nums">
                           {cellLabel(v)}
                         </td>
                       ))}
@@ -286,7 +286,7 @@ export function SkillOutput({ data }: SkillOutputProps) {
               {(m as { entries: [string, string][] }).entries.map(([k, v], i) => (
                 <div key={i} className="flex items-baseline justify-between gap-4 border-b border-border/40 pb-2 last:border-0 last:pb-0">
                   <dt className="text-xs text-muted-foreground">{k}</dt>
-                  <dd className="text-right font-mono text-[12.5px]">{v}</dd>
+                  <dd className="text-right font-mono text-xs">{v}</dd>
                 </div>
               ))}
             </dl>
@@ -309,11 +309,11 @@ export function SkillOutput({ data }: SkillOutputProps) {
             </div>
           )}
           {m.kind === "code" && (
-            <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-muted/60 p-4 font-mono text-[12px] leading-relaxed text-muted-foreground">
+            <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-muted/60 p-4 font-mono text-xs leading-relaxed text-muted-foreground">
               {(m as { text: string }).text}
             </pre>
           )}
-          {m.kind === "text" && <p className="font-mono text-[13px]">{(m as { text: string }).text}</p>}
+          {m.kind === "text" && <p className="font-mono text-body">{(m as { text: string }).text}</p>}
         </ModuleCard>
       ))}
       {rest.length === 0 && metrics.length === 0 && (

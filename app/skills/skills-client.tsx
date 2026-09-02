@@ -5,6 +5,7 @@
  */
 "use client";
 
+import { PageHeader } from "@/components/ui/page-header";
 import { useMemo, useState } from "react";
 import { useSkillDiscovery } from "@/hooks/use-skill-discovery";
 import { domainStyle } from "@/lib/skills/domain-style";
@@ -64,15 +65,11 @@ export function SkillsClient() {
   return (
     <div className="flex flex-col gap-6">
       {/* 页头 */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <div className="font-mono text-xs text-muted-foreground">FlowMind / 能力中心</div>
-          <h1 className="mt-1 font-heading text-2xl font-bold tracking-tight">能力中心</h1>
-          <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-            后端注册的全部技能，由通用渲染器按 Schema 自动生成参数表单与输出模块。
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+      <PageHeader
+        breadcrumb={<><span>FlowMind</span> / <b>能力中心</b></>}
+        title="能力中心"
+        description="后端注册的全部技能，由通用渲染器按 Schema 自动生成参数表单与输出模块。"
+        actions={<div className="flex items-center gap-2">
           <Badge variant={error ? "warning" : "success"}>
             {error ? "服务不可达" : "实时发现"}
           </Badge>
@@ -84,8 +81,8 @@ export function SkillsClient() {
             <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
             刷新
           </button>
-        </div>
-      </div>
+        </div>}
+      />
 
       {/* 搜索 */}
       <div className="relative max-w-sm">
@@ -130,12 +127,12 @@ export function SkillsClient() {
                   <span className={cn("flex h-10 w-10 items-center justify-center rounded-xl", style.chip)}>
                     {icon}
                   </span>
-                  <Badge variant="outline" className="font-mono text-[10px]">
+                  <Badge variant="outline" className="font-mono text-tiny">
                     {s.version}
                   </Badge>
                 </div>
                 <div>
-                  <h3 className="text-[15px] font-semibold">{s.name}</h3>
+                  <h3 className="text-base font-semibold">{s.name}</h3>
                   <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{s.description}</p>
                 </div>
                 <div className="mt-auto flex flex-col gap-2 pt-1">
@@ -144,11 +141,11 @@ export function SkillsClient() {
                     <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
                       <div className={cn("h-full rounded-full", style.bar)} style={{ width: `${conf}%` }} />
                     </div>
-                    <span className="font-mono text-[10px] text-muted-foreground">{conf}%</span>
+                    <span className="font-mono text-tiny text-muted-foreground">{conf}%</span>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {(s.tags ?? []).map((t) => (
-                      <span key={t} className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
+                      <span key={t} className="rounded-full border border-border px-2 py-0.5 text-tiny text-muted-foreground">
                         {t}
                       </span>
                     ))}

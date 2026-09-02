@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/page-header";
 import dynamic from "next/dynamic";
 import { PageTransition } from "@/components/ui/page-transition";
 import { StatusDot } from "@/components/ui/status-dot";
@@ -29,18 +30,18 @@ const AnimatedNumber = dynamic(
 );
 
 const statusConfig: Record<import("@/lib/types").TaskStatus, { label: string; icon: React.ComponentType<{ className?: string }>; color: string; bg: string }> = {
-  completed: { label: "已完成", icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-500/10" },
-  running: { label: "运行中", icon: Loader2, color: "text-blue-500", bg: "bg-blue-500/10" },
+  completed: { label: "已完成", icon: CheckCircle2, color: "text-success", bg: "bg-success/10" },
+  running: { label: "运行中", icon: Loader2, color: "text-info", bg: "bg-info/10" },
   pending: { label: "等待中", icon: Clock, color: "text-muted-foreground", bg: "bg-muted" },
-  failed: { label: "失败", icon: AlertTriangle, color: "text-red-500", bg: "bg-red-500/10" },
-  cancelled: { label: "已取消", icon: Pause, color: "text-amber-500", bg: "bg-amber-500/10" },
+  failed: { label: "失败", icon: AlertTriangle, color: "text-destructive", bg: "bg-destructive/10" },
+  cancelled: { label: "已取消", icon: Pause, color: "text-warning", bg: "bg-warning/10" },
 };
 
 const priorityConfig: Record<string, { label: string; color: string; bg: string }> = {
-  high: { label: "高优先级", color: "text-red-500", bg: "bg-red-500/10" },
-  medium: { label: "中优先级", color: "text-amber-500", bg: "bg-amber-500/10" },
-  low: { label: "低优先级", color: "text-blue-500", bg: "bg-blue-500/10" },
-  critical: { label: "紧急", color: "text-red-500", bg: "bg-red-500/10" },
+  high: { label: "高优先级", color: "text-destructive", bg: "bg-destructive/10" },
+  medium: { label: "中优先级", color: "text-warning", bg: "bg-warning/10" },
+  low: { label: "低优先级", color: "text-info", bg: "bg-info/10" },
+  critical: { label: "紧急", color: "text-destructive", bg: "bg-destructive/10" },
 };
 
 const stepIcons: Record<string, React.ReactNode> = {
@@ -52,10 +53,10 @@ const stepIcons: Record<string, React.ReactNode> = {
 };
 
 const stepColors: Record<string, string> = {
-  completed: "bg-emerald-500 text-white",
-  running: "bg-blue-500 text-white animate-pulse",
+  completed: "bg-success text-white",
+  running: "bg-info text-white animate-pulse",
   pending: "bg-muted text-muted-foreground",
-  failed: "bg-red-500 text-white",
+  failed: "bg-destructive text-white",
 };
 
 const statusLabels: Record<string, string> = {
@@ -79,24 +80,16 @@ export function TaskDetailClient({ task, agent }: TaskDetailClientProps) {
 
   return (
     <PageTransition className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/tasks">
-          <Button variant="ghost" size="sm">
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            返回
-          </Button>
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            {task.title}
-            <StatusDot
-              status={task.status === "running" ? "success" : task.status === "completed" ? "idle" : task.status === "failed" ? "danger" : "warning"}
-              pulse={task.status === "running"}
-            />
-          </h1>
-          <p className="text-muted-foreground text-sm">{task.description}</p>
-        </div>
-        <div className="flex gap-2">
+      <PageHeader
+        breadcrumb={<Link href="/tasks" className="inline-flex items-center gap-1 hover:text-foreground"><ArrowLeft className="h-3 w-3" /> 任务管理</Link>}
+        title={<span className="flex items-center gap-2">{task.title}
+          <StatusDot
+            status={task.status === "running" ? "success" : task.status === "completed" ? "idle" : task.status === "failed" ? "danger" : "warning"}
+            pulse={task.status === "running"}
+          />
+        </span>}
+        description={task.description}
+        actions={<div className="flex gap-2">
           {task.status === "running" && (
             <Button variant="outline" size="sm">
               <Pause className="h-4 w-4 mr-1" />
@@ -109,8 +102,8 @@ export function TaskDetailClient({ task, agent }: TaskDetailClientProps) {
               重试
             </Button>
           )}
-        </div>
-      </div>
+        </div>}
+      />
 
       <div className="grid gap-6 grid-cols-4">
         <Card>
@@ -199,7 +192,7 @@ export function TaskDetailClient({ task, agent }: TaskDetailClientProps) {
                       <p className="text-sm font-medium">{step.name}</p>
                       {step.output && <p className="text-xs text-muted-foreground mt-0.5">{step.output}</p>}
                       {step.startedAt && (
-                        <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                        <p className="text-tiny text-muted-foreground mt-1 flex items-center gap-1">
                           <Clock className="h-2.5 w-2.5" />
                           {step.startedAt}
                           {step.completedAt && ` → ${step.completedAt}`}
@@ -207,9 +200,9 @@ export function TaskDetailClient({ task, agent }: TaskDetailClientProps) {
                       )}
                     </div>
                     <Badge variant="outline" className={cn(
-                      step.status === "completed" ? "text-emerald-500 bg-emerald-500/10 border-0" :
-                      step.status === "running" ? "text-blue-500 bg-blue-500/10 border-0" :
-                      step.status === "failed" ? "text-red-500 bg-red-500/10 border-0" :
+                      step.status === "completed" ? "text-success bg-success/10 border-0" :
+                      step.status === "running" ? "text-info bg-info/10 border-0" :
+                      step.status === "failed" ? "text-destructive bg-destructive/10 border-0" :
                       "text-muted-foreground bg-muted border-0",
                       "text-xs"
                     )}>

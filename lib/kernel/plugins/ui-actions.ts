@@ -22,12 +22,36 @@ declare module '../../../src/kernel/vendor/cordis/context' {
   }
 }
 
+/**
+ * 动作风险分级（人在环中权限模型，对齐 Amazon Seller Assistant「经同意才行动」范式）：
+ * - L0 只读/导航/建议：不改任何业务数据，前端可直接执行（查询、跳转、高亮、打开面板）；
+ * - L1 草稿/本地可逆：只改本地页面状态或生成草稿，可直接执行，用户可一键撤销/不采纳（填表、筛选、生成草稿）；
+ * - L2 对外/不可逆/资金：会对外发布、上传、删除、花费或写入凭证，前端必须弹确认卡，用户当次明确批准后才执行。
+ * 模型无权自行判定「已获授权」；授权只来自用户在确认卡上的点击。
+ */
+export type ActionRiskLevel = 'L0' | 'L1' | 'L2';
+
+export const RISK_META: Record<ActionRiskLevel, { label: string; hint: string }> = {
+  L0: { label: '只读', hint: '只读取/导航，不改数据' },
+  L1: { label: '本地可逆', hint: '仅改本页或生成草稿，可撤销' },
+  L2: { label: '需批准', hint: '对外/不可逆动作，需你确认后执行' },
+};
+
 /** 单个可被 Agent 调用的 UI 动作。execute 返回执行结果摘要文本（如"已筛选出 3 个失败任务"）。 */
 export interface UIActionDef {
   id: string;
   description: string;                 // LLM 可读
   schema?: z.ZodType;                  // params 校验（zod v4 / Standard Schema）
   execute: (params: Record<string, unknown>) => string | Promise<string>;
+  /** 风险等级，默认 L1（本地可逆）。对外不可逆动作必须显式声明为 L2。 */
+  riskLevel?: ActionRiskLevel;
+  /** L2 确认卡上向用户说明「执行后会发生什么」；可为基于参数的动态文案。 */
+  confirmText?: string | ((params: Record<string, unknown>) => string);
+}
+
+/** 取动作风险等级（缺省按 L1 本地可逆处理，安全侧默认值）。 */
+export function riskLevelOf(action: UIActionDef | undefined): ActionRiskLevel {
+  return action?.riskLevel ?? 'L1';
 }
 
 // ── 动作注册表 Service（注册表归内核所有，HMR 安全）──────────────
@@ -36,6 +60,8 @@ export class ActionsService extends Service {
 
   private globalRegistry = new Map<string, UIActionDef>();
   private pageRegistry = new Map<string, UIActionDef>();
+  // 仅非生产环境、经测试钩子注册的动作（e2e 用），生产恒为空
+  private testRegistry = new Map<string, UIActionDef>();
 
   constructor(ctx: Context) {
     super(ctx, 'actions');
@@ -57,14 +83,24 @@ export class ActionsService extends Service {
     this.pageRegistry.clear();
   }
 
-  /** 当前生效动作 = 通用 + 当前页（同名时页面动作优先）。 */
-  getPageActions(): UIActionDef[] {
-    return [...this.globalRegistry.values(), ...this.pageRegistry.values()];
+  /** @test 仅 e2e/调试：注册临时动作（生产环境忽略）。 */
+  registerTestAction(action: UIActionDef): void {
+    if (process.env.NODE_ENV === 'production') return;
+    this.testRegistry.set(action.id, action);
   }
 
-  /** 按 id 查找动作（通用 + 当前页）。 */
+  /** 当前生效动作 = 通用 + 当前页（同名时页面动作优先；测试动作最后兜底）。 */
+  getPageActions(): UIActionDef[] {
+    return [
+      ...this.globalRegistry.values(),
+      ...this.pageRegistry.values(),
+      ...this.testRegistry.values(),
+    ];
+  }
+
+  /** 按 id 查找动作（页面 → 通用 → 测试）。 */
   getActionById(id: string): UIActionDef | undefined {
-    return this.pageRegistry.get(id) ?? this.globalRegistry.get(id);
+    return this.pageRegistry.get(id) ?? this.globalRegistry.get(id) ?? this.testRegistry.get(id);
   }
 
   /** 校验并执行动作，返回结果摘要或错误说明。 */
@@ -140,6 +176,7 @@ export function createGlobalActions(opts: GlobalActionOptions = {}): UIActionDef
     {
       id: 'navigate',
       description: `跳转到指定路由（站内页面导航）。常用路由：${ROUTE_HINTS}`,
+      riskLevel: 'L0',
       schema: z.object({ route: z.string().min(1).describe('目标路由') }),
       execute: (params) => {
         const route = String(params.route ?? '/');
@@ -151,6 +188,7 @@ export function createGlobalActions(opts: GlobalActionOptions = {}): UIActionDef
     {
       id: 'refresh',
       description: '刷新当前页面数据（server components 重新渲染）',
+      riskLevel: 'L0',
       execute: () => {
         if (opts.onRefresh) opts.onRefresh();
         else if (typeof window !== 'undefined') window.location.reload();
@@ -160,6 +198,7 @@ export function createGlobalActions(opts: GlobalActionOptions = {}): UIActionDef
     {
       id: 'openDrawer',
       description: '打开 Agent 抽屉对话面板',
+      riskLevel: 'L0',
       schema: z.object({ question: z.string().optional().describe('用户想问的问题（仅作提示）') }),
       execute: (params) => {
         usePresence.getState().setDrawerOpen(true);
@@ -170,6 +209,7 @@ export function createGlobalActions(opts: GlobalActionOptions = {}): UIActionDef
     {
       id: 'highlight',
       description: '临时高亮页面上指定 CSS 选择器的元素 2 秒（指给用户看）',
+      riskLevel: 'L0',
       schema: z.object({ selector: z.string().min(1).describe('CSS 选择器，如 [data-agent-card="risk"]') }),
       execute: (params) => runHighlight(String(params.selector ?? '')),
     },
@@ -177,6 +217,7 @@ export function createGlobalActions(opts: GlobalActionOptions = {}): UIActionDef
       id: 'startJourney',
       description:
         '发起一条端到端业务旅程并进入执行视图（content-publish 内容发布 / listing-launch 选品上架等，见 /journeys）',
+      riskLevel: 'L1',
       schema: z.object({ id: z.string().min(1).describe('旅程 id，如 content-publish') }),
       execute: (params) => {
         const id = String(params.id ?? '');
@@ -193,6 +234,7 @@ export function createGlobalActions(opts: GlobalActionOptions = {}): UIActionDef
     {
       id: 'advanceJourney',
       description: '把当前进行中的旅程推进到下一步（标记当前步完成；最后一步则结束旅程）',
+      riskLevel: 'L1',
       execute: () => {
         const run = useJourneyRun.getState();
         if (!run.journeyId) return '当前没有进行中的旅程（可先用 startJourney 发起）';
@@ -212,6 +254,7 @@ export function createGlobalActions(opts: GlobalActionOptions = {}): UIActionDef
       id: 'click',
       description:
         '点击页面上指定 CSS 选择器的元素（按钮/链接/开关等任意可见控件）。带 data-agent-action 属性的按钮可用稳定选择器，如 [data-agent-action="orchestrate"]',
+      riskLevel: 'L1',
       schema: z.object({ selector: z.string().min(1).describe('CSS 选择器') }),
       execute: (params) => {
         const selector = String(params.selector ?? '');
@@ -227,6 +270,7 @@ export function createGlobalActions(opts: GlobalActionOptions = {}): UIActionDef
     {
       id: 'fill',
       description: '向页面上指定 CSS 选择器的输入框填充文本（兼容 React 受控组件）',
+      riskLevel: 'L1',
       schema: z.object({
         selector: z.string().min(1).describe('输入框 CSS 选择器'),
         value: z.string().describe('要填入的文本'),
@@ -251,13 +295,20 @@ export function createGlobalActions(opts: GlobalActionOptions = {}): UIActionDef
 
 // ── 测试/调试钩子：e2e 与控制台可经 window.__agentUI 快速驱动全部动作 ──
 // 仅非生产环境挂载；校验逻辑与抽屉 onToolCall 一致（zod → execute）。
-/** 挂载 window.__agentUI = { list, execute }（生产环境跳过；内核未就绪时静默跳过）。 */
+/** 挂载 window.__agentUI = { list, execute, riskOf, registerTestAction }（生产环境跳过；内核未就绪时静默跳过）。 */
 export function installAgentTestHook(): void {
   if (typeof window === 'undefined' || process.env.NODE_ENV === 'production') return;
   const actions = getClientKernel().actions;
   if (!actions) return;
   (window as unknown as Record<string, unknown>).__agentUI = {
-    list: () => actions.getPageActions().map(({ id, description }) => ({ id, description })),
+    list: () =>
+      actions.getPageActions().map(({ id, description, riskLevel }) => ({
+        id,
+        description,
+        riskLevel: riskLevel ?? 'L1',
+      })),
     execute: (id: string, params?: Record<string, unknown>) => actions.runAction(id, params),
+    riskOf: (id: string) => riskLevelOf(actions.getActionById(id)),
+    registerTestAction: (def: UIActionDef) => actions.registerTestAction(def),
   };
 }

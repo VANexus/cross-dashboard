@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import Link from "next/link";
+import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,8 @@ import {
 } from "lucide-react";
 import { B2BNav } from "../b2b-nav";
 import { JourneyBar } from "@/components/journey/journey-bar";
+import { useAgentPage } from "@/lib/agent/page-context";
+import type { UIActionDef } from "@/lib/agent/ui-actions";
 import {
   reversePrompt, createImageSkill, generateWithSkill, useImageSkills,
 } from "@/hooks/use-b2b";
@@ -86,8 +89,88 @@ export function B2BImageSkillsClient({ initialSkills }: { initialSkills: ImageSk
     });
   };
 
+  // 「UI 即工具」：反推提示词/固化 Skill/按 Skill 出图均为本页可逆 L1 动作
+  const agentActions: UIActionDef[] = [
+    {
+      id: "reverseCoverPrompt",
+      description: "对一张 ROI 好的封面图 URL 反推生图提示词与风格标签（结果展示在页面上）",
+      riskLevel: "L1",
+      schema: z.object({
+        imageUrl: z.string().url().describe("封面图 URL"),
+        hint: z.string().optional().describe("补充说明"),
+      }),
+      execute: async (p) => {
+        const url = String(p.imageUrl);
+        const hint = typeof p.hint === "string" ? p.hint : "";
+        setCoverUrl(url);
+        setHint(hint);
+        const r: ReversePromptResult = await reversePrompt({ imageUrl: url, hint: hint || undefined });
+        setReversed(r);
+        return `已反推提示词（风格标签：${r.styleTags.join("、") || "无"}），可继续用 createSkillFromCover 固化成 Skill`;
+      },
+    },
+    {
+      id: "createSkillFromCover",
+      description: "把当前已反推的提示词固化为一个团队生图 Skill（需先 reverseCoverPrompt）",
+      riskLevel: "L1",
+      schema: z.object({ name: z.string().min(1).describe("Skill 名称，如 欧美ins暖调场景风") }),
+      execute: async (p) => {
+        if (!reversed) throw new Error("尚未反推提示词，请先调用 reverseCoverPrompt");
+        const name = String(p.name).trim();
+        await createImageSkill({
+          name,
+          coverUrl: coverUrl.trim(),
+          reversedPrompt: reversed.prompt,
+          styleTags: reversed.styleTags,
+          aspectRatio: "1:1",
+        });
+        setReversed(null);
+        setSkillName("");
+        void refetchSkills();
+        return `已固化生图 Skill「${name}」并入库`;
+      },
+    },
+    {
+      id: "generateWithSkillAction",
+      description: "用指定生图 Skill（按 id 或名称匹配）+ 附加描述批量出图，结果展示在该 Skill 卡片内",
+      riskLevel: "L1",
+      schema: z.object({
+        skillId: z.string().min(1).describe("Skill id；也可传 Skill 名称做模糊匹配"),
+        prompt: z.string().optional().describe("附加画面描述"),
+      }),
+      execute: async (p) => {
+        const key = String(p.skillId);
+        const skill = skills.find((s) => s.id === key) ?? skills.find((s) => s.name.includes(key));
+        if (!skill) throw new Error(`未找到 Skill：${key}（当前 ${skills.length} 个）`);
+        const prompt = typeof p.prompt === "string" ? p.prompt : "";
+        setGenSkillId(skill.id);
+        setGenPrompt(prompt);
+        const images = await generateWithSkill(skill.id, prompt || undefined);
+        setGenImages((prev) => ({ ...prev, [skill.id]: images }));
+        return `已用 Skill「${skill.name}」生成 ${images.length} 张图`;
+      },
+    },
+  ];
+
+  useAgentPage({
+    title: "生图 Skill 库（铺货素材）",
+    snapshot: () => {
+      const segs = [`生图 Skill ${skills.length} 个`, reversed ? "已反推提示词待固化" : "未反推"];
+      const genCount = Object.values(genImages).reduce((n, arr) => n + arr.length, 0);
+      if (genCount) segs.push(`本页已出图 ${genCount} 张`);
+      return segs.join(" · ") + " · 真实出图走 AllIn-API，未配置 Key 会明确报错";
+    },
+    state: () => ({
+      skillCount: skills.length,
+      skillNames: skills.map((s) => s.name),
+      hasReversed: Boolean(reversed),
+      busy,
+    }),
+    actions: agentActions,
+  });
+
   return (
-    <div className="mx-auto max-w-5xl px-6 py-7">
+    <div>
       <JourneyBar />
       <B2BNav />
 
@@ -99,7 +182,7 @@ export function B2BImageSkillsClient({ initialSkills }: { initialSkills: ImageSk
             {/ALLIN|key|api|mock|密钥/i.test(error) && (
               <Link
                 href="/settings/b2b"
-                className="inline-flex items-center gap-1 rounded-md border border-destructive/30 bg-white/70 px-2 py-0.5 text-[11px] font-medium text-destructive hover:bg-white transition-colors"
+                className="inline-flex items-center gap-1 rounded-md border border-destructive/30 bg-background/70 px-2 py-0.5 text-caption font-medium text-destructive hover:bg-background transition-colors"
               >
                 <AlertTriangle className="h-3 w-3" /> 检查生图 API 配置
                 <ArrowUpRight className="h-3 w-3" />
@@ -151,7 +234,7 @@ export function B2BImageSkillsClient({ initialSkills }: { initialSkills: ImageSk
                   <p className="text-xs font-medium text-muted-foreground">反推提示词</p>
                   <p className="mt-1 text-xs leading-5 whitespace-pre-wrap">{reversed.prompt}</p>
                   {reversed.negativePrompt && (
-                    <p className="mt-1.5 text-[11px] leading-4 text-muted-foreground">
+                    <p className="mt-1.5 text-caption leading-4 text-muted-foreground">
                       负向：{reversed.negativePrompt}
                     </p>
                   )}
@@ -224,14 +307,14 @@ export function B2BImageSkillsClient({ initialSkills }: { initialSkills: ImageSk
                   <div className="p-3 space-y-2">
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate text-sm font-medium">{s.name}</span>
-                      <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                      <span className="shrink-0 font-mono text-caption text-muted-foreground">
                         {s.aspectRatio} · {s.usageCount} 次
                       </span>
                     </div>
                     {s.styleTags.length > 0 && (
                       <div className="flex flex-wrap gap-1">
                         {s.styleTags.map((t) => (
-                          <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>
+                          <Badge key={t} variant="secondary" className="text-tiny">{t}</Badge>
                         ))}
                       </div>
                     )}

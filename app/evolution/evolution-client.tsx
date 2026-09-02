@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/page-header";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { PageTransition } from "@/components/ui/page-transition";
@@ -76,14 +77,10 @@ export function EvolutionClient({ initialData }: EvolutionClientProps) {
 
   return (
     <PageTransition className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">自进化系统</h1>
-          <p className="text-muted-foreground text-sm">
-            监控和管理 Agent 自我优化的记录与趋势
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="自进化系统"
+        description="监控和管理 Agent 自我优化的记录与趋势"
+      />
 
       <div className="grid gap-6 grid-cols-3">
         <Card>
@@ -99,11 +96,11 @@ export function EvolutionClient({ initialData }: EvolutionClientProps) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              <CheckCircle2 className="h-3 w-3 text-emerald-500" /> 成功率
+              <CheckCircle2 className="h-3 w-3 text-success" /> 成功率
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-500">
+            <div className="text-2xl font-bold text-success">
               {initialData.length > 0 ? Math.round((initialData.filter((r) => r.status === "success").length / initialData.length) * 100) : 0}%
             </div>
           </CardContent>
@@ -133,7 +130,7 @@ export function EvolutionClient({ initialData }: EvolutionClientProps) {
               <Sparkline data={evolutionTrend} width={400} height={60} color="var(--primary)" />
               <div className="flex justify-between mt-1">
                 {evolutionTrendLabels.map((label) => (
-                  <span key={label} className="text-[10px] text-muted-foreground">{label}</span>
+                  <span key={label} className="text-tiny text-muted-foreground">{label}</span>
                 ))}
               </div>
             </div>
@@ -168,7 +165,7 @@ export function EvolutionClient({ initialData }: EvolutionClientProps) {
                         <span className="text-xs text-muted-foreground flex items-center gap-1">
                           <Clock className="h-3 w-3" /> {record.startedAt}
                         </span>
-                        <Badge variant={stage.variant} className="text-[10px] h-4">
+                        <Badge variant={stage.variant} className="text-tiny h-4">
                           {stage.label}
                         </Badge>
                       </div>
@@ -178,7 +175,7 @@ export function EvolutionClient({ initialData }: EvolutionClientProps) {
                       {status.label}
                     </Badge>
                     {record.metrics && (
-                      <span className="text-xs text-emerald-500 font-medium">{Math.round(record.metrics.accuracy * 100)}%</span>
+                      <span className="text-xs text-success font-medium">{Math.round(record.metrics.accuracy * 100)}%</span>
                     )}
                     {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                   </div>
@@ -192,7 +189,7 @@ export function EvolutionClient({ initialData }: EvolutionClientProps) {
                         <div className="grid grid-cols-3 gap-3">
                           <div className="rounded border p-2 text-center">
                             <p className="text-xs text-muted-foreground">准确率</p>
-                            <p className="text-sm font-bold text-emerald-500">{Math.round(record.metrics.accuracy * 100)}%</p>
+                            <p className="text-sm font-bold text-success">{Math.round(record.metrics.accuracy * 100)}%</p>
                           </div>
                           <div className="rounded border p-2 text-center">
                             <p className="text-xs text-muted-foreground">延迟</p>

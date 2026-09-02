@@ -1,5 +1,7 @@
 "use client";
 
+import { WorkflowStepper } from "@/components/ui/workflow-stepper";
+import { PageHeader } from "@/components/ui/page-header";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -133,29 +135,24 @@ export function ProductResearchClient({ recentResults = [] }: ProductResearchCli
 
   return (
     <PageTransition className="space-y-4">
-      <div className="flex items-center gap-3 mb-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-wf-product/10">
-          <Radar className="h-4 w-4 text-wf-product" />
-        </div>
-        <div>
-          <h1 className="text-lg font-semibold">选品工作流</h1>
-          <p className="text-xs text-muted-foreground">TikTok Shop 真实在售商品 + 真实评论 + AI 差异化</p>
-        </div>
-      </div>
+      <PageHeader
+        title="选品工作流"
+        description="TikTok Shop 真实在售商品 + 真实评论 + AI 差异化"
+        icon={<Radar className="h-6 w-6 text-wf-product" />}
+      />
 
-      <div className="stagger-in flex gap-2 flex-wrap">
-        {steps.map((s, i) => (
-          <button key={s.id} onClick={() => setCurrentStep(s.id)}
-            className={cn(
-              "flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all",
-              s.id === currentStep ? "glass-surface text-primary font-medium shadow-sm ring-1 ring-primary/25" : "text-muted-foreground hover:bg-muted",
-            )}>
-            {i < currentIdx ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : s.id === currentStep ? <Play className="h-4 w-4" /> : <span className="h-4 w-4 rounded-full border text-[10px] flex items-center justify-center">{i + 1}</span>}
-            <span className="hidden md:inline">{s.label}</span>
-            {i < steps.length - 1 && <ChevronRight className="h-3 w-3 text-muted-foreground/30 ml-1" />}
-          </button>
-        ))}
-      </div>
+      <WorkflowStepper
+        steps={steps.map((s, i) => ({
+          id: s.id,
+          label: s.label,
+          status: i < currentIdx ? "completed" : s.id === currentStep ? "active" : "pending",
+        }))}
+        currentStep={currentStep}
+        onStepClick={(id) => setCurrentStep(id)}
+        orientation="horizontal"
+        navigable
+        className="stagger-in"
+      />
 
       <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
         <div className="space-y-4 min-w-0">
@@ -166,12 +163,12 @@ export function ProductResearchClient({ recentResults = [] }: ProductResearchCli
                 <CardContent className="pt-4">
                   <div className="flex flex-wrap items-end gap-3">
                     <div className="flex-1 min-w-[220px]">
-                      <label className="text-[11px] text-muted-foreground">商品关键词</label>
+                      <label className="text-caption text-muted-foreground">商品关键词</label>
                       <Input className="mt-1 h-9" value={keyword} onChange={(e) => setKeyword(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && searchProducts(true)} placeholder="如 dress、coffee maker、pet bed" />
                     </div>
                     <div className="w-32">
-                      <label className="text-[11px] text-muted-foreground">站点</label>
+                      <label className="text-caption text-muted-foreground">站点</label>
                       <select value={region} onChange={(e) => setRegion(e.target.value)}
                         className="mt-1 h-9 w-full rounded-lg border border-input bg-background/60 px-2 text-sm">
                         {REGIONS.map((r) => <option key={r.code} value={r.code}>{r.name}</option>)}
@@ -185,7 +182,7 @@ export function ProductResearchClient({ recentResults = [] }: ProductResearchCli
               </Card>
 
               {warn && (
-                <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-200">
+                <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
                   <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" /><span>{warn}</span>
                 </div>
               )}
@@ -208,18 +205,18 @@ export function ProductResearchClient({ recentResults = [] }: ProductResearchCli
                     <CardContent className="p-3 space-y-1.5">
                       <p className="text-xs line-clamp-2 min-h-[2rem] leading-snug">{p.title}</p>
                       <div className="flex items-baseline gap-1.5">
-                        <span className="text-sm font-semibold text-pink-400">{p.currency}{p.price}</span>
+                        <span className="text-sm font-semibold text-price">{p.currency}{p.price}</span>
                         {p.originalPrice && p.originalPrice !== p.price && (
-                          <span className="text-[10px] line-through text-muted-foreground">{p.currency}{p.originalPrice}</span>
+                          <span className="text-tiny line-through text-muted-foreground">{p.currency}{p.originalPrice}</span>
                         )}
-                        {p.discount && <span className="text-[10px] text-red-400">{p.discount}</span>}
+                        {p.discount && <span className="text-tiny text-destructive">{p.discount}</span>}
                       </div>
-                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                        <span className="flex items-center gap-0.5"><Star className="h-3 w-3 text-amber-400" />{p.rating ?? "—"}</span>
+                      <div className="flex items-center gap-2 text-tiny text-muted-foreground">
+                        <span className="flex items-center gap-0.5"><Star className="h-3 w-3 text-warning" />{p.rating ?? "—"}</span>
                         <span>{p.reviewCount ?? 0} 评</span>
                         <span>已售 {p.soldCount ?? 0}</span>
                       </div>
-                      <p className="text-[10px] text-muted-foreground truncate">{p.sellerName}{p.brand ? ` · ${p.brand}` : ""}</p>
+                      <p className="text-tiny text-muted-foreground truncate">{p.sellerName}{p.brand ? ` · ${p.brand}` : ""}</p>
                     </CardContent>
                   </Card>
                 ))}
@@ -267,7 +264,7 @@ export function ProductResearchClient({ recentResults = [] }: ProductResearchCli
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <MessageSquareWarning className="h-4 w-4 text-amber-400" />
+                    <MessageSquareWarning className="h-4 w-4 text-warning" />
                     {selected ? selected.title.slice(0, 60) : "请先在「商品采集」选择一个商品"}
                   </CardTitle>
                 </CardHeader>
@@ -278,15 +275,15 @@ export function ProductResearchClient({ recentResults = [] }: ProductResearchCli
                     <>
                       <div className="flex items-center gap-6 mb-4">
                         <div>
-                          <div className="text-2xl font-bold text-amber-400">{reviewSummary.avg ?? "—"}</div>
-                          <div className="text-[10px] text-muted-foreground">共 {reviewSummary.total ?? reviews.length} 条</div>
+                          <div className="text-2xl font-bold text-warning">{reviewSummary.avg ?? "—"}</div>
+                          <div className="text-tiny text-muted-foreground">共 {reviewSummary.total ?? reviews.length} 条</div>
                         </div>
                         <div className="flex-1 space-y-1">
                           {[5, 4, 3, 2, 1].map((star) => (
-                            <div key={star} className="flex items-center gap-2 text-[10px]">
+                            <div key={star} className="flex items-center gap-2 text-tiny">
                               <span className="w-6">{star}★</span>
                               <div className="h-1.5 flex-1 rounded bg-muted overflow-hidden">
-                                <div className="h-full bg-amber-400" style={{ width: `${((Number(dist[String(star)]) || 0) / distMax) * 100}%` }} />
+                                <div className="h-full bg-warning" style={{ width: `${((Number(dist[String(star)]) || 0) / distMax) * 100}%` }} />
                               </div>
                               <span className="w-8 text-right text-muted-foreground">{dist[String(star) ?? "0"] ?? 0}</span>
                             </div>
@@ -294,18 +291,18 @@ export function ProductResearchClient({ recentResults = [] }: ProductResearchCli
                         </div>
                       </div>
                       {badReviews.length > 0 && (
-                        <div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/5 p-2.5 text-xs text-red-200">
+                        <div className="mb-3 rounded-lg border border-destructive/30 bg-destructive/5 p-2.5 text-xs text-destructive">
                           检测到 <b>{badReviews.length}</b> 条差评（≤3★），这些是产品改进的真实切入点：
                         </div>
                       )}
                       <div className="space-y-2 max-h-[420px] overflow-auto">
                         {reviews.map((r) => (
-                          <div key={r.reviewId} className={cn("rounded-lg border p-2.5 text-xs", (r.rating ?? 5) <= 3 ? "border-red-500/30 bg-red-500/5" : "bg-muted/30")}>
+                          <div key={r.reviewId} className={cn("rounded-lg border p-2.5 text-xs", (r.rating ?? 5) <= 3 ? "border-destructive/30 bg-destructive/5" : "bg-muted/30")}>
                             <div className="flex items-center gap-2 mb-1">
                               <span className="font-medium">{r.reviewer || "匿名"}</span>
-                              <span className="text-amber-400">{"★".repeat(r.rating ?? 0)}</span>
-                              {r.verified && <Badge variant="outline" className="text-[9px] h-4">已验证购买</Badge>}
-                              {r.incentivized && <Badge variant="outline" className="text-[9px] h-4">激励评价</Badge>}
+                              <span className="text-warning">{"★".repeat(r.rating ?? 0)}</span>
+                              {r.verified && <Badge variant="outline" className="text-tiny h-4">已验证购买</Badge>}
+                              {r.incentivized && <Badge variant="outline" className="text-tiny h-4">激励评价</Badge>}
                               <span className="ml-auto text-muted-foreground">{r.time}</span>
                             </div>
                             <p className="text-muted-foreground leading-relaxed">{r.text || "（无文字评价）"}</p>
@@ -348,14 +345,14 @@ export function ProductResearchClient({ recentResults = [] }: ProductResearchCli
                 return (
                   <>
                     <Card className="border-l-2 border-l-red-500">
-                      <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><ShieldAlert className="h-4 w-4 text-red-400" /> 专利风险检测</CardTitle></CardHeader>
+                      <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><ShieldAlert className="h-4 w-4 text-destructive" /> 专利风险检测</CardTitle></CardHeader>
                       <CardContent>
                         {patentRisks?.length ? (
                           <div className="grid gap-3 sm:grid-cols-3">
                             {patentRisks.map((p) => (
-                              <div key={p.label} className={cn("p-3 rounded-lg border", p.status === "warning" ? "border-amber-500/30 bg-amber-500/5" : "border-emerald-500/30 bg-emerald-500/5")}>
+                              <div key={p.label} className={cn("p-3 rounded-lg border", p.status === "warning" ? "border-warning/30 bg-warning/5" : "border-success/30 bg-success/5")}>
                                 <div className="flex items-center gap-2 mb-1 text-sm font-medium">
-                                  {p.status === "warning" ? <AlertTriangle className="h-4 w-4 text-amber-400" /> : <CheckCircle2 className="h-4 w-4 text-emerald-400" />}{p.label}
+                                  {p.status === "warning" ? <AlertTriangle className="h-4 w-4 text-warning" /> : <CheckCircle2 className="h-4 w-4 text-success" />}{p.label}
                                 </div>
                                 <p className="text-xs text-muted-foreground">{p.detail}</p>
                               </div>
@@ -399,7 +396,7 @@ export function ProductResearchClient({ recentResults = [] }: ProductResearchCli
                     </div>
                     <div className="space-y-2">
                       <p className="text-xs text-muted-foreground uppercase tracking-wider">核心卖点</p>
-                      <div className="flex flex-wrap gap-1">{sellingPoints.map((s) => <Badge key={s} variant="outline" className="text-[10px] border-primary/30 text-primary">{s}</Badge>)}</div>
+                      <div className="flex flex-wrap gap-1">{sellingPoints.map((s) => <Badge key={s} variant="outline" className="text-tiny border-primary/30 text-primary">{s}</Badge>)}</div>
                     </div>
                     <div className="flex gap-3">
                       <Button className="gap-2" onClick={() => {
@@ -423,7 +420,7 @@ export function ProductResearchClient({ recentResults = [] }: ProductResearchCli
               <div className="flex justify-between"><span className="text-muted-foreground">在售商品</span><AnimatedNumber value={products.length} className="font-medium" /></div>
               <div className="flex justify-between"><span className="text-muted-foreground">联想词</span><span className="font-medium">{suggestions.length}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">当前商品评论</span><span className="font-medium">{reviews.length}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">其中差评</span><span className="font-medium text-red-400">{badReviews.length}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">其中差评</span><span className="font-medium text-destructive">{badReviews.length}</span></div>
             </CardContent>
           </Card>
 
@@ -433,7 +430,7 @@ export function ProductResearchClient({ recentResults = [] }: ProductResearchCli
               <CardContent className="space-y-2 text-xs">
                 <p className="line-clamp-3 leading-snug">{selected.title}</p>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-pink-400">{selected.currency}{selected.price}</span>
+                  <span className="text-sm font-semibold text-price">{selected.currency}{selected.price}</span>
                   <span className="text-muted-foreground">已售 {selected.soldCount ?? 0}</span>
                 </div>
                 {selected.url && (

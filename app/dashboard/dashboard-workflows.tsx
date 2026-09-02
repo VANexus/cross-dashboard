@@ -63,7 +63,7 @@ export function DashboardWorkflows({ workflows }: DashboardWorkflowsProps) {
         <div className="flex flex-1 flex-col gap-2">
           {counts.map((s) => (
             <div key={s.label} className="flex items-center gap-2 text-xs">
-              <i className="h-2 w-2 rounded-[3px]" style={{ background: s.color }} />
+              <i className="h-2 w-2 rounded-xs" style={{ background: s.color }} />
               <span className="text-muted-foreground">{s.label}</span>
               <span className="metric-value ml-auto">{s.value}</span>
             </div>

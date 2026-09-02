@@ -49,9 +49,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Sidebar />
               {/* min-w-0：允许内容列被抽屉挤压收缩（否则 min-width:auto 顶住 → 横向溢出）；
                   transition 限定 margin-left：不干扰 GSAP 对 margin-right 的逐帧挤压动画 */}
-              <div className={cn("flex min-w-0 flex-1 flex-col transition-[margin-left] duration-300", collapsed ? "ml-[72px]" : "ml-[260px]")}>
+              <div className={cn("flex min-w-0 flex-1 flex-col transition-[margin-left] duration-300", collapsed ? "ml-(--sidebar-width-collapsed)" : "ml-(--sidebar-width)")}>
                 <TopBar />
-                <main id="app-main" className="min-w-0 flex-1 p-6">{children}</main>
+                <main id="app-main" className="min-w-0 flex-1">
+          <div className="page-container">{children}</div>
+        </main>
               </div>
             </div>
 

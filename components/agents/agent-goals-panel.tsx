@@ -11,8 +11,8 @@ interface AgentGoalsPanelProps {
 }
 
 const priorityColors: Record<string, string> = {
-  high: "text-red-500 bg-red-500/10",
-  medium: "text-amber-500 bg-amber-500/10",
+  high: "text-destructive bg-destructive/10",
+  medium: "text-warning bg-warning/10",
   low: "text-muted-foreground bg-muted",
 };
 
@@ -34,13 +34,13 @@ export function AgentGoalsPanel({ goals }: AgentGoalsPanelProps) {
             <div key={goal.id} className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-medium truncate flex-1">{goal.text}</p>
-                <Badge variant="outline" className={`text-[10px] border-0 ${priorityColors[goal.priority]}`}>
+                <Badge variant="outline" className={`text-tiny border-0 ${priorityColors[goal.priority]}`}>
                   {goal.priority === "high" ? "高" : goal.priority === "medium" ? "中" : "低"}
                 </Badge>
               </div>
               <div className="flex items-center gap-2">
                 <Progress value={goal.progress * 100} className="h-1.5 flex-1" />
-                <span className="text-[10px] text-muted-foreground w-8 text-right">
+                <span className="text-tiny text-muted-foreground w-8 text-right">
                   {Math.round(goal.progress * 100)}%
                 </span>
               </div>

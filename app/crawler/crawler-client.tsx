@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/page-header";
 import { useState } from "react";
 import { PageTransition } from "@/components/ui/page-transition";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,21 +55,15 @@ export function CrawlerClient({ initialStatus, initialResults }: CrawlerClientPr
 
   return (
     <PageTransition className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Globe className="h-6 w-6 text-primary" />
-            爬虫中心
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            通过紫鸟浏览器提取店铺数据
-          </p>
-        </div>
-        <Button variant="outline" size="sm" onClick={() => { refetchStatus(); refetchResults(); }}>
+      <PageHeader
+        title="爬虫中心"
+        description="通过紫鸟浏览器提取店铺数据"
+        icon={<Globe className="h-6 w-6 text-primary" />}
+        actions={<Button variant="outline" size="sm" onClick={() => { refetchStatus(); refetchResults(); }}>
           <RefreshCw className="h-4 w-4 mr-1" />
           刷新
-        </Button>
-      </div>
+        </Button>}
+      />
 
       {/* Bridge Status */}
       <Card>
@@ -132,13 +127,13 @@ export function CrawlerClient({ initialStatus, initialResults }: CrawlerClientPr
               </Button>
             </div>
             {!selectedStore && (
-              <p className="text-xs text-amber-500 flex items-center gap-1">
+              <p className="text-xs text-warning flex items-center gap-1">
                 <AlertCircle className="h-3 w-3" />
                 请先在上方选择一个店铺
               </p>
             )}
             {message && (
-              <p className={`text-xs flex items-center gap-1 ${message.includes("成功") ? "text-emerald-500" : "text-red-500"}`}>
+              <p className={`text-xs flex items-center gap-1 ${message.includes("成功") ? "text-success" : "text-destructive"}`}>
                 {message.includes("成功") ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
                 {message}
               </p>
@@ -153,7 +148,7 @@ export function CrawlerClient({ initialStatus, initialResults }: CrawlerClientPr
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <Database className="h-4 w-4 text-primary" />
             提取记录
-            <Badge variant="secondary" className="text-[10px] ml-auto">
+            <Badge variant="secondary" className="text-tiny ml-auto">
               {displayResults.length}
             </Badge>
           </CardTitle>
@@ -167,7 +162,7 @@ export function CrawlerClient({ initialStatus, initialResults }: CrawlerClientPr
                 <div key={i} className="p-3 rounded-lg border bg-muted/30 space-y-1">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[10px]">
+                      <Badge variant="outline" className="text-tiny">
                         {result.storeName || result.storeId}
                       </Badge>
                       {result.url && (
@@ -177,11 +172,11 @@ export function CrawlerClient({ initialStatus, initialResults }: CrawlerClientPr
                         </a>
                       )}
                     </div>
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-tiny text-muted-foreground">
                       {new Date(result.timestamp).toLocaleString("zh-CN")}
                     </span>
                   </div>
-                  <pre className="text-[10px] text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap max-h-20">
+                  <pre className="text-tiny text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap max-h-20">
                     {typeof result.data === "string" ? result.data : JSON.stringify(result.data, null, 2).slice(0, 500)}
                   </pre>
                 </div>

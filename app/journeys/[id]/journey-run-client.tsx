@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/page-header";
 import { useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -22,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { WorkflowStepper, type StepItem } from "@/components/ui/workflow-stepper";
+import { TeamSopPanel } from "@/components/journey/team-sop-panel";
 import { useAgentPage } from "@/lib/agent/page-context";
 import { getJourneyById } from "@/lib/journeys/registry";
 import { useJourneyRun } from "@/stores/journey-run";
@@ -35,14 +37,14 @@ function JourneyNode({ data }: NodeProps) {
     <div
       className={`
         rounded-lg border px-3 py-2 text-xs shadow-sm min-w-[140px]
-        ${d.done ? "border-emerald-500/40 bg-emerald-500/5" : ""}
+        ${d.done ? "border-success/40 bg-success/5" : ""}
         ${d.active ? "border-primary bg-primary/10 text-primary font-medium" : ""}
         ${!d.active && !d.done ? "border-border bg-card text-muted-foreground" : ""}
       `}
     >
       <Handle type="target" position={Position.Top} className="!bg-border" />
       <div className="flex items-center gap-2">
-        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary/10 font-mono text-[10px]">
+        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary/10 font-mono text-tiny">
           {d.index}
         </span>
         {d.label}
@@ -102,7 +104,7 @@ export function JourneyRunClient({ journeyId }: { journeyId: string }) {
   if (!journey) {
     return (
       <div className="min-h-screen bg-surface-0">
-        <div className="mx-auto max-w-3xl px-8 py-20 text-center">
+        <div className="mx-auto max-w-3xl py-10 text-center">
           <p className="text-muted-foreground">旅程「{journeyId}」未登记。</p>
           <Button asChild variant="outline" size="sm" className="mt-4">
             <Link href="/journeys">返回编排中心</Link>
@@ -155,27 +157,20 @@ export function JourneyRunClient({ journeyId }: { journeyId: string }) {
   };
 
   return (
-    <div className="min-h-screen bg-surface-0">
-      <div className="mx-auto max-w-6xl px-8 py-8">
+    <div>
+      <div>
         {/* 页头 */}
-        <header className="dash-pagehead">
-          <div>
-            <p className="dash-crumbs">
-              <Link href="/journeys" className="hover:text-foreground inline-flex items-center gap-1">
-                <ArrowLeft className="h-3 w-3" /> 流程编排中心
-              </Link>{" "}
-              / <b>{journey.label}</b>
-            </p>
-            <h1 className="flex items-center gap-2.5">
-              {(() => {
-                const Icon = journey.icon;
-                return <Icon className="h-6 w-6 text-primary" />;
-              })()}
-              {journey.label}
-            </h1>
-            <p className="dash-desc">{journey.description}</p>
-          </div>
-          <div className="dash-actions">
+        <PageHeader
+          breadcrumb={<Link href="/journeys" className="inline-flex items-center gap-1 hover:text-foreground"><ArrowLeft className="h-3 w-3" /> 流程编排中心</Link>}
+          title={<span className="flex items-center gap-2.5">
+            {(() => {
+              const Icon = journey.icon;
+              return <Icon className="h-6 w-6 text-primary" />;
+            })()}
+            {journey.label}
+          </span>}
+          description={journey.description}
+          actions={<>
             {!journey.enabled ? (
               <Badge variant="secondary">骨架旅程 · 未开放执行</Badge>
             ) : isMine ? (
@@ -190,8 +185,8 @@ export function JourneyRunClient({ journeyId }: { journeyId: string }) {
               <Compass className="h-3.5 w-3.5" />
               新手引导
             </Button>
-          </div>
-        </header>
+          </>}
+        />
 
         {/* Linear 式可拖拽分栏：管线图 ｜ 步骤详情（react-resizable-panels，键盘可调） */}
         <ResizablePanelGroup
@@ -202,7 +197,7 @@ export function JourneyRunClient({ journeyId }: { journeyId: string }) {
           <ResizablePanel defaultSize={24} minSize={16} maxSize={40}>
             <Card className="workflow-card h-full py-0">
               <CardContent className="p-3">
-                <p className="px-1 pb-2 text-[11px] font-medium uppercase tracking-widest text-muted-foreground/60">
+                <p className="px-1 pb-2 text-caption font-medium uppercase tracking-widest text-muted-foreground/60">
                   旅程管线
                 </p>
                 <div className="h-[300px]">
@@ -249,9 +244,9 @@ export function JourneyRunClient({ journeyId }: { journeyId: string }) {
                       </span>
                       {isMine && <Badge variant="secondary" className="ml-auto">active</Badge>}
                     </div>
-                    <p className="mt-2.5 text-[13px] text-muted-foreground">{currentStep.description}</p>
+                    <p className="mt-2.5 text-body text-muted-foreground">{currentStep.description}</p>
                     {currentStep.agentHint && (
-                      <p className="mt-2 rounded-md bg-surface-2 px-3 py-2 font-mono text-[11.5px] text-muted-foreground">
+                      <p className="mt-2 rounded-md bg-surface-2 px-3 py-2 font-mono text-caption text-muted-foreground">
                         Agent 提示：{currentStep.agentHint}
                       </p>
                     )}
@@ -278,6 +273,9 @@ export function JourneyRunClient({ journeyId }: { journeyId: string }) {
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>
+
+        {/* M4：把当前旅程保存为团队 SOP / 查看与重跑已保存 SOP */}
+        {journey.enabled && <TeamSopPanel journeyId={journeyId} />}
       </div>
     </div>
   );

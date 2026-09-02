@@ -31,9 +31,17 @@ import { topoSortSpecSteps } from "@/src/kernel/plugins/mastra-engine";
 // pi 深度子代理 + 业务工具链放宽上限（token 不设限）
 export const maxDuration = 300;
 
+/**
+ * 成本闸（P0 上线硬约束④）：单轮对话最多续跑的模型步数。
+ * 每一步都可能触发一次工具调用 + 一次模型调用，步数失控 = token 成本失控。
+ * L2 动作会在前端挂起等用户，回传后仍计入步数，故上限需容纳「工具→确认→续推」。
+ */
+const MAX_AGENT_STEPS = 12;
+
 interface PageAction {
   id: string;
   description: string;
+  riskLevel?: 'L0' | 'L1' | 'L2';
 }
 
 interface PageContext {
@@ -49,9 +57,16 @@ interface ChatBody {
   pageContext?: PageContext;
 }
 
-const BASE_PERSONA = `你是 FlowMind 跨境电商系统的运营助手。用简体中文交流，结论先行，可用 ①②③ 列点。
-不要编造数据；缺少数据时明确说明，并建议用户前往对应页面查看或补充。
+const BASE_PERSONA = `你是 FlowMind 跨境电商系统的运营助手，当前服务「TikTok Shop + 阿里国际站铺货」场景。用简体中文交流，结论先行，可用 ①②③ 列点。
+不要编造数据；缺少数据时明确说明，并建议用户前往对应页面查看或补充。外部接口降级/缓存/缺 Key 时如实说明数据状态，不得把降级数据包装成实时结果。
 用户的问题可能涉及当前页面内容与页面上的可执行动作。
+
+## 动作权限三级模型（人在环中，必须遵守）
+页面动作带风险等级标记：
+- [L0] 只读/导航：查询、跳转、高亮，可直接调用；
+- [L1] 本地可逆：筛选、填表、生成草稿/Listing/图片等只落在本页或草稿库的动作，可直接调用，用户可自行不采纳；
+- [L2] 对外/不可逆：如「上传国际站/发布/删除/导入凭证/花费」等，你只能发起调用，前端会挂起并向用户弹确认卡，用户批准后才真正执行；你不得声称它已经执行成功，只有收到执行结果回传后才能下结论；用户取消时不得重试，应询问下一步。
+发起 L2 动作前先用一句话向用户说明它会对外产生什么影响。
 
 你可以在对话中动态渲染白名单 UI 组件（render_component 工具，由前端渲染）：
 stat-card 单指标卡片 / line-chart 折线图 / bar-chart 柱状图 / data-table 表格 / form 表单 / action-list 动作列表 / callout 语义提示块。
@@ -107,8 +122,8 @@ function buildSystemPrompt(pageContext?: PageContext): string {
   }
   if (pageContext.actions && pageContext.actions.length > 0) {
     lines.push(
-      "可调用以下页面动作（通过 ui_action 工具触发，由前端在页面上执行，不要编造列表之外的 id）：",
-      ...pageContext.actions.map((a) => `- ${a.id} — ${a.description}`),
+      "可调用以下页面动作（通过 ui_action 工具触发，由前端在页面上执行，不要编造列表之外的 id；方括号为风险等级，[L2] 需用户确认）：",
+      ...pageContext.actions.map((a) => `- [${a.riskLevel ?? 'L1'}] ${a.id} — ${a.description}`),
     );
   }
 
@@ -248,8 +263,9 @@ export const POST = withDb(async (request: NextRequest) => {
     messages: await convertToModelMessages(messages, { tools }),
     tools,
     // 服务端工具（deep_task/业务工具）执行完自动续跑下一步；
-    // ui_action 是 client tool（无 execute），仍会暂停等前端回传
-    stopWhen: stepCountIs(10),
+    // ui_action 是 client tool（无 execute），仍会暂停等前端回传。
+    // MAX_AGENT_STEPS 为成本闸：超过步数强制停止，防止工具环导致 token 失控。
+    stopWhen: stepCountIs(MAX_AGENT_STEPS),
   });
 
   return result.toUIMessageStreamResponse({

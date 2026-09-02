@@ -3,11 +3,13 @@
 import type { JourneyManifest } from "./types";
 import { contentPublishJourney } from "./manifests/content-publish";
 import { listingLaunchJourney } from "./manifests/listing-launch";
+import { xhsSeedPipelineJourney } from "./manifests/xhs-seed-pipeline";
 import { skeletonJourneys } from "./manifests/skeletons";
 
 export const journeys: JourneyManifest[] = [
   contentPublishJourney,
   listingLaunchJourney,
+  xhsSeedPipelineJourney,
   ...skeletonJourneys,
 ].sort((a, b) => a.order - b.order);
 

@@ -32,16 +32,16 @@ export const PROTOCOL_META: Record<
   mcp: {
     label: "MCP",
     description: "Model Context Protocol（推荐）",
-    color: "text-blue-500",
+    color: "text-info",
   },
   a2a: {
     label: "A2A",
     description: "Agent-to-Agent（流式 SSE）",
-    color: "text-purple-500",
+    color: "text-viz-2",
   },
   rest: {
     label: "REST",
     description: "通用 HTTP（最低门槛）",
-    color: "text-green-500",
+    color: "text-success",
   },
 };

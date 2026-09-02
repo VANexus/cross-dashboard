@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/page-header";
 import { useState, useEffect, startTransition } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -28,9 +29,9 @@ import {
 } from "lucide-react";
 
 const statusMeta = {
-  normal: { label: "正常", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
-  warning: { label: "补货中", color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20" },
-  caution: { label: "预警", color: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/20" },
+  normal: { label: "正常", color: "text-success", bg: "bg-success/10", border: "border-success/20" },
+  warning: { label: "补货中", color: "text-warning", bg: "bg-warning/10", border: "border-warning/20" },
+  caution: { label: "预警", color: "text-warning", bg: "bg-warning/10", border: "border-warning/20" },
   stale: { label: "滞销", color: "text-zinc-400", bg: "bg-zinc-500/10", border: "border-zinc-500/20" },
   overstock: { label: "滞销", color: "text-zinc-400", bg: "bg-zinc-500/10", border: "border-zinc-500/20" },
 };
@@ -77,9 +78,9 @@ export interface InventoryClientProps {
 }
 
 function urgencyColor(u: string) {
-  if (u === "high") return "text-red-400";
-  if (u === "medium") return "text-amber-400";
-  return "text-emerald-400";
+  if (u === "high") return "text-destructive";
+  if (u === "medium") return "text-warning";
+  return "text-success";
 }
 
 export function InventoryClient({ inventoryItems, restockSuggestions, recentOrders = [] }: InventoryClientProps) {
@@ -143,15 +144,11 @@ export function InventoryClient({ inventoryItems, restockSuggestions, recentOrde
 
   return (
     <PageTransition className="space-y-4">
-      <div className="flex items-center gap-3 mb-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-wf-inventory/10">
-          <Package className="h-4 w-4 text-wf-inventory" />
-        </div>
-        <div>
-          <h1 className="text-lg font-semibold">库存规划</h1>
-          <p className="text-xs text-muted-foreground">解决断货/滞销问题 — 智能预警 + 补货建议 + 库龄分析</p>
-        </div>
-      </div>
+      <PageHeader
+        title="库存规划"
+        description="解决断货/滞销问题 — 智能预警 + 补货建议 + 库龄分析"
+        icon={<Package className="h-6 w-6 text-wf-inventory" />}
+      />
 
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
@@ -215,12 +212,12 @@ export function InventoryClient({ inventoryItems, restockSuggestions, recentOrde
                           <td className="px-4 py-2.5">
                             <div>
                               <span className="font-medium">{item.name}</span>
-                              <p className="text-[10px] text-muted-foreground">SKU: {item.sku}</p>
+                              <p className="text-tiny text-muted-foreground">SKU: {item.sku}</p>
                             </div>
                           </td>
                           <td className="px-4 py-2.5 text-right metric-value">{item.stock.toLocaleString()}</td>
                           <td className="px-4 py-2.5 text-right metric-value">{item.dailySales}</td>
-                          <td className={cn("px-4 py-2.5 text-right font-medium", item.ratioDays < 14 ? "text-red-400" : item.ratioDays < 21 ? "text-amber-400" : "text-emerald-400")}>
+                          <td className={cn("px-4 py-2.5 text-right font-medium", item.ratioDays < 14 ? "text-destructive" : item.ratioDays < 21 ? "text-warning" : "text-success")}>
                             {item.ratioDays}天
                           </td>
                           <td className="px-4 py-2.5 text-right text-xs text-muted-foreground">{item.stockoutDate}</td>
@@ -229,7 +226,7 @@ export function InventoryClient({ inventoryItems, restockSuggestions, recentOrde
                             <Sparkline quiet data={item.trend} width={60} height={18} color={item.trend[item.trend.length - 1] < item.trend[0] ? "var(--destructive)" : "var(--success)"} />
                           </td>
                           <td className="px-4 py-2.5 text-center">
-                            <Badge variant="outline" className={cn("text-[10px]", meta.color, meta.bg, meta.border)}>
+                            <Badge variant="outline" className={cn("text-tiny", meta.color, meta.bg, meta.border)}>
                               {meta.label}
                             </Badge>
                           </td>
@@ -256,7 +253,7 @@ export function InventoryClient({ inventoryItems, restockSuggestions, recentOrde
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <h3 className="text-sm font-semibold">{selectedItem.name}</h3>
-                      <Badge variant="outline" className={cn("text-[10px]", meta.color, meta.bg, meta.border)}>{meta.label}</Badge>
+                      <Badge variant="outline" className={cn("text-tiny", meta.color, meta.bg, meta.border)}>{meta.label}</Badge>
                     </div>
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedItem(null)}>
                       <X className="h-3.5 w-3.5" />
@@ -267,18 +264,18 @@ export function InventoryClient({ inventoryItems, restockSuggestions, recentOrde
                     <div className="p-3 rounded-lg bg-muted/30">
                       <div className="flex items-center gap-1.5 mb-1">
                         <Package className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-[10px] text-muted-foreground">当前库存</span>
+                        <span className="text-tiny text-muted-foreground">当前库存</span>
                       </div>
                       <AnimatedNumber value={selectedItem.stock} className="text-lg font-bold" />
-                      <p className="text-[10px] text-muted-foreground">可售 {selectedItem.ratioDays} 天</p>
+                      <p className="text-tiny text-muted-foreground">可售 {selectedItem.ratioDays} 天</p>
                     </div>
                     <div className="p-3 rounded-lg bg-muted/30">
                       <div className="flex items-center gap-1.5 mb-1">
                         <TrendingDown className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-[10px] text-muted-foreground">日均销量</span>
+                        <span className="text-tiny text-muted-foreground">日均销量</span>
                       </div>
                       <AnimatedNumber value={selectedItem.dailySales} className="text-lg font-bold" />
-                      <p className={cn("text-[10px]", trendDirection === "up" ? "text-emerald-400" : "text-red-400")}>
+                      <p className={cn("text-tiny", trendDirection === "up" ? "text-success" : "text-destructive")}>
                         {trendDirection === "up" ? "↑" : "↓"} {Math.abs(latestTrend - prevTrend)} 件/天
                       </p>
                     </div>
@@ -302,11 +299,11 @@ export function InventoryClient({ inventoryItems, restockSuggestions, recentOrde
                   <div className="p-3 rounded-lg border border-dashed bg-muted/20">
                     <div className="flex items-center gap-2 mb-1">
                       {daysToOut < shipDays ? (
-                        <AlertTriangle className="h-4 w-4 text-red-400" />
+                        <AlertTriangle className="h-4 w-4 text-destructive" />
                       ) : (
-                        <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                        <CheckCircle2 className="h-4 w-4 text-success" />
                       )}
-                      <span className={cn("text-sm font-medium", daysToOut < shipDays ? "text-red-400" : "text-emerald-400")}>
+                      <span className={cn("text-sm font-medium", daysToOut < shipDays ? "text-destructive" : "text-success")}>
                         {daysToOut < shipDays ? "紧急: 建议空运" : "正常: 海运可行"}
                       </span>
                     </div>
@@ -337,7 +334,7 @@ export function InventoryClient({ inventoryItems, restockSuggestions, recentOrde
                     </Button>
                   </div>
                   {orderResult && (
-                    <p className={cn("mt-2 text-xs", orderResult.includes("已创建") ? "text-emerald-400" : "text-red-400")}>
+                    <p className={cn("mt-2 text-xs", orderResult.includes("已创建") ? "text-success" : "text-destructive")}>
                       {orderResult}
                     </p>
                   )}
@@ -359,7 +356,7 @@ export function InventoryClient({ inventoryItems, restockSuggestions, recentOrde
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">预警商品</span>
-                <span className="font-medium text-amber-400">{warningCount}</span>
+                <span className="font-medium text-warning">{warningCount}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">平均可售天数</span>
@@ -372,7 +369,7 @@ export function InventoryClient({ inventoryItems, restockSuggestions, recentOrde
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">补货建议</CardTitle>
-                <Button variant="outline" size="sm" className="h-6 gap-1 text-[10px]" onClick={async () => {
+                <Button variant="outline" size="sm" className="h-6 gap-1 text-tiny" onClick={async () => {
                   if (restockSuggestions.length === 0) return;
                   try {
                     const res = await fetch("/api/workflows/inventory/restock-order", {
@@ -400,11 +397,11 @@ export function InventoryClient({ inventoryItems, restockSuggestions, recentOrde
                 <div key={s.id} className="p-2.5 rounded-lg border bg-muted/20">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-medium">{s.name}</span>
-                    <Badge variant="outline" className={cn("text-[10px]", urgencyColor(s.urgency))}>
+                    <Badge variant="outline" className={cn("text-tiny", urgencyColor(s.urgency))}>
                       {s.urgency === "high" ? "紧急" : s.urgency === "medium" ? "一般" : "可选"}
                     </Badge>
                   </div>
-                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                  <div className="flex justify-between text-tiny text-muted-foreground">
                     <span>建议: {s.suggestedQty.toLocaleString()} 件</span>
                     <span>{s.method} · {s.eta}</span>
                   </div>
@@ -425,11 +422,11 @@ export function InventoryClient({ inventoryItems, restockSuggestions, recentOrde
                   <div key={order.id} className="p-2 rounded-lg border text-xs">
                     <div className="flex justify-between mb-1.5">
                       <span className="font-medium">{order.id}</span>
-                      <Badge variant="outline" className={cn("text-[10px] h-4", order.status === "created" ? "text-amber-400" : "text-emerald-400")}>
+                      <Badge variant="outline" className={cn("text-tiny h-4", order.status === "created" ? "text-warning" : "text-success")}>
                         {order.status === "created" ? "已创建" : order.status}
                       </Badge>
                     </div>
-                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                    <div className="flex justify-between text-tiny text-muted-foreground">
                       <span>{order.totalItems} 件商品</span>
                       <span>{new Date(order.createdAt).toLocaleDateString("zh-CN")}</span>
                     </div>

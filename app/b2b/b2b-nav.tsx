@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/page-header";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -17,14 +18,11 @@ export function B2BNav() {
   const pathname = usePathname();
   return (
     <div className="mb-5">
-      <div className="mb-4 flex flex-wrap items-end gap-4">
-        <div>
-          <h1 className="font-heading text-2xl font-bold tracking-tight">B端运营工作台</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            关键词趋势 · AI Listing 一键上架 · 生图 Skill 库
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        className="mb-4"
+        title="B端运营工作台"
+        description="关键词趋势 · AI Listing 一键上架 · 生图 Skill 库"
+      />
       <div className="flex gap-2 border-b pb-3">
         {TABS.map((t) => {
           const active = pathname.startsWith(t.href);
