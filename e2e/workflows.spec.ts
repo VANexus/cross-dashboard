@@ -35,7 +35,7 @@ test.describe("Workflow Pages", () => {
   test("ai-advertising should show keyword table", async ({ page }) => {
     await page.goto("/workflows/ai-advertising");
     await expect(
-      page.locator("text=AI 广告管理").first()
+      page.locator("text=AI 广告投放").first()
     ).toBeVisible({ timeout: 15000 });
   });
 

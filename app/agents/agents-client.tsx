@@ -80,6 +80,17 @@ export function AgentsClient({ initialData }: AgentsClientProps) {
       </div>
 
       <div className="grid gap-4 grid-cols-2">
+        {initialData.length === 0 && (
+          <div className="col-span-2 flex flex-col items-center justify-center rounded-xl border border-dashed py-16 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Bot className="h-6 w-6" />
+            </div>
+            <p className="mt-4 text-sm font-medium">暂无 Agent</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              系统智能代理尚未初始化，点击右上角「添加 Agent」创建第一个代理
+            </p>
+          </div>
+        )}
         {initialData.map((agent) => {
           const config = statusConfig[agent.status];
           const mood = agent.config?.mood;

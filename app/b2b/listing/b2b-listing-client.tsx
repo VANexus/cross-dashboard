@@ -12,6 +12,7 @@ import {
   CheckCircle2, AlertTriangle, Flame, ListChecks, ArrowUpRight,
 } from "lucide-react";
 import { B2BNav } from "../b2b-nav";
+import { JourneyBar } from "@/components/journey/journey-bar";
 import {
   recommendProducts, generateListing, publishListing, refreshProducts,
   useB2BProducts, useListings, useKeywordTrends,
@@ -121,6 +122,7 @@ function ListingInner({ initialProducts, initialListings }: {
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-7">
+      <JourneyBar />
       <B2BNav />
 
       {error && (

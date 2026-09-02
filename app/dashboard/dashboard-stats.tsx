@@ -26,6 +26,7 @@ const sparklines = [
 ];
 
 function KpiCard({
+  cardId,
   icon,
   label,
   value,
@@ -36,6 +37,7 @@ function KpiCard({
   sparkPath,
   delay,
 }: {
+  cardId: string;
   icon: React.ReactNode;
   label: string;
   value: number;
@@ -47,7 +49,7 @@ function KpiCard({
   delay: number;
 }) {
   return (
-    <div className="glass glass-hover dash-kpi dash-rise" style={{ animationDelay: `${delay}ms` }}>
+    <div data-agent-card={cardId} className="glass glass-hover dash-kpi dash-rise" style={{ animationDelay: `${delay}ms` }}>
       <div className="dash-kpi-top">
         <span className="dash-kpi-label">
           {icon}
@@ -72,6 +74,7 @@ export function DashboardStatsCards({ stats, workflowCount, runningCount, warnin
   return (
     <div className="dash-kpi-grid">
       <KpiCard
+        cardId="workflows"
         icon={<Workflow className="h-3.5 w-3.5" />}
         label="运行中工作流"
         value={runningCount}
@@ -83,6 +86,7 @@ export function DashboardStatsCards({ stats, workflowCount, runningCount, warnin
         delay={0}
       />
       <KpiCard
+        cardId="agents"
         icon={<Bot className="h-3.5 w-3.5" />}
         label="在线 Agent"
         value={stats.onlineAgents}
@@ -94,6 +98,7 @@ export function DashboardStatsCards({ stats, workflowCount, runningCount, warnin
         delay={50}
       />
       <KpiCard
+        cardId="tasks"
         icon={<ListTodo className="h-3.5 w-3.5" />}
         label="已完成任务"
         value={stats.completedTasks}
@@ -105,6 +110,7 @@ export function DashboardStatsCards({ stats, workflowCount, runningCount, warnin
         delay={100}
       />
       <KpiCard
+        cardId="risk"
         icon={<AlertTriangle className="h-3.5 w-3.5" />}
         label="风险事件 · 24h"
         value={stats.riskEvents24h}

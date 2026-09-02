@@ -39,18 +39,20 @@ test.describe("Dashboard Page", () => {
     await expect(page.locator("svg path").first()).toBeVisible();
   });
 
-  test("should render AI orchestration panel with steps", async ({ page }) => {
-    await expect(page.locator("text=AI 编排").first()).toBeVisible({ timeout: 10000 });
-    await expect(page.locator("text=选品分析").first()).toBeVisible();
-    await expect(page.locator("text=广告优化").first()).toBeVisible();
+  test("should render AI live panel with real task stream", async ({ page }) => {
+    // AiLivePanel 已重写为真实数据（GET /api/tasks），不再有 mock 打字动画
+    await expect(page.locator("text=AI 编排 · 实时任务流").first()).toBeVisible({ timeout: 10000 });
+    // 有任务则显示任务行，无任务则显示引导空态（不依赖种子数据）
+    const empty = page.locator("text=暂无任务");
+    const rows = page.locator(".dash-stream a.ln");
+    await expect(empty.or(rows.first())).toBeVisible({ timeout: 10000 });
   });
 
-  test("should trigger orchestration on button click", async ({ page }) => {
-    await expect(page.locator("text=AI 编排").first()).toBeVisible({ timeout: 10000 });
+  test("发起编排 button opens agent drawer", async ({ page }) => {
+    await expect(page.locator("text=AI 编排 · 实时任务流").first()).toBeVisible({ timeout: 10000 });
     await page.getByRole("button", { name: "发起编排" }).click();
-    // 重跑后终端出现编排行
-    await expect(
-      page.locator("text=哨兵Agent · 触发编排").first()
-    ).toBeVisible({ timeout: 10000 });
+    // 打开的是 Agent 抽屉（全站唯一 Agent 入口，旧编排面板已删除）
+    await expect(page.locator("text=Agent 视域").first()).toBeVisible({ timeout: 5000 });
+    await expect(page.getByLabel("就当前上下文提问")).toBeVisible();
   });
 });

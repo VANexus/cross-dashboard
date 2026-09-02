@@ -1,13 +1,17 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { motion, LayoutGroup } from "framer-motion";
+import { z } from "zod";
 import { PageTransition } from "@/components/ui/page-transition";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAgentPage } from "@/lib/agent/page-context";
+import type { UIActionDef } from "@/lib/agent/ui-actions";
 import {
   Search,
   CheckCircle2,
@@ -45,9 +49,17 @@ interface TasksClientProps {
   agents: Agent[];
 }
 
+const filterTasksSchema = z.object({
+  status: z.enum(["all", "pending", "running", "completed", "failed", "cancelled"]).optional(),
+  priority: z.enum(["low", "medium", "high", "critical"]).optional(),
+  keyword: z.string().optional(),
+});
+
 export function TasksClient({ initialTasks, agents }: TasksClientProps) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [view, setView] = useState<"list" | "grid" | "board">("list");
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -57,9 +69,10 @@ export function TasksClient({ initialTasks, agents }: TasksClientProps) {
       const matchSearch = t.title.toLowerCase().includes(search.toLowerCase()) ||
         t.description.toLowerCase().includes(search.toLowerCase());
       const matchStatus = statusFilter === "all" || t.status === statusFilter;
-      return matchSearch && matchStatus;
+      const matchPriority = priorityFilter === "all" || t.priority === priorityFilter;
+      return matchSearch && matchStatus && matchPriority;
     });
-  }, [tasks, search, statusFilter]);
+  }, [tasks, search, statusFilter, priorityFilter]);
 
   const agentMap = useMemo(() => {
     const m: Record<string, Agent> = {};
@@ -70,6 +83,83 @@ export function TasksClient({ initialTasks, agents }: TasksClientProps) {
   const completedCount = tasks.filter((t) => t.status === "completed").length;
   const runningCount = tasks.filter((t) => t.status === "running").length;
   const failedCount = tasks.filter((t) => t.status === "failed").length;
+
+  // 「UI 即工具」：筛选/清空/跳转详情注册为 Agent 可调用的页面动作（写入上方现有筛选 state）
+  const agentActions: UIActionDef[] = [
+    {
+      id: "filterTasks",
+      description:
+        "筛选任务列表：按状态（all/pending/running/completed/failed/cancelled）、优先级（all/low/medium/high/critical）、关键词（标题/描述模糊匹配）",
+      schema: filterTasksSchema,
+      execute: (p) => {
+        const { status, priority, keyword } = filterTasksSchema.parse(p);
+        const nextStatus = status ?? statusFilter;
+        const nextPriority = priority ?? priorityFilter;
+        const nextKeyword = keyword ?? search;
+        setStatusFilter(nextStatus);
+        setPriorityFilter(nextPriority);
+        setSearch(nextKeyword);
+        const kw = nextKeyword.toLowerCase();
+        const matched = tasks.filter(
+          (t) =>
+            (nextStatus === "all" || t.status === nextStatus) &&
+            (nextPriority === "all" || t.priority === nextPriority) &&
+            (t.title.toLowerCase().includes(kw) || t.description.toLowerCase().includes(kw)),
+        );
+        return (
+          `已筛选出 ${matched.length} 个任务` +
+          (matched.length ? `，如：${matched.slice(0, 3).map((t) => t.title).join("、")}` : "")
+        );
+      },
+    },
+    {
+      id: "clearFilters",
+      description: "清除任务列表的所有筛选条件（状态/优先级/关键词）",
+      schema: z.object({}),
+      execute: () => {
+        setSearch("");
+        setStatusFilter("all");
+        setPriorityFilter("all");
+        return `已清除筛选，显示全部 ${tasks.length} 个任务`;
+      },
+    },
+    {
+      id: "navigateToTask",
+      description: "跳转到指定任务的详情页（可传任务 id 或标题关键词）",
+      schema: z.object({ id: z.string().min(1).describe("任务 id 或标题关键词") }),
+      execute: (p) => {
+        const key = String(p.id);
+        const task =
+          tasks.find((t) => t.id === key) ??
+          tasks.find((t) => t.title.toLowerCase().includes(key.toLowerCase()));
+        if (!task) return `未找到任务：${key}`;
+        router.push(`/tasks/${task.id}`);
+        return `已跳转到任务「${task.title}」详情`;
+      },
+    },
+  ];
+
+  useAgentPage({
+    title: "任务中心",
+    snapshot: () => {
+      const c = (st: TaskStatus) => tasks.filter((t) => t.status === st).length;
+      return (
+        `今日任务 ${tasks.length} 个：running ${c("running")} / completed ${c("completed")} / ` +
+        `failed ${c("failed")} / pending ${c("pending")} · 当前筛选 status=${statusFilter} ` +
+        `priority=${priorityFilter} keyword="${search}" · 可见 ${filtered.length} 条` +
+        (filtered.length ? `（代表：${filtered.slice(0, 5).map((t) => t.title).join("、")}）` : "")
+      );
+    },
+    state: () => ({
+      search,
+      statusFilter,
+      priorityFilter,
+      view,
+      total: tasks.length,
+      visible: filtered.length,
+    }),
+    actions: agentActions,
+  });
 
   const handleMove = (taskId: string, status: TaskStatus) => {
     setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status } : t)));

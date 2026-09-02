@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { AgentService, TaskService } from "@/lib/services";
 import { getDbAsync } from "@/lib/db";
 import { getEntries } from "@/lib/repositories/journal.repository";
-import type { Task, JournalEntry } from "@/lib/types";
+import type { Task } from "@/lib/types";
 
 function AgentDetailSkeleton() {
   return (

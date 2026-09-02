@@ -10,6 +10,7 @@ import {
   Palette, Loader2, XCircle, ScanSearch, Save, Wand2, Images, Sparkles, AlertTriangle, ArrowUpRight,
 } from "lucide-react";
 import { B2BNav } from "../b2b-nav";
+import { JourneyBar } from "@/components/journey/journey-bar";
 import {
   reversePrompt, createImageSkill, generateWithSkill, useImageSkills,
 } from "@/hooks/use-b2b";
@@ -87,6 +88,7 @@ export function B2BImageSkillsClient({ initialSkills }: { initialSkills: ImageSk
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-7">
+      <JourneyBar />
       <B2BNav />
 
       {error && (

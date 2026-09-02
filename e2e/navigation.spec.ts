@@ -40,8 +40,8 @@ test.describe("Navigation", () => {
     ).toBeVisible({ timeout: 10000 }).catch(() => {});
   });
 
-  test("should redirect root to dashboard", async ({ page }) => {
+  test("should redirect root to journeys 编排中心", async ({ page }) => {
     await page.goto("/");
-    await expect(page).toHaveURL(/dashboard/, { timeout: 10000 });
+    await expect(page).toHaveURL(/journeys/, { timeout: 10000 });
   });
 });

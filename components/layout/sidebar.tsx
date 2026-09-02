@@ -1,113 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { StatusDot } from "@/components/ui/status-dot";
-import {
-  LayoutDashboard,
-  Workflow,
-  ShieldCheck,
-  Bot,
-  ListTodo,
-  Brain,
-  Sparkles,
-  Settings,
-  ChevronsLeft,
-  ChevronsRight,
-  Radar,
-  Image,
-  BarChart3,
-  PackagePlus,
-  Boxes,
-  Target,
-  Globe,
-  KeyRound,
-  PenLine,
-} from "lucide-react";
+import { getNavGroups } from "@/lib/workspaces/registry";
+import { ChevronDown, ChevronsLeft, ChevronsRight, Workflow, Route } from "lucide-react";
 
-type WorkflowStatus = "running" | "idle" | "warning" | "error";
-
-interface NavItem {
-  label: string;
-  href: string;
-  icon: React.ReactNode;
-  wfStatus?: WorkflowStatus;
-}
-
-interface NavGroup {
-  label: string;
-  items: NavItem[];
-}
-
-const navGroups: NavGroup[] = [
-  {
-    label: "概览",
-    items: [
-      { label: "仪表盘", href: "/dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
-    ],
-  },
-  {
-    label: "工作流",
-    items: [
-      { label: "能力中心", href: "/skills", icon: <Sparkles className="h-4 w-4" /> },
-      { label: "选品工作流", href: "/workflows/product-research", icon: <Radar className="h-4 w-4" />, wfStatus: "running" },
-      { label: "AI 作图", href: "/workflows/ai-imaging", icon: <Image className="h-4 w-4" />, wfStatus: "idle" },
-      { label: "AI 广告", href: "/workflows/ai-advertising", icon: <BarChart3 className="h-4 w-4" />, wfStatus: "running" },
-      { label: "AI 上架", href: "/workflows/ai-listing", icon: <PackagePlus className="h-4 w-4" />, wfStatus: "idle" },
-      { label: "库销比", href: "/workflows/inventory", icon: <Boxes className="h-4 w-4" />, wfStatus: "warning" },
-      { label: "竞品广告分析", href: "/workflows/competitor-ads", icon: <Target className="h-4 w-4" />, wfStatus: "idle" },
-      { label: "视频本地化", href: "/workflows/video-localization", icon: <Globe className="h-4 w-4" /> },
-    ],
-  },
-  {
-    label: "B端运营",
-    items: [
-      { label: "关键词趋势", href: "/b2b/keyword-trends", icon: <BarChart3 className="h-4 w-4" /> },
-      { label: "一键上架", href: "/b2b/listing", icon: <PackagePlus className="h-4 w-4" /> },
-      { label: "生图 Skill 库", href: "/b2b/image-skills", icon: <Image className="h-4 w-4" /> },
-      { label: "渠道账号", href: "/b2b/channels", icon: <KeyRound className="h-4 w-4" /> },
-    ],
-  },
-  {
-    label: "内容",
-    items: [
-      { label: "内容创作中心", href: "/content-studio", icon: <PenLine className="h-4 w-4" /> },
-    ],
-  },
-  {
-    label: "监控",
-    items: [
-      { label: "账号风险", href: "/risk", icon: <ShieldCheck className="h-4 w-4" /> },
-      { label: "Agent 管理", href: "/agents", icon: <Bot className="h-4 w-4" /> },
-      { label: "任务中心", href: "/tasks", icon: <ListTodo className="h-4 w-4" /> },
-    ],
-  },
-  {
-    label: "系统",
-    items: [
-      { label: "记忆系统", href: "/memory", icon: <Brain className="h-4 w-4" /> },
-      { label: "自进化", href: "/evolution", icon: <Sparkles className="h-4 w-4" /> },
-      { label: "设置", href: "/settings", icon: <Settings className="h-4 w-4" /> },
-    ],
-  },
-];
-
-function wfStatusToDot(status?: WorkflowStatus) {
-  switch (status) {
+function dotToStatus(dot?: string) {
+  switch (dot) {
     case "running": return "success" as const;
     case "warning": return "warning" as const;
     case "error": return "danger" as const;
-    default: return "idle" as const;
+    case "idle": return "idle" as const;
+    default: return undefined;
   }
 }
 
 export function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  // 折叠的分组（Linear 式：组头可点击收起；空 = 全展开）
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const navGroups = useMemo(() => getNavGroups(), []);
+
+  const toggleGroup = (id: string) =>
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   return (
     <aside
@@ -118,7 +44,7 @@ export function Sidebar() {
     >
       {/* Logo */}
       <div className={cn("flex h-13 items-center border-b px-4", collapsed && "justify-center px-0")}>
-        <Link href="/dashboard" className="flex items-center gap-2.5">
+        <Link href="/journeys" className="flex items-center gap-2.5">
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10">
             <Workflow className="h-3.5 w-3.5 text-primary" />
           </div>
@@ -130,48 +56,99 @@ export function Sidebar() {
         </Link>
       </div>
 
-      {/* Navigation */}
+      {/* Navigation — 由 lib/workspaces registry 派生（插件式空间） */}
       <ScrollArea className="flex-1 py-3 scrollbar-thin">
         <nav className="flex flex-col gap-4 px-2">
-          {navGroups.map((group) => (
-            <div key={group.label}>
-              {!collapsed && (
-                <p className="px-2.5 pb-1 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/40">
-                  {group.label}
-                </p>
+          {/* 编排中心固定入口 */}
+          <div>
+            <Link
+              href="/journeys"
+              className={cn(
+                "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] transition-all duration-100",
+                pathname === "/journeys" || pathname.startsWith("/journeys/")
+                  ? "bg-primary/8 text-primary font-medium"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/60",
+                collapsed && "justify-center px-0"
               )}
-              <div className="space-y-0.5">
-                {group.items.map((item) => {
-                  const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={cn(
-                        "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] transition-all duration-100",
-                        isActive
-                          ? "bg-primary/8 text-primary font-medium"
-                          : "text-muted-foreground hover:text-foreground hover:bg-secondary/60",
-                        collapsed && "justify-center px-0"
+              title={collapsed ? "流程编排中心" : undefined}
+            >
+              <Route className="h-4 w-4 shrink-0" />
+              {!collapsed && <span>流程编排中心</span>}
+            </Link>
+          </div>
+
+          {navGroups.map((group) => {
+            const isGroupCollapsed = collapsedGroups.has(group.workspaceId);
+            const groupActive = group.items.some(
+              (item) => pathname === item.href || pathname.startsWith(item.href + "/")
+            );
+            return (
+              <div key={group.workspaceId}>
+                <button
+                  type="button"
+                  onClick={() => !collapsed && toggleGroup(group.workspaceId)}
+                  className={cn(
+                    "flex w-full items-center gap-1.5 rounded-md px-2.5 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/40",
+                    !collapsed && "cursor-pointer hover:text-muted-foreground"
+                  )}
+                  title={collapsed ? group.label : undefined}
+                  aria-expanded={!isGroupCollapsed}
+                >
+                  {!collapsed && (
+                    <>
+                      <ChevronDown
+                        className={cn(
+                          "h-3 w-3 shrink-0 transition-transform duration-150",
+                          isGroupCollapsed && "-rotate-90"
+                        )}
+                      />
+                      <span className="truncate">{group.label}</span>
+                      {groupActive && (
+                        <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary/60" aria-hidden />
                       )}
-                      title={collapsed ? item.label : undefined}
-                    >
-                      {item.wfStatus !== undefined && (
-                        <StatusDot
-                          status={wfStatusToDot(item.wfStatus)}
-                          pulse={item.wfStatus === "running"}
-                          size="sm"
-                          className={cn(collapsed && "absolute top-1 right-1")}
-                        />
-                      )}
-                      <span className="shrink-0">{item.icon}</span>
-                      {!collapsed && <span className="truncate">{item.label}</span>}
-                    </Link>
-                  );
-                })}
+                    </>
+                  )}
+                  {collapsed && groupActive && (
+                    <span className="mx-auto h-1.5 w-1.5 rounded-full bg-primary/60" aria-hidden />
+                  )}
+                </button>
+                {(!isGroupCollapsed || collapsed) && (
+                  <div className="space-y-0.5">
+                    {group.items.map((item) => {
+                      const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                      const status = dotToStatus(item.dot);
+                      const Icon = item.icon;
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={cn(
+                            "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] transition-all duration-100",
+                            isActive
+                              ? "bg-primary/8 text-primary font-medium"
+                              : "text-muted-foreground hover:text-foreground hover:bg-secondary/60",
+                            collapsed && "justify-center px-0"
+                          )}
+                          title={collapsed ? item.label : undefined}
+                        >
+                          {status && (
+                            <StatusDot
+                              status={status}
+                              pulse={item.dot === "running"}
+                              size="sm"
+                              className={cn(collapsed && "absolute top-1 right-1")}
+                            />
+                          )}
+                          <span className="shrink-0"><Icon className="h-4 w-4" /></span>
+                          {!collapsed && <span className="truncate">{item.label}</span>}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </nav>
       </ScrollArea>
 

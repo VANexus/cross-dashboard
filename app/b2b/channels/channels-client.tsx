@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   KeyRound, Loader2, RefreshCw, ShieldCheck, Trash2, AlertTriangle,
 } from "lucide-react";
+import { JourneyBar } from "@/components/journey/journey-bar";
 import type { ChannelPlatform } from "@/lib/types";
 
 interface AccountView {
@@ -111,6 +112,7 @@ export function ChannelsClient() {
 
   return (
     <div className="space-y-6">
+      <JourneyBar />
       {/* 数据源说明 */}
       <Card>
         <CardHeader>

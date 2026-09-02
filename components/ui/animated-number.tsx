@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+// KPI 数字滚动 — number-flow（Vercel 风格，零依赖、无障碍、tabular-nums 内建）。
+// 保留既有 AnimatedNumber 接口，内部由手搓 rAF count-up 换为 number-flow。
+import NumberFlow from "@number-flow/react";
 import { cn } from "@/lib/utils";
 
 interface AnimatedNumberProps {
@@ -8,6 +10,7 @@ interface AnimatedNumberProps {
   prefix?: string;
   suffix?: string;
   decimals?: number;
+  /** 兼容旧签名（number-flow 自带 spring 动效），无实际作用 */
   duration?: number;
   className?: string;
 }
@@ -17,44 +20,21 @@ export function AnimatedNumber({
   prefix = "",
   suffix = "",
   decimals = 0,
-  duration = 600,
   className,
 }: AnimatedNumberProps) {
-  const [display, setDisplay] = useState(value);
-  const prevRef = useRef(value);
-  const frameRef = useRef<number>(0);
-
-  useEffect(() => {
-    const from = prevRef.current;
-    const to = value;
-    if (from === to) return;
-
-    const start = performance.now();
-    const animate = (now: number) => {
-      const elapsed = now - start;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setDisplay(from + (to - from) * eased);
-      if (progress < 1) {
-        frameRef.current = requestAnimationFrame(animate);
-      } else {
-        prevRef.current = to;
-      }
-    };
-    frameRef.current = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(frameRef.current);
-  }, [value, duration]);
-
-  const formatted = new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  }).format(display);
-
   return (
-    <span className={cn("metric-value tabular-nums", className)}>
-      {prefix}
-      {formatted}
-      {suffix}
-    </span>
+    <NumberFlow
+      value={value}
+      prefix={prefix}
+      suffix={suffix}
+      format={
+        decimals > 0
+          ? { minimumFractionDigits: decimals, maximumFractionDigits: decimals }
+          : undefined
+      }
+      transformTiming={{ duration: 600, easing: "cubic-bezier(0.25, 1, 0.5, 1)" }}
+      willChange
+      className={cn("metric-value tabular-nums", className)}
+    />
   );
 }

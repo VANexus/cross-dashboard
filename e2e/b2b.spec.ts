@@ -1,9 +1,11 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("B端运营工作台", () => {
-  test("侧边栏包含 B端运营 四个入口", async ({ page }) => {
+  test("侧边栏按 workspace registry 分组展示 B 端入口", async ({ page }) => {
     await page.goto("/dashboard");
-    await expect(page.locator("text=B端运营").first()).toBeVisible({ timeout: 15000 });
+    // 新 IA：市场洞察 / 上架运营 空间分组（registry 派生）
+    await expect(page.locator("text=市场洞察").first()).toBeVisible({ timeout: 15000 });
+    await expect(page.locator("text=上架运营").first()).toBeVisible({ timeout: 15000 });
     await expect(page.locator("a[href='/b2b/keyword-trends']").first()).toBeVisible();
     await expect(page.locator("a[href='/b2b/listing']").first()).toBeVisible();
     await expect(page.locator("a[href='/b2b/image-skills']").first()).toBeVisible();

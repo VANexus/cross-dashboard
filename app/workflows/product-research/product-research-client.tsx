@@ -1,95 +1,36 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { PageTransition } from "@/components/ui/page-transition";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import type { ShopProduct, ShopReview } from "@/lib/types";
 import {
-  Radar,
-  Play,
-  Search,
-  ChevronRight,
-  AlertTriangle,
-  CheckCircle2,
-  ArrowRight,
-  TrendingUp,
-  ShieldAlert,
-  Factory,
-  Package,
-  Star,
-  Zap,
-  Globe,
-  Video,
-  ShoppingCart,
-  BarChart3,
-  FileText,
-  Loader2,
+  Radar, Play, Search, ChevronRight, AlertTriangle, CheckCircle2, ArrowRight,
+  ShieldAlert, Package, Star, FileText, Loader2, ExternalLink, MessageSquareWarning,
 } from "lucide-react";
 
 const AnimatedNumber = dynamic(() => import("@/components/ui/animated-number").then((m) => ({ default: m.AnimatedNumber })), { ssr: false });
-const Sparkline = dynamic(() => import("@/components/ui/sparkline").then((m) => ({ default: m.Sparkline })), { ssr: false });
 
 const steps = [
-  { id: "collect", label: "数据采集", desc: "配置9大平台数据源" },
-  { id: "keywords", label: "热词分析", desc: "关键词趋势与竞争度" },
-  { id: "reviews", label: "差评反推", desc: "竞品差评痛点聚类" },
+  { id: "collect", label: "商品采集", desc: "TikTok Shop 真实在售" },
+  { id: "keywords", label: "热词扩词", desc: "搜索联想+站内热词" },
+  { id: "reviews", label: "评论反推", desc: "真实评论/差评痛点" },
   { id: "ai-suggest", label: "AI 差异化", desc: "专利检测+差异化建议" },
-  { id: "proposal", label: "方案生成", desc: "产品定义+外观+卖点" },
+  { id: "proposal", label: "方案生成", desc: "产品定义+卖点" },
 ];
 
-const iconMap: Record<string, ReactNode> = {
-  amazon: <ShoppingCart className="h-4 w-4" />,
-  tiktok: <Zap className="h-4 w-4" />,
-  youtube: <Video className="h-4 w-4" />,
-  "1688": <Factory className="h-4 w-4" />,
-  sif: <BarChart3 className="h-4 w-4" />,
-  sellerSprite: <Star className="h-4 w-4" />,
-  fastmoss: <Globe className="h-4 w-4" />,
-  googleTrends: <TrendingUp className="h-4 w-4" />,
-  patent: <ShieldAlert className="h-4 w-4" />,
-};
-
-const colorMap: Record<string, string> = {
-  amazon: "text-orange-400",
-  tiktok: "text-pink-400",
-  youtube: "text-red-400",
-  "1688": "text-amber-400",
-  sif: "text-blue-400",
-  sellerSprite: "text-emerald-400",
-  fastmoss: "text-cyan-400",
-  googleTrends: "text-indigo-400",
-  patent: "text-red-400",
-};
-
-interface DataSource {
-  id: string;
-  name: string;
-  enabled: boolean;
-  status: "completed" | "scraping" | "pending";
-  progress: number;
-}
-
-interface Keyword {
-  keyword: string;
-  volume: number;
-  cpc: number;
-  competition: number;
-  supplyDemand: number;
-  trend: number[];
-  aiTag: "potential" | "competitive" | "risky";
-}
-
-interface PainPoint {
-  category: string;
-  count: number;
-  pct: number;
-  examples: string[];
-}
+const REGIONS = [
+  { code: "US", name: "美国" }, { code: "GB", name: "英国" }, { code: "ID", name: "印尼" },
+  { code: "TH", name: "泰国" }, { code: "VN", name: "越南" }, { code: "MY", name: "马来" },
+  { code: "PH", name: "菲律宾" },
+];
 
 interface RecentResearchResult {
   id: string;
@@ -100,47 +41,95 @@ interface RecentResearchResult {
 }
 
 export interface ProductResearchClientProps {
-  dataSources: DataSource[];
-  keywords: Keyword[];
-  painPoints: PainPoint[];
   recentResults?: RecentResearchResult[];
 }
 
-export function ProductResearchClient({ dataSources, keywords, painPoints, recentResults = [] }: ProductResearchClientProps) {
+async function postIntel<T>(body: unknown): Promise<T> {
+  const res = await fetch("/api/b2b/shop-intel", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  const j = await res.json();
+  if (!j.data) throw new Error(j.error || "查询失败");
+  return j.data as T;
+}
+
+export function ProductResearchClient({ recentResults = [] }: ProductResearchClientProps) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState("collect");
-  const [executing, setExecuting] = useState(false);
-  const [execResult, setExecResult] = useState(() => {
-    if (recentResults.length > 0) {
-      const latest = recentResults[0];
-      const r = latest.resultJson as Record<string, unknown>;
-      return typeof r?.summary === "string" ? r.summary : JSON.stringify(r, null, 2);
-    }
-    return "";
-  });
   const currentIdx = steps.findIndex((s) => s.id === currentStep);
 
-  const handleExecute = async () => {
-    setExecuting(true);
-    setExecResult("");
+  const [keyword, setKeyword] = useState("dress");
+  const [region, setRegion] = useState("US");
+  const [loading, setLoading] = useState(false);
+  const [products, setProducts] = useState<ShopProduct[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [warn, setWarn] = useState<string | null>(null);
+
+  const [selected, setSelected] = useState<ShopProduct | null>(null);
+  const [reviews, setReviews] = useState<ShopReview[]>([]);
+  const [reviewSummary, setReviewSummary] = useState<{ total?: string; avg?: number | null; distribution?: Record<string, string> }>({});
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [trendingWords, setTrendingWords] = useState<string[]>([]);
+
+  const searchProducts = async (reset = true) => {
+    const kw = keyword.trim();
+    if (!kw) { setWarn("请输入选品关键词"); return; }
+    setLoading(true); setWarn(null);
     try {
-      const res = await fetch("/api/workflows/product-research/execute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sources: ["amazon"], keywords: ["pet fountain"] }),
+      const data = await postIntel<{ products: ShopProduct[]; page: { hasMore?: boolean }; degraded: boolean; warning?: string }>({
+        action: "search", keyword: kw, region, limit: 30, offset: reset ? 0 : products.length,
       });
-      const json = await res.json();
-      if (json.success) {
-        setExecResult(typeof json.data?.result === "string" ? json.data.result : JSON.stringify(json.data?.result, null, 2));
-      } else {
-        setExecResult(json.error ?? "采集失败，请重试");
-      }
-    } catch {
-      setExecResult("网络错误，请检查连接后重试");
+      if (data.degraded) { setWarn(data.warning || "选品接口不可用"); setProducts([]); return; }
+      setProducts((prev) => reset ? data.products : [...prev, ...data.products]);
+      setHasMore(Boolean(data.page?.hasMore));
+      if (data.products.length === 0) setWarn(`「${kw}」在该站点暂无在售商品，换词或换站点试试`);
+      // 同步拉搜索联想供下一步
+      postIntel<{ suggestions: string[] }>({ action: "suggest", keyword: kw, region })
+        .then((d) => setSuggestions(d.suggestions)).catch(() => {});
+    } catch (e) {
+      setWarn(e instanceof Error ? e.message : "搜索失败");
     } finally {
-      setExecuting(false);
+      setLoading(false);
     }
   };
+
+  // 挂载即搜索默认词（延迟到定时器回调，避免 effect 体内同步 setState）
+  useEffect(() => {
+    const t = setTimeout(() => void searchProducts(true), 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 站内趋势热词（内容情报）
+  useEffect(() => {
+    fetch("/api/b2b/content-intel", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "trending_words", limit: 30 }),
+    }).then((r) => r.json()).then((j) => {
+      setTrendingWords((j.data?.trendingWords ?? []).map((x: { word: string }) => x.word));
+    }).catch(() => {});
+  }, []);
+
+  const pickProduct = async (p: ShopProduct) => {
+    setSelected(p);
+    setReviewsLoading(true);
+    try {
+      const d = await postIntel<{ reviews: ShopReview[]; reviewSummary: typeof reviewSummary }>({
+        action: "reviews", productId: p.productId, region, limit: 30,
+      });
+      setReviews(d.reviews); setReviewSummary(d.reviewSummary);
+    } catch {
+      setReviews([]);
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  const badReviews = reviews.filter((r) => (r.rating ?? 5) <= 3);
+  const dist = reviewSummary.distribution ?? {};
+  const distMax = Math.max(1, ...Object.values(dist).map((v) => Number(v) || 0));
 
   return (
     <PageTransition className="space-y-4">
@@ -150,22 +139,17 @@ export function ProductResearchClient({ dataSources, keywords, painPoints, recen
         </div>
         <div>
           <h1 className="text-lg font-semibold">选品工作流</h1>
-          <p className="text-xs text-muted-foreground">解决选品耗时问题 — 多平台数据采集 + AI 差异化分析</p>
+          <p className="text-xs text-muted-foreground">TikTok Shop 真实在售商品 + 真实评论 + AI 差异化</p>
         </div>
       </div>
 
-      <div className="stagger-in flex gap-2">
+      <div className="stagger-in flex gap-2 flex-wrap">
         {steps.map((s, i) => (
-          <button
-            key={s.id}
-            onClick={() => { if (i <= currentIdx) setCurrentStep(s.id); }}
+          <button key={s.id} onClick={() => setCurrentStep(s.id)}
             className={cn(
-              "flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all duration-200",
-              s.id === currentStep
-                ? "glass-surface text-primary font-medium shadow-sm ring-1 ring-primary/25"
-                : i < currentIdx ? "text-muted-foreground hover:bg-muted cursor-pointer" : "text-muted-foreground/40"
-            )}
-          >
+              "flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all",
+              s.id === currentStep ? "glass-surface text-primary font-medium shadow-sm ring-1 ring-primary/25" : "text-muted-foreground hover:bg-muted",
+            )}>
             {i < currentIdx ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : s.id === currentStep ? <Play className="h-4 w-4" /> : <span className="h-4 w-4 rounded-full border text-[10px] flex items-center justify-center">{i + 1}</span>}
             <span className="hidden md:inline">{s.label}</span>
             {i < steps.length - 1 && <ChevronRight className="h-3 w-3 text-muted-foreground/30 ml-1" />}
@@ -174,285 +158,218 @@ export function ProductResearchClient({ dataSources, keywords, painPoints, recen
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
-        <div className="space-y-6">
+        <div className="space-y-4 min-w-0">
+          {/* Step 1 商品采集 */}
           {currentStep === "collect" && (
             <>
+              <Card>
+                <CardContent className="pt-4">
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div className="flex-1 min-w-[220px]">
+                      <label className="text-[11px] text-muted-foreground">商品关键词</label>
+                      <Input className="mt-1 h-9" value={keyword} onChange={(e) => setKeyword(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && searchProducts(true)} placeholder="如 dress、coffee maker、pet bed" />
+                    </div>
+                    <div className="w-32">
+                      <label className="text-[11px] text-muted-foreground">站点</label>
+                      <select value={region} onChange={(e) => setRegion(e.target.value)}
+                        className="mt-1 h-9 w-full rounded-lg border border-input bg-background/60 px-2 text-sm">
+                        {REGIONS.map((r) => <option key={r.code} value={r.code}>{r.name}</option>)}
+                      </select>
+                    </div>
+                    <Button className="h-9 gap-2 bg-wf-product hover:bg-wf-product/90" onClick={() => searchProducts(true)} disabled={loading}>
+                      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />} 搜索在售商品
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {warn && (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-200">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" /><span>{warn}</span>
+                </div>
+              )}
+
+              {loading && products.length === 0 && (
+                <div className="flex items-center justify-center py-20 gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> 正在拉取真实在售商品…</div>
+              )}
+
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {dataSources.map((ds) => (
-                  <Card key={ds.id} className="workflow-card">
-                    <CardContent className="p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className={colorMap[ds.id] ?? "text-muted-foreground"}>{iconMap[ds.id] ?? <Globe className="h-4 w-4" />}</span>
-                          <span className="text-sm font-medium">{ds.name}</span>
-                        </div>
-                        <Badge variant={ds.enabled ? "default" : "outline"} className={cn("text-[10px] h-5", ds.enabled ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "")}>
-                          {ds.enabled ? "已启用" : "未启用"}
-                        </Badge>
+                {products.map((p) => (
+                  <Card key={p.productId} className={cn("overflow-hidden cursor-pointer transition-all hover:ring-1 hover:ring-primary/30",
+                    selected?.productId === p.productId && "ring-1 ring-primary")}
+                    onClick={() => { pickProduct(p); setCurrentStep("reviews"); }}>
+                    <div className="aspect-square bg-muted">
+                      {p.imageUrl
+                        // eslint-disable-next-line @next/next/no-img-element
+                        ? <img src={p.imageUrl} alt={p.title} loading="lazy" className="h-full w-full object-cover" />
+                        : <div className="flex h-full items-center justify-center text-muted-foreground"><Package className="h-8 w-8" /></div>}
+                    </div>
+                    <CardContent className="p-3 space-y-1.5">
+                      <p className="text-xs line-clamp-2 min-h-[2rem] leading-snug">{p.title}</p>
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-sm font-semibold text-pink-400">{p.currency}{p.price}</span>
+                        {p.originalPrice && p.originalPrice !== p.price && (
+                          <span className="text-[10px] line-through text-muted-foreground">{p.currency}{p.originalPrice}</span>
+                        )}
+                        {p.discount && <span className="text-[10px] text-red-400">{p.discount}</span>}
                       </div>
-                      {ds.enabled && (
-                        <div className="space-y-1">
-                          <Progress value={ds.progress} className="h-1.5" />
-                          <div className="flex justify-between text-[10px] text-muted-foreground">
-                            <span>{ds.status === "completed" ? "采集完成" : ds.status === "scraping" ? "采集中..." : "等待中"}</span>
-                            <span>{ds.progress}%</span>
-                          </div>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                        <span className="flex items-center gap-0.5"><Star className="h-3 w-3 text-amber-400" />{p.rating ?? "—"}</span>
+                        <span>{p.reviewCount ?? 0} 评</span>
+                        <span>已售 {p.soldCount ?? 0}</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground truncate">{p.sellerName}{p.brand ? ` · ${p.brand}` : ""}</p>
                     </CardContent>
                   </Card>
                 ))}
               </div>
-              <div className="flex gap-3 items-center">
-                <Button
-                  className="gap-2 bg-primary hover:bg-primary/90"
-                  onClick={handleExecute}
-                  disabled={executing}
-                >
-                  {executing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                  {executing ? "采集中..." : "开始采集"}
-                </Button>
-                <Button variant="outline" className="gap-2" onClick={() => setCurrentStep("keywords")}>
-                  <Search className="h-4 w-4" /> 查看热词
-                </Button>
-                {execResult && (
-                  <span className={cn("text-sm", execResult.includes("启动") ? "text-emerald-400" : "text-red-400")}>
-                    {execResult}
-                  </span>
-                )}
-              </div>
+
+              {hasMore && products.length > 0 && (
+                <div className="flex justify-center">
+                  <Button variant="outline" size="sm" disabled={loading} onClick={() => searchProducts(false)}>
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}加载更多
+                  </Button>
+                </div>
+              )}
             </>
           )}
 
+          {/* Step 2 热词扩词 */}
           {currentStep === "keywords" && (
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm">关键词分析结果</CardTitle>
-                  <div className="flex gap-1.5">
-                    {["高增长", "低竞争", "高供需比", "潜力爆款"].map((f) => (
-                      <Badge key={f} variant="outline" className="text-[10px] cursor-pointer hover:bg-primary/10 hover:text-primary hover:border-primary/30">{f}</Badge>
-                    ))}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto scrollbar-thin max-h-[440px]">
-                  <table className="w-full text-sm">
-                    <thead className="table-glass-head">
-                      <tr>
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">关键词</th>
-                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">搜索量</th>
-                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">CPC</th>
-                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">竞争度</th>
-                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">供需比</th>
-                        <th className="text-center px-4 py-2 font-medium text-muted-foreground">趋势</th>
-                        <th className="text-center px-4 py-2 font-medium text-muted-foreground">AI 标注</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {keywords.map((kw) => (
-                        <tr
-                          key={kw.keyword}
-                          className={cn(
-                            "row-rail border-b hover:bg-muted/50 transition-colors",
-                            kw.aiTag === "potential" && "[--rail:var(--wf-listing)]",
-                            kw.aiTag === "risky" && "[--rail:var(--destructive)]",
-                            kw.aiTag === "competitive" && "[--rail:var(--warning)]"
-                          )}
-                        >
-                          <td className="px-4 py-2.5 font-medium">{kw.keyword}</td>
-                          <td className="px-4 py-2.5 text-right metric-value">{kw.volume.toLocaleString()}</td>
-                          <td className="px-4 py-2.5 text-right metric-value">${kw.cpc.toFixed(2)}</td>
-                          <td className="px-4 py-2.5 text-right">
-                            <span className={cn("metric-value", kw.competition > 0.8 ? "text-red-400" : kw.competition > 0.5 ? "text-amber-400" : "text-emerald-400")}>
-                              {(kw.competition * 100).toFixed(0)}%
-                            </span>
-                          </td>
-                          <td className="px-4 py-2.5 text-right">
-                            <span className={cn("metric-value", kw.supplyDemand > 2.5 ? "text-emerald-400" : kw.supplyDemand > 1.5 ? "text-amber-400" : "text-red-400")}>
-                              {kw.supplyDemand}x
-                            </span>
-                          </td>
-                          <td className="px-4 py-2.5 flex justify-center">
-                            <Sparkline quiet data={kw.trend} width={64} height={20} color={kw.trend[kw.trend.length - 1] > kw.trend[0] ? "var(--success)" : "var(--destructive)"} />
-                          </td>
-                          <td className="px-4 py-2.5 text-center">
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "text-[10px]",
-                                kw.aiTag === "potential" && "border-emerald-500/30 text-emerald-400 bg-emerald-500/5",
-                                kw.aiTag === "competitive" && "border-amber-500/30 text-amber-400 bg-amber-500/5",
-                                kw.aiTag === "risky" && "border-red-500/30 text-red-400 bg-red-500/5"
-                              )}
-                            >
-                              {kw.aiTag === "potential" ? "潜力爆款词" : kw.aiTag === "competitive" ? "竞争激烈" : "风险词"}
-                            </Badge>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {currentStep === "reviews" && (
-            <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm">差评痛点聚类分析</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    {painPoints.map((pp) => (
-                      <div key={pp.category} className="p-3 rounded-lg border bg-muted/30">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium">{pp.category}</span>
-                          <span className="text-xs metric-value text-muted-foreground">{pp.count} 次提及</span>
-                        </div>
-                        <Progress value={pp.pct} className="h-2 mb-2" />
-                        <div className="flex flex-wrap gap-1">
-                          {pp.examples.map((ex) => (
-                            <Badge key={ex} variant="outline" className="text-[10px]">{ex}</Badge>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                <CardHeader><CardTitle className="text-sm">搜索联想词（真实下拉推荐）</CardTitle></CardHeader>
+                <CardContent className="flex flex-wrap gap-2">
+                  {suggestions.length === 0 && <p className="text-xs text-muted-foreground">回到「商品采集」搜索后，这里展示该词的真实联想</p>}
+                  {suggestions.map((s) => (
+                    <Badge key={s} variant="outline" className="cursor-pointer text-xs border-primary/30 text-primary"
+                      onClick={() => { setKeyword(s); setCurrentStep("collect"); }}>{s}</Badge>
+                  ))}
                 </CardContent>
               </Card>
-              <Card className="border-l-2 border-l-amber-500">
-                <CardContent className="p-4">
-                  {(() => {
-                    const r = recentResults[0]?.resultJson as Record<string, unknown> | undefined;
-                    const suggestion = typeof r?.improvementSuggestion === "string" ? r.improvementSuggestion : null;
-                    if (!suggestion && painPoints.length === 0) return null;
-                    return (
-                      <p className="text-sm text-muted-foreground">
-                        <span className="text-amber-400 font-medium">AI 改进建议:</span>{" "}
-                        {suggestion || `基于差评分析，主要痛点集中在 ${painPoints.slice(0, 3).map((p) => p.category).join("、")}，建议优先改进这些方面`}
-                      </p>
-                    );
-                  })()}
+              <Card>
+                <CardHeader><CardTitle className="text-sm">TikTok 站内趋势搜索词</CardTitle></CardHeader>
+                <CardContent className="flex flex-wrap gap-2 max-h-[320px] overflow-auto">
+                  {trendingWords.length === 0 && <p className="text-xs text-muted-foreground">加载中…</p>}
+                  {trendingWords.map((w) => (
+                    <Badge key={w} variant="outline" className="cursor-pointer text-xs"
+                      onClick={() => { setKeyword(w); setCurrentStep("collect"); }}>{w}</Badge>
+                  ))}
                 </CardContent>
               </Card>
             </div>
           )}
 
+          {/* Step 3 评论反推 */}
+          {currentStep === "reviews" && (
+            <div className="space-y-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <MessageSquareWarning className="h-4 w-4 text-amber-400" />
+                    {selected ? selected.title.slice(0, 60) : "请先在「商品采集」选择一个商品"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {reviewsLoading ? (
+                    <div className="flex items-center gap-2 py-8 justify-center text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> 拉取真实评论…</div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-6 mb-4">
+                        <div>
+                          <div className="text-2xl font-bold text-amber-400">{reviewSummary.avg ?? "—"}</div>
+                          <div className="text-[10px] text-muted-foreground">共 {reviewSummary.total ?? reviews.length} 条</div>
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          {[5, 4, 3, 2, 1].map((star) => (
+                            <div key={star} className="flex items-center gap-2 text-[10px]">
+                              <span className="w-6">{star}★</span>
+                              <div className="h-1.5 flex-1 rounded bg-muted overflow-hidden">
+                                <div className="h-full bg-amber-400" style={{ width: `${((Number(dist[String(star)]) || 0) / distMax) * 100}%` }} />
+                              </div>
+                              <span className="w-8 text-right text-muted-foreground">{dist[String(star) ?? "0"] ?? 0}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      {badReviews.length > 0 && (
+                        <div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/5 p-2.5 text-xs text-red-200">
+                          检测到 <b>{badReviews.length}</b> 条差评（≤3★），这些是产品改进的真实切入点：
+                        </div>
+                      )}
+                      <div className="space-y-2 max-h-[420px] overflow-auto">
+                        {reviews.map((r) => (
+                          <div key={r.reviewId} className={cn("rounded-lg border p-2.5 text-xs", (r.rating ?? 5) <= 3 ? "border-red-500/30 bg-red-500/5" : "bg-muted/30")}>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-medium">{r.reviewer || "匿名"}</span>
+                              <span className="text-amber-400">{"★".repeat(r.rating ?? 0)}</span>
+                              {r.verified && <Badge variant="outline" className="text-[9px] h-4">已验证购买</Badge>}
+                              {r.incentivized && <Badge variant="outline" className="text-[9px] h-4">激励评价</Badge>}
+                              <span className="ml-auto text-muted-foreground">{r.time}</span>
+                            </div>
+                            <p className="text-muted-foreground leading-relaxed">{r.text || "（无文字评价）"}</p>
+                            {r.images.length > 0 && (
+                              <div className="flex gap-1 mt-1.5">
+                                {r.images.slice(0, 4).map((img, i) => (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img key={i} src={img} alt="晒图" className="h-12 w-12 rounded object-cover" loading="lazy" />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        {reviews.length === 0 && <p className="py-6 text-center text-muted-foreground">该商品暂无评论</p>}
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Step 4 AI 差异化（保留真实历史） */}
           {currentStep === "ai-suggest" && (
             <div className="space-y-4">
               {(() => {
                 const latest = recentResults[0];
                 const r = (latest?.resultJson ?? {}) as Record<string, unknown>;
-                const marketAnalysis = r.marketAnalysis as Record<string, unknown> | undefined;
                 const patentRisks = r.patentRisks as Array<{ label: string; status: string; detail: string }> | undefined;
                 const differentiations = r.differentiations as string[] | undefined;
-
                 if (!latest) {
                   return (
-                    <Card>
-                      <CardContent className="p-8 text-center">
-                        <ShieldAlert className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-                        <p className="text-sm text-muted-foreground mb-2">暂无 AI 分析数据</p>
-                        <p className="text-xs text-muted-foreground/60">请先在「数据采集」步骤执行采集，再回到此步查看分析结果</p>
-                      </CardContent>
-                    </Card>
+                    <Card><CardContent className="p-8 text-center">
+                      <ShieldAlert className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+                      <p className="text-sm text-muted-foreground mb-2">暂无 AI 分析记录</p>
+                      <p className="text-xs text-muted-foreground/60">选品 AI 分析由后端工作流执行并落库，执行后此处展示专利风险与差异化方向</p>
+                    </CardContent></Card>
                   );
                 }
-
                 return (
                   <>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm flex items-center gap-2">
-                            <BarChart3 className="h-4 w-4 text-primary" /> 市场垄断分析
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          {marketAnalysis?.headShare != null ? (
-                            <div className="flex items-center gap-4 mb-3">
-                              <div className="text-center">
-                                <AnimatedNumber value={marketAnalysis.headShare as number} suffix="%" className="text-2xl font-bold text-emerald-400" />
-                                <p className="text-[10px] text-muted-foreground mt-0.5">头部占比</p>
-                              </div>
-                              <div className="flex-1">
-                                <Progress value={marketAnalysis.headShare as number} className="h-3" />
-                              </div>
-                            </div>
-                          ) : (
-                            <p className="text-xs text-muted-foreground">暂无数据</p>
-                          )}
-                          {typeof marketAnalysis?.summary === "string" && <p className="text-xs text-muted-foreground">{marketAnalysis.summary}</p>}
-                        </CardContent>
-                      </Card>
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm flex items-center gap-2">
-                            <Globe className="h-4 w-4 text-pink-400" /> 外部流量依赖
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          {marketAnalysis?.externalTraffic != null ? (
-                            <div className="flex items-center gap-4 mb-3">
-                              <div className="text-center">
-                                <AnimatedNumber value={marketAnalysis.externalTraffic as number} suffix="%" className="text-2xl font-bold text-emerald-400" />
-                                <p className="text-[10px] text-muted-foreground mt-0.5">外部占比</p>
-                              </div>
-                              <div className="flex-1">
-                                <Progress value={marketAnalysis.externalTraffic as number} className="h-3" />
-                              </div>
-                            </div>
-                          ) : (
-                            <p className="text-xs text-muted-foreground">暂无数据</p>
-                          )}
-                        </CardContent>
-                      </Card>
-                    </div>
-
                     <Card className="border-l-2 border-l-red-500">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm flex items-center gap-2">
-                          <ShieldAlert className="h-4 w-4 text-red-400" /> 专利风险检测
-                        </CardTitle>
-                      </CardHeader>
+                      <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><ShieldAlert className="h-4 w-4 text-red-400" /> 专利风险检测</CardTitle></CardHeader>
                       <CardContent>
-                        {patentRisks && patentRisks.length > 0 ? (
+                        {patentRisks?.length ? (
                           <div className="grid gap-3 sm:grid-cols-3">
                             {patentRisks.map((p) => (
                               <div key={p.label} className={cn("p-3 rounded-lg border", p.status === "warning" ? "border-amber-500/30 bg-amber-500/5" : "border-emerald-500/30 bg-emerald-500/5")}>
-                                <div className="flex items-center gap-2 mb-1">
-                                  {p.status === "warning" ? <AlertTriangle className="h-4 w-4 text-amber-400" /> : <CheckCircle2 className="h-4 w-4 text-emerald-400" />}
-                                  <span className="text-sm font-medium">{p.label}</span>
+                                <div className="flex items-center gap-2 mb-1 text-sm font-medium">
+                                  {p.status === "warning" ? <AlertTriangle className="h-4 w-4 text-amber-400" /> : <CheckCircle2 className="h-4 w-4 text-emerald-400" />}{p.label}
                                 </div>
                                 <p className="text-xs text-muted-foreground">{p.detail}</p>
                               </div>
                             ))}
                           </div>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">暂无专利检测数据，请执行采集后查看</p>
-                        )}
+                        ) : <p className="text-xs text-muted-foreground">暂无专利检测数据</p>}
                       </CardContent>
                     </Card>
-
                     <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm flex items-center gap-2">
-                          <Zap className="h-4 w-4 text-primary" /> 产品差异化方向
-                        </CardTitle>
-                      </CardHeader>
+                      <CardHeader className="pb-2"><CardTitle className="text-sm">产品差异化方向</CardTitle></CardHeader>
                       <CardContent className="space-y-3">
-                        {differentiations && differentiations.length > 0 ? differentiations.map((s, i) => (
-                          <div key={i} className="flex items-start gap-2 text-sm">
-                            <span className="text-primary font-bold">{i + 1}.</span>
-                            <span className="text-muted-foreground">{s}</span>
-                          </div>
-                        )) : (
-                          <p className="text-xs text-muted-foreground">暂无差异化建议，请执行采集后查看</p>
-                        )}
+                        {differentiations?.length ? differentiations.map((s, i) => (
+                          <div key={i} className="flex items-start gap-2 text-sm"><span className="text-primary font-bold">{i + 1}.</span><span className="text-muted-foreground">{s}</span></div>
+                        )) : <p className="text-xs text-muted-foreground">暂无差异化建议</p>}
                       </CardContent>
                     </Card>
                   </>
@@ -461,181 +378,74 @@ export function ProductResearchClient({ dataSources, keywords, painPoints, recen
             </div>
           )}
 
+          {/* Step 5 方案生成（保留真实历史） */}
           {currentStep === "proposal" && (
-            <div className="space-y-4">
+            <Card>
               {(() => {
                 const latest = recentResults[0];
                 const r = (latest?.resultJson ?? {}) as Record<string, unknown>;
                 const proposal = r.proposal as Record<string, unknown> | undefined;
                 const productName = (proposal?.productName as string) || (r.productName as string) || "";
-                const market = (proposal?.market as string) || "";
-                const priceRange = (proposal?.priceRange as string) || "";
                 const sellingPoints = (proposal?.sellingPoints as string[]) || [];
-                const styles = (proposal?.styles as string[]) || [];
-
                 if (!latest || (!productName && sellingPoints.length === 0)) {
-                  return (
-                    <Card>
-                      <CardContent className="p-8 text-center">
-                        <Package className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-                        <p className="text-sm text-muted-foreground mb-2">暂无产品方案</p>
-                        <p className="text-xs text-muted-foreground/60">请先完成数据采集和 AI 分析，系统将自动生成产品方案</p>
-                      </CardContent>
-                    </Card>
-                  );
+                  return <CardContent className="p-8 text-center"><Package className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+                    <p className="text-sm text-muted-foreground">暂无产品方案，完成 AI 分析后自动生成</p></CardContent>;
                 }
-
                 return (
-                  <>
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm">产品方案概要</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="grid gap-4 md:grid-cols-2">
-                          <div className="space-y-2">
-                            <p className="text-xs text-muted-foreground uppercase tracking-wider">产品定义</p>
-                            <p className="text-sm font-medium">{productName || "待生成"}</p>
-                            {(market || priceRange) && (
-                              <p className="text-xs text-muted-foreground">{market}{market && priceRange ? " | " : ""}{priceRange}</p>
-                            )}
-                          </div>
-                          <div className="space-y-2">
-                            <p className="text-xs text-muted-foreground uppercase tracking-wider">核心卖点</p>
-                            {sellingPoints.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                {sellingPoints.map((s) => (
-                                  <Badge key={s} variant="outline" className="text-[10px] border-primary/30 text-primary">{s}</Badge>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="text-xs text-muted-foreground">待生成</p>
-                            )}
-                          </div>
-                        </div>
-                        {styles.length > 0 && (
-                          <div>
-                            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">外观风格建议</p>
-                            <div className="grid gap-3 sm:grid-cols-3">
-                              {styles.map((style, i) => (
-                                <div key={style} className="relative aspect-square rounded-lg border bg-muted/50 flex items-center justify-center">
-                                  <div className="text-center">
-                                    <Package className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                                    <p className="text-xs text-muted-foreground">{style}</p>
-                                  </div>
-                                  <Badge className="absolute top-2 right-2 text-[10px]">{String.fromCharCode(65 + i)}</Badge>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-
+                  <CardContent className="space-y-4 pt-6">
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider">产品定义</p>
+                      <p className="text-sm font-medium">{productName}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider">核心卖点</p>
+                      <div className="flex flex-wrap gap-1">{sellingPoints.map((s) => <Badge key={s} variant="outline" className="text-[10px] border-primary/30 text-primary">{s}</Badge>)}</div>
+                    </div>
                     <div className="flex gap-3">
                       <Button className="gap-2" onClick={() => {
-                        const content = `选品方案\n\n产品: ${productName}\n目标市场: ${market}\n价格区间: ${priceRange}\n\n核心卖点: ${sellingPoints.join(", ")}`;
-                        const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url; a.download = "选品方案.txt"; a.click();
-                        URL.revokeObjectURL(url);
-                      }}>
-                        <FileText className="h-4 w-4" /> 导出方案
-                      </Button>
-                      <Button variant="outline" className="gap-2" onClick={() => router.push("/workflows/ai-imaging")}>
-                        <ArrowRight className="h-4 w-4" /> 发送到 AI 作图
-                      </Button>
+                        const blob = new Blob([`选品方案\n\n${productName}\n卖点: ${sellingPoints.join(", ")}`], { type: "text/plain;charset=utf-8" });
+                        const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "选品方案.txt"; a.click();
+                      }}><FileText className="h-4 w-4" /> 导出方案</Button>
+                      <Button variant="outline" className="gap-2" onClick={() => router.push("/workflows/ai-imaging")}><ArrowRight className="h-4 w-4" /> 发送到 AI 作图</Button>
                     </div>
-                  </>
+                  </CardContent>
                 );
               })()}
-            </div>
+            </Card>
           )}
         </div>
 
+        {/* 侧栏 */}
         <div className="space-y-4">
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">采集状态</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">已配置平台</span>
-                <span className="font-medium">{dataSources.filter((d) => d.enabled).length} / {dataSources.length}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">已完成</span>
-                <span className="font-medium text-emerald-400">{dataSources.filter((d) => d.status === "completed").length} / {dataSources.filter((d) => d.enabled).length}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">平均进度</span>
-                <span className="font-medium">{dataSources.length > 0 ? Math.round(dataSources.reduce((a, b) => a + b.progress, 0) / dataSources.length) : 0}%</span>
-              </div>
-              <Progress value={dataSources.length > 0 ? Math.round(dataSources.reduce((a, b) => a + b.progress, 0) / dataSources.length) : 0} className="h-2" />
+            <CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">采集概览</CardTitle></CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex justify-between"><span className="text-muted-foreground">在售商品</span><AnimatedNumber value={products.length} className="font-medium" /></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">联想词</span><span className="font-medium">{suggestions.length}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">当前商品评论</span><span className="font-medium">{reviews.length}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">其中差评</span><span className="font-medium text-red-400">{badReviews.length}</span></div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">AI 综合评分</CardTitle>
-            </CardHeader>
-            <CardContent className="text-center">
-              {(() => {
-                const r = recentResults[0]?.resultJson as Record<string, unknown> | undefined;
-                const score = typeof r?.compositeScore === "number" ? r.compositeScore : null;
-                const subScores = r?.subScores as Array<{ label: string; value: number }> | undefined;
-                if (score === null) {
-                  return <p className="text-sm text-muted-foreground py-4">暂无评分数据</p>;
-                }
-                return (
-                  <>
-                    <AnimatedNumber value={score} className="text-4xl font-bold text-primary" />
-                    <span className="text-lg text-muted-foreground">/100</span>
-                    <p className="text-xs text-emerald-400 mt-1 font-medium">{score >= 80 ? "推荐进入" : score >= 60 ? "谨慎考虑" : "不推荐"}</p>
-                    {subScores && subScores.length > 0 && (
-                      <div className="space-y-2 mt-3">
-                        {subScores.map((d) => (
-                          <div key={d.label} className="flex items-center gap-2">
-                            <span className="text-[11px] text-muted-foreground w-14">{d.label}</span>
-                            <Progress value={d.value} className="flex-1 h-1.5" />
-                            <span className="text-[10px] metric-value text-muted-foreground w-8 text-right">{d.value}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">推荐工厂</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {(() => {
-                const r = recentResults[0]?.resultJson as Record<string, unknown> | undefined;
-                const factories = r?.factories as Array<{ name: string; rating: string; moq: string; area: string }> | undefined;
-                if (!factories || factories.length === 0) {
-                  return <p className="text-xs text-muted-foreground py-2">暂无工厂推荐数据</p>;
-                }
-                return factories.map((f) => (
-                  <div key={f.name} className="p-2 rounded-lg border text-xs">
-                    <div className="flex justify-between mb-1">
-                      <span className="font-medium">{f.name}</span>
-                      <Badge variant="outline" className="text-[10px] h-4">{f.rating}</Badge>
-                    </div>
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>MOQ: {f.moq}</span>
-                      <span>{f.area}</span>
-                    </div>
-                  </div>
-                ));
-              })()}
-            </CardContent>
-          </Card>
+          {selected && (
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">当前选品</CardTitle></CardHeader>
+              <CardContent className="space-y-2 text-xs">
+                <p className="line-clamp-3 leading-snug">{selected.title}</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-pink-400">{selected.currency}{selected.price}</span>
+                  <span className="text-muted-foreground">已售 {selected.soldCount ?? 0}</span>
+                </div>
+                {selected.url && (
+                  <a href={selected.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+                    打开 TikTok Shop 商品页 <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+                <Progress value={Math.min(100, (selected.rating ?? 0) * 20)} className="h-1.5" />
+                <span className="text-muted-foreground">评分 {selected.rating ?? "—"} / 5</span>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </PageTransition>

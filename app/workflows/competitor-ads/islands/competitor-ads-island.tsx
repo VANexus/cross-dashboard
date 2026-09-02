@@ -1,26 +1,12 @@
 import { CompetitorAdsClient } from "../competitor-ads-client";
-import { WorkflowService } from "@/lib/services";
 import { getDbAsync } from "@/lib/db";
 import { getRecentCompetitorAnalyses } from "@/lib/repositories/workflow.repository";
 
 export async function CompetitorAdsIsland() {
   await getDbAsync();
-  const service = new WorkflowService();
-  const allKeywords = await service.getCompetitorKeywords();
-  const keywords = {
-    core: allKeywords.filter((k) => k.type === "core"),
-    longtail: allKeywords.filter((k) => k.type === "longtail"),
-    competitor: allKeywords.filter((k) => k.type === "competitor"),
-  };
-  const recentAnalyses = await getRecentCompetitorAnalyses(5);
+  // 主数据改为前端实时拉 TikHub 真实广告创意库（/api/b2b/ad-intel）；
+  // 这里只保留真实的历史 AI 分析记录，不再注入内置样本。
+  const recentAnalyses = await getRecentCompetitorAnalyses(5).catch(() => []);
 
-  return (
-    <CompetitorAdsClient
-      keywords={keywords}
-      competitors={await service.getCompetitors()}
-      adPositions={await service.getAdPositions()}
-      targetingData={[]}
-      recentAnalyses={recentAnalyses}
-    />
-  );
+  return <CompetitorAdsClient recentAnalyses={recentAnalyses} />;
 }

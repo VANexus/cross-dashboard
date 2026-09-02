@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Search,
@@ -12,12 +12,16 @@ import {
   User,
   Settings,
   ChevronDown,
+  CirclePlay,
+  Route,
 } from "lucide-react";
 import { useTheme } from "next-themes";
+import { getEnabledJourneys } from "@/lib/journeys/registry";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -34,9 +38,11 @@ const NotificationPanel = dynamic(
 
 export function TopBar() {
   const { theme, setTheme } = useTheme();
+  const router = useRouter();
   const [cmdOpen, setCmdOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const enabledJourneys = getEnabledJourneys();
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 0);
@@ -73,6 +79,41 @@ export function TopBar() {
 
         {/* Right: Actions */}
         <div className="flex items-center gap-1">
+          {/* 发起流程 — journey registry 派生（Agent 稳定选择器：data-agent-action="start-journey"） */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" className="mr-1 h-8 gap-2 px-3" data-agent-action="start-journey">
+                <CirclePlay className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">发起流程</span>
+                <ChevronDown className="h-3 w-3 opacity-70" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-60">
+              <DropdownMenuLabel className="text-xs text-muted-foreground">
+                端到端业务旅程
+              </DropdownMenuLabel>
+              {enabledJourneys.map((j) => {
+                const Icon = j.icon;
+                return (
+                  <DropdownMenuItem
+                    key={j.id}
+                    className="gap-2.5"
+                    onClick={() => router.push(`/journeys/${j.id}`)}
+                  >
+                    <Icon className="h-4 w-4 text-primary" />
+                    <span className="flex-1">{j.label}</span>
+                    <span className="text-xs text-muted-foreground">{j.steps.length} 步</span>
+                  </DropdownMenuItem>
+                );
+              })}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="gap-2.5" onClick={() => router.push("/journeys")}>
+                <Route className="h-4 w-4 text-muted-foreground" />
+                打开流程编排中心
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Button
             variant="ghost"
             size="icon"
