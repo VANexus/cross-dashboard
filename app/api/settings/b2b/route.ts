@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { withDb } from "@/lib/api-helpers";
-import { success, badRequest, methodNotAllowed } from "@/lib/api-response";
+import { success, badRequest, methodNotAllowed, CONFIG_CACHE_HEADERS } from "@/lib/api-response";
 import { B2BSettingsService } from "@/lib/services";
 import type { B2BSettings } from "@/lib/types";
 

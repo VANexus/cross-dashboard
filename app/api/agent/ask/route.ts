@@ -6,7 +6,8 @@
 //  - 已配置   → 真实流式生成,按 delta 逐段下发。
 import { NextRequest } from "next/server";
 import { streamText } from "ai";
-import { AIConfigError, getAIConfig, getAISDKModel } from "@/lib/ai";
+import { AIConfigError, getAIConfig } from "@/lib/ai";
+import { getKernel } from "@/src/kernel";
 
 export const maxDuration = 60;
 
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
       const push = (event: string, data: unknown) =>
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
       try {
-        const [model, config] = await Promise.all([getAISDKModel(), getAIConfig()]);
+        const [model, config] = await Promise.all([(await getKernel()).aiModel.get(), getAIConfig()]);
 
         let streamError: unknown = null;
         const result = streamText({

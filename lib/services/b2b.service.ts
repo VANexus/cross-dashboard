@@ -9,7 +9,7 @@ import { getWorkflowStatuses, updateWorkflowStatus } from "@/lib/repositories/wo
 import {
   clearKeywordTrends, clearLongtail, clearProducts, getImageSkill, getImageSkills,
   getKeywordTrends, getKeywordTrendsFetchedAt, getListing, getListings, getLongtail, getProduct, getProducts,
-  getProductsFetchedAt, getTrendSnapshots, incrementImageSkillUsage, insertImageSkill, insertKeywordTrend, insertListing,
+  getTrendSnapshots, incrementImageSkillUsage, insertImageSkill, insertKeywordTrend, insertListing,
   insertLongtail, insertProduct, replaceTrendSnapshots, updateImageSkill, updateListing,
 } from "@/lib/repositories/b2b.repository";
 import { getSupabase } from "@/lib/db";
@@ -144,6 +144,7 @@ export class B2BService {
         keywords: hasCachedFallback ? cached : keywords,
         failureCategory: result.failure_category,
         retriable: result.retriable,
+        fetchedAt: new Date().toISOString(),
         // TikHub 缓存元信息（local=本地命中零成本 / speculative=免费窗投机 / live=真实外呼）
         cache: result.cache
           ? { mode: result.cache.mode, hit: result.cache.hit, ageS: result.cache.age_s }
@@ -163,7 +164,7 @@ export class B2BService {
           source: "cache_stale",
           degraded: true,
           keywords: cached,
-          fetchedAt: await getKeywordTrendsFetchedAt(input.platform).catch(() => undefined),
+          fetchedAt: (await getKeywordTrendsFetchedAt(input.platform).catch(() => null)) ?? undefined,
           failureCategory: mcpErr?.category,
           retriable: mcpErr?.retriable ?? true,
           warning: withCta(mcpErr?.message, "MCP 服务暂时不可用，展示历史缓存"),
@@ -184,6 +185,7 @@ export class B2BService {
     } finally {
       this.bump("keyword-trend", "idle").catch(console.error);
     }
+    });
   }
 
   // ── 长尾词 ──
@@ -233,7 +235,7 @@ export class B2BService {
     return await getProducts();
   }
 
-  async fetchProducts(input: { refresh?: boolean } = {}): Promise<{ products: AlibabaProduct[]; authorized: boolean; degraded?: boolean; warning?: string; failureCategory?: string; retriable?: boolean }> {
+  async fetchProducts(input: { refresh?: boolean } = {}): Promise<{ products: AlibabaProduct[]; authorized: boolean; degraded?: boolean; warning?: string; failureCategory?: string; retriable?: boolean; fetchedAt?: string }> {
     const cached = await getProducts();
     this.bump("b2b-listing", "running").catch(console.error);
     try {
@@ -262,6 +264,7 @@ export class B2BService {
         degraded: result.degraded || (products.length === 0 && cached.length === 0 && !result.authorized),
         failureCategory: result.failure_category,
         retriable: result.retriable,
+        fetchedAt: new Date().toISOString(),
         warning: result.degraded || products.length === 0
           ? withCta(result.warning, products.length === 0 ? "暂无商品数据" : "商品接口降级返回")
           : undefined,

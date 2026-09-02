@@ -13,12 +13,8 @@
 // 客户端 abort:仅停止本连接入队,workflow 继续执行(event-bus 广播与 resume 能力不受影响)。
 import { NextRequest } from 'next/server';
 import type { WorkflowStreamEvent } from '@mastra/core/workflows';
-import {
-  activeRuns,
-  mastra,
-  WORKFLOW_IDS,
-  type WorkflowId,
-} from '@/lib/mastra';
+import { getKernel } from '@/src/kernel';
+import type { WorkflowId } from '@/lib/mastra';
 import { publish, WORKFLOW_TOPIC } from '@/lib/mastra/event-bus';
 import { encodeEvent, type AgentEvent } from '@/lib/agent/contracts';
 
@@ -101,15 +97,18 @@ export async function POST(req: NextRequest) {
     body = {};
   }
 
+  // M1 插件化：Mastra 引擎从后端内核取（mastra service）
+  const engine = (await getKernel()).mastra;
+
   const workflowId = body.workflowId as WorkflowId | undefined;
-  if (!workflowId || !WORKFLOW_IDS.includes(workflowId)) {
-    return Response.json({ error: `未知 workflowId,可选:${WORKFLOW_IDS.join(' / ')}` }, { status: 400 });
+  if (!workflowId || !engine.workflowIds.includes(workflowId)) {
+    return Response.json({ error: `未知 workflowId,可选:${engine.workflowIds.join(' / ')}` }, { status: 400 });
   }
   const resume = body.resume;
   if (resume && (!resume.runId || typeof resume.confirmed !== 'boolean')) {
     return Response.json({ error: 'resume 需要 { runId, stepId, confirmed }' }, { status: 400 });
   }
-  if (resume?.runId && !activeRuns.has(resume.runId)) {
+  if (resume?.runId && !engine.activeRuns.has(resume.runId)) {
     return Response.json({ error: '运行不存在或已结束(进程重启后挂起运行不可恢复)' }, { status: 404 });
   }
 
@@ -229,7 +228,7 @@ export async function POST(req: NextRequest) {
 
           let resultStatus = '';
           if (resume?.runId) {
-            const run = activeRuns.get(resume.runId)!;
+            const run = engine.activeRuns.get(resume.runId)!;
             currentRunId = run.runId;
             unsub = run.watch(onEvent);
             const result = await run.resume({
@@ -238,8 +237,8 @@ export async function POST(req: NextRequest) {
             });
             resultStatus = result.status;
           } else {
-            const run = await mastra.getWorkflow(workflowId).createRun();
-            activeRuns.set(run.runId, run);
+            const run = await engine.mastra.getWorkflow(workflowId).createRun();
+            engine.activeRuns.set(run.runId, run);
             currentRunId = run.runId;
             unsub = run.watch(onEvent);
             const result = await run.start({ inputData: input });
@@ -257,7 +256,7 @@ export async function POST(req: NextRequest) {
             });
           }
           if (resultStatus !== 'suspended' && currentRunId) {
-            activeRuns.delete(currentRunId);
+            engine.activeRuns.delete(currentRunId);
           }
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);

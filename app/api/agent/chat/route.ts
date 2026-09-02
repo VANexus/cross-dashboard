@@ -9,22 +9,27 @@
  * - tools：
  *   - ui_action：client-side tool（不定义 execute）——模型发起调用后随流下发，
  *     由前端 addToolResult 回传执行结果再发起下一轮请求；
- *   - Mastra tools：lib/mastra 并行开发中，动态 import 弱依赖（存在则注册，否则跳过）。
+ *   - 业务工具：后端内核 tool-registry（本地 WorkflowService 直连 + flowmind MCP 技能）。
  */
 import { NextRequest } from "next/server";
 import {
   streamText,
   convertToModelMessages,
   tool,
+  stepCountIs,
   type UIMessage,
   type LanguageModel,
   type ToolSet,
 } from "ai";
 import { z } from "zod";
 import { withDb } from "@/lib/api-helpers";
-import { AIConfigError, getAISDKModel } from "@/lib/ai";
+import { AIConfigError } from "@/lib/ai";
+import { getKernel } from "@/src/kernel";
+import { workflowSpecSchema } from "@/src/kernel/plugins/spec-store";
+import { topoSortSpecSteps } from "@/src/kernel/plugins/mastra-engine";
 
-export const maxDuration = 60;
+// pi 深度子代理 + 业务工具链放宽上限（token 不设限）
+export const maxDuration = 300;
 
 interface PageAction {
   id: string;
@@ -46,7 +51,11 @@ interface ChatBody {
 
 const BASE_PERSONA = `你是 FlowMind 跨境电商系统的运营助手。用简体中文交流，结论先行，可用 ①②③ 列点。
 不要编造数据；缺少数据时明确说明，并建议用户前往对应页面查看或补充。
-用户的问题可能涉及当前页面内容与页面上的可执行动作。`;
+用户的问题可能涉及当前页面内容与页面上的可执行动作。
+
+你可以在对话中动态渲染白名单 UI 组件（render_component 工具，由前端渲染）：
+stat-card 单指标卡片 / line-chart 折线图 / bar-chart 柱状图 / data-table 表格 / form 表单 / action-list 动作列表 / callout 语义提示块。
+当回答涉及对比、趋势、排行等结构化信息时优先用组件呈现（props 严格按工具 schema 传），渲染成功后再用一两句话点评。`;
 
 /** client-side tool：不定义 execute，调用权在前端（前端 addToolResult 回传）。 */
 const uiActionTool = tool({
@@ -57,18 +66,28 @@ const uiActionTool = tool({
   }),
 });
 
-// P1c: Mastra 工具并行开发中（lib/mastra 可能尚不存在）。
-// 动态 import 弱依赖：模块存在且导出 mastraTools（ToolSet）时自动注册，否则静默跳过。
-const MASTRA_TOOLS_MODULE = "@/lib/mastra";
+// 生成式 UI 白名单（M3 component-kit）：与 components/agent/generated 的 propsSchema 形状一致
+const COMPONENT_IDS = [
+  "stat-card",
+  "line-chart",
+  "bar-chart",
+  "data-table",
+  "form",
+  "action-list",
+  "callout",
+] as const;
 
-async function loadMastraTools(): Promise<ToolSet> {
-  try {
-    const mod = (await import(MASTRA_TOOLS_MODULE)) as { mastraTools?: ToolSet };
-    return mod.mastraTools ?? {};
-  } catch {
-    return {};
-  }
-}
+const renderComponentTool = tool({
+  description:
+    "在对话中动态渲染白名单 UI 组件（前端渲染）。适合把对比/趋势/排行等结构化结论可视化。渲染成功后你会收到「已渲染组件 xxx」结果，再补一句简短点评。",
+  inputSchema: z.object({
+    component: z.enum(COMPONENT_IDS).describe("白名单组件 id"),
+    props: z.record(z.string(), z.unknown()).describe("组件 props，形状必须符合对应 schema：stat-card{title,value,delta?,hint?}；line-chart/bar-chart{title?,data:[{label,value}],seriesName?}；data-table{title?,columns:[string],rows:[[cell]]}；form{title?,submitLabel?,fields:[{name,label,type?,placeholder?,options?}]}；action-list{title?,items:[{label,description?,actionId?,params?}]}；callout{tone:info|success|warning|danger,title?,text}"),
+  }),
+});
+
+// M1 插件化：模型与工具统一从后端内核取（aiModel / tools service）。
+// tools = ui_action（client tool）+ tool-registry 全部业务工具（本地 + flowmind MCP）。
 
 function buildSystemPrompt(pageContext?: PageContext): string {
   if (!pageContext) return BASE_PERSONA;
@@ -110,8 +129,9 @@ export const POST = withDb(async (request: NextRequest) => {
   }
 
   let model: LanguageModel;
+  const kernel = await getKernel();
   try {
-    model = await getAISDKModel();
+    model = await kernel.aiModel.get();
   } catch (err) {
     if (err instanceof AIConfigError) {
       return Response.json({ error: "AI_CONFIG", message: err.message }, { status: 400 });
@@ -119,13 +139,117 @@ export const POST = withDb(async (request: NextRequest) => {
     throw err;
   }
 
-  const tools: ToolSet = { ui_action: uiActionTool, ...(await loadMastraTools()) };
+  // deep_task：派发长任务给 pi 深度子代理（M2）。多步执行 + 自动压缩上下文 +
+  // 桥接工具白名单（趋势/长尾/Listing/生图），同步等待完成后返回最终摘要。
+  const deepTaskTool = tool({
+    description:
+      '派发长任务给 pi 深度子代理：适合需要多步执行/连续调用多个业务工具/产出长报告的复杂任务（如"调研 TikTok 美妆趋势并生成选品报告"）。不适合简单问答。完成后返回子代理最终文本摘要。',
+    inputSchema: z.object({
+      task: z.string().min(1).describe("自然语言任务描述，要具体、可独立执行"),
+    }),
+    execute: async ({ task }) => {
+      const kernel = await getKernel();
+      const summary = await kernel.pi.spawn(task);
+      return { summary };
+    },
+  });
+
+  // M4 动态工作流：plan_workflow（模型自己规划 spec 并落库）+ run_workflow（按 slug 执行）。
+  // 步骤白名单 = tool-registry 全量工具；DAG 合法性（引用存在 + 无环）在保存前校验。
+  const planWorkflowTool = tool({
+    description: `把一个可重复执行的多步任务规划为动态工作流 spec 并落库。由你直接规划步骤（每步调用一个白名单工具，可用工具 id：${Object.keys(kernel.tools.mastra).join("、")}），不要编造列表之外的工具。适合用户说"以后每次都帮我做…"或需要固化为流程的任务。`,
+    inputSchema: z.object({
+      id: z.string().regex(/^[a-z0-9][a-z0-9-]{1,62}$/, "slug 只能是小写字母/数字/连字符，2-63 字符").describe("工作流 slug，如 daily-trend-push"),
+      title: z.string().min(1).max(80).describe("工作流标题"),
+      goal: z.string().min(1).describe("生成该工作流的自然语言目标（原样记录用户意图）"),
+      steps: workflowSpecSchema.shape.steps.describe("步骤 DAG，dependsOn 声明依赖"),
+    }),
+    execute: async ({ id, title, goal, steps }) => {
+      topoSortSpecSteps(steps); // 引用存在 + 无环，不合法直接抛错给模型重试
+      await kernel.specs.saveWorkflowSpec(id, title, goal, { steps });
+      return {
+        ok: true,
+        id,
+        stepCount: steps.length,
+        message: `工作流「${title}」已保存（${steps.length} 步），可用 run_workflow 工具执行。`,
+      };
+    },
+  });
+
+  const runWorkflowTool = tool({
+    description:
+      "按 slug 执行已保存的动态工作流（plan_workflow 保存的 spec）。步骤按依赖拓扑序执行，单步失败会记录并继续，整体返回每步结果摘要。",
+    inputSchema: z.object({
+      id: z.string().min(1).describe("plan_workflow 保存时的工作流 slug"),
+    }),
+    execute: async ({ id }) => {
+      const row = await kernel.specs.getWorkflowSpec(id);
+      if (!row) {
+        const list = await kernel.specs.listWorkflowSpecs(20);
+        return {
+          ok: false,
+          message: `未找到工作流 ${id}。已保存的有：${list.map((w) => w.id).join("、") || "（无）"}`,
+        };
+      }
+      const result = await kernel.mastra.runSpec(row.spec);
+      return {
+        ok: result.status === "success",
+        id,
+        title: row.title,
+        status: result.status,
+        steps: result.steps,
+      };
+    },
+  });
+
+  // M5 动态页面：generate_page（模型生成白名单组件树 spec 并落库 → /p/[slug] 渲染，
+  // 侧边栏「AI 动态页面」分组自动出现导航入口）。props 形状约定同 render_component。
+  const generatePageTool = tool({
+    description: `生成一个全新的 AI 动态页面并发布（持久化，导航自动出现入口）。组件白名单：${COMPONENT_IDS.join("、")}，props 形状与 render_component 相同（stat-card{title,value,delta?,hint?}；line-chart/bar-chart{title?,data:[{label,value}],seriesName?}；data-table{title?,columns,rows}；form{title?,submitLabel?,fields}；action-list{title?,items}；callout{tone,title?,text}）。适合用户要"做一个 xx 页/看板/灵感页"类需求。成功后把返回的 url 告知用户，可建议用 navigate 动作打开。`,
+    inputSchema: z.object({
+      id: z.string().regex(/^[a-z0-9][a-z0-9-]{1,62}$/, "slug 只能是小写字母/数字/连字符，2-63 字符").describe("页面 slug（即 /p/ 路由名），如 autumn-pick-inspiration"),
+      title: z.string().min(1).max(80).describe("页面标题"),
+      components: z
+        .array(
+          z.object({
+            id: z.string().min(1).max(64).describe("组件实例 id，如 hero-callout"),
+            component: z.enum(COMPONENT_IDS).describe("白名单组件 id"),
+            props: z.record(z.string(), z.unknown()).optional().describe("组件 props"),
+          }),
+        )
+        .min(1)
+        .max(30)
+        .describe("页面组件树（自上而下排列）"),
+    }),
+    execute: async ({ id, title, components }) => {
+      await kernel.specs.savePageSpec(id, title, { components });
+      return {
+        ok: true,
+        url: `/p/${id}`,
+        componentCount: components.length,
+        message: `页面「${title}」已发布到 ${`/p/${id}`}，导航稍后自动出现。`,
+      };
+    },
+  });
+
+  const tools: ToolSet = {
+    ui_action: uiActionTool,
+    deep_task: deepTaskTool,
+    render_component: renderComponentTool,
+    plan_workflow: planWorkflowTool,
+    run_workflow: runWorkflowTool,
+    generate_page: generatePageTool,
+    ...kernel.tools.toAiSdkTools(),
+  };
 
   const result = streamText({
     model,
     system: buildSystemPrompt(body.pageContext),
     messages: await convertToModelMessages(messages, { tools }),
     tools,
+    // 服务端工具（deep_task/业务工具）执行完自动续跑下一步；
+    // ui_action 是 client tool（无 execute），仍会暂停等前端回传
+    stopWhen: stepCountIs(10),
   });
 
   return result.toUIMessageStreamResponse({

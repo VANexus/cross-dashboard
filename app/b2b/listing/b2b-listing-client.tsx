@@ -171,6 +171,7 @@ function ListingInner({ initialProducts, initialListings }: {
               </Badge>
             )}
             <span className="ml-auto text-xs text-muted-foreground flex items-center gap-2">
+              <DataFreshness fetchedAt={productsEnv.fetchedAt} refreshing={productsEnv.refreshing} />
               <span>
                 商品池 {products.length} 个{products.length === 0 && authorized === false ? " · 未授权国际站" : ""}
               </span>

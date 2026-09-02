@@ -2,13 +2,27 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import useSWR from "swr";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { StatusDot } from "@/components/ui/status-dot";
-import { getNavGroups } from "@/lib/workspaces/registry";
-import { ChevronDown, ChevronsLeft, ChevronsRight, Workflow, Route } from "lucide-react";
+import { getNavGroups, type NavGroup } from "@/lib/workspaces/registry";
+import { ChevronDown, ChevronsLeft, ChevronsRight, Workflow, Route, Sparkles } from "lucide-react";
+
+/** AI 动态页面（/p/[slug]）清单项 */
+interface DynamicPageItem {
+  id: string;
+  title: string;
+  updated_at: string;
+}
+
+async function dynamicPagesFetcher(url: string): Promise<DynamicPageItem[]> {
+  const res = await fetch(url);
+  const json = (await res.json()) as { success: boolean; data?: DynamicPageItem[] };
+  return json.success ? (json.data ?? []) : [];
+}
 
 function dotToStatus(dot?: string) {
   switch (dot) {
@@ -26,6 +40,26 @@ export function Sidebar() {
   // 折叠的分组（Linear 式：组头可点击收起；空 = 全展开）
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const navGroups = useMemo(() => getNavGroups(), []);
+
+  // M5 导航注入：agent 生成的 /p/[slug] 动态页 → 「AI 动态页面」分组（缓存 + 3min 轮询）
+  const { data: dynamicPages } = useSWR("/api/agent/pages", dynamicPagesFetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60_000,
+    refreshInterval: 180_000,
+  });
+  const fullNavGroups = useMemo<NavGroup[]>(() => {
+    const pages = dynamicPages ?? [];
+    if (pages.length === 0) return navGroups;
+    return [
+      ...navGroups,
+      {
+        workspaceId: "ai-generated",
+        label: "AI 动态页面",
+        icon: Sparkles,
+        items: pages.map((p) => ({ label: p.title, href: `/p/${p.id}`, icon: Sparkles })),
+      },
+    ];
+  }, [navGroups, dynamicPages]);
 
   const toggleGroup = (id: string) =>
     setCollapsedGroups((prev) => {
@@ -77,7 +111,7 @@ export function Sidebar() {
             </Link>
           </div>
 
-          {navGroups.map((group) => {
+          {fullNavGroups.map((group) => {
             const isGroupCollapsed = collapsedGroups.has(group.workspaceId);
             const groupActive = group.items.some(
               (item) => pathname === item.href || pathname.startsWith(item.href + "/")

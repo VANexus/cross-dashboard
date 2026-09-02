@@ -15,14 +15,15 @@ import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } fro
 import type { UIDataTypes, UIMessage } from 'ai';
 import { z } from 'zod';
 import { usePresence } from '@/stores/agent-presence';
+import { getClientKernel, whenKernelReady } from '@/lib/kernel';
 import {
   createGlobalActions,
   getActionById,
   getPageActions,
   installAgentTestHook,
-  registerGlobalActions,
 } from '@/lib/agent/ui-actions';
 import { serializePageContext } from '@/lib/agent/page-context';
+import { componentDefs, GeneratedComponent } from '@/components/agent/generated';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { StatusDot } from '@/components/ui/status-dot';
@@ -41,15 +42,28 @@ export interface UiActionInput {
   id: string;
   params?: Record<string, unknown>;
 }
+/** render_component client tool 契约：白名单组件 + 已过 zod 校验的 props，前端查表渲染。 */
+export interface RenderComponentInput {
+  component: string;
+  props?: Record<string, unknown>;
+}
 export type AgentUIMessage = UIMessage<
   unknown,
   UIDataTypes,
-  { ui_action: { input: UiActionInput; output: string } }
+  {
+    ui_action: { input: UiActionInput; output: string };
+    render_component: { input: RenderComponentInput; output: string };
+  }
 >;
 
 const uiActionInputSchema = z.object({
   id: z.string().min(1),
   params: z.record(z.string(), z.unknown()).optional(),
+});
+
+const renderComponentInputSchema = z.object({
+  component: z.string().min(1),
+  props: z.record(z.string(), z.unknown()).optional(),
 });
 
 export function AgentDrawer() {
@@ -66,15 +80,29 @@ export function AgentDrawer() {
   const helpersRef = useRef<UseChatHelpers<AgentUIMessage> | null>(null);
 
   // 注册通用动作（navigate/refresh 需要 router；抽屉是贯穿所有页面的全局客户端挂载点）
+  // 内核服务为异步 fiber 挂载：经 whenKernelReady 等就绪后再注册（杜绝竞速 undefined）
   useEffect(() => {
-    registerGlobalActions(
-      createGlobalActions({
-        onNavigate: (route) => router.push(route),
-        onRefresh: () => router.refresh(),
-      }),
-    );
-    // 测试/调试钩子：e2e 可经 window.__agentUI 快速驱动全部动作（生产自动跳过）
-    installAgentTestHook();
+    let cancelled = false;
+    whenKernelReady()
+      .then((kernel) => {
+        if (cancelled) return;
+        kernel.actions.registerGlobalActions(
+          createGlobalActions({
+            onNavigate: (route) => router.push(route),
+            onRefresh: () => router.refresh(),
+          }),
+        );
+        // 测试/调试钩子：e2e 可经 window.__agentUI 快速驱动全部动作（生产自动跳过）
+        installAgentTestHook();
+        // 生成式 UI 白名单组件注册（M3 component-kit：注册表归内核所有，同 id 覆盖热更新安全）
+        kernel.components.registerAll(componentDefs);
+      })
+      .catch((err) => {
+        if (!cancelled) console.error('[web-kernel] 全局动作/组件注册失败', err);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   // transport 指向 /api/agent/chat；body 每次发送时求值：从 presence store 取当前页面上下文
@@ -96,15 +124,52 @@ export function AgentDrawer() {
     sendAutomaticallyWhen: ({ messages }) =>
       lastAssistantMessageIsCompleteWithToolCalls({ messages }),
     // ui_action 本地执行：按 id 路由到注册动作 → zod 校验 params → execute → addToolResult
+    // render_component 本地执行：白名单查表 → zod 校验 props → 回传「已渲染」，组件随消息流渲染
     onToolCall: ({ toolCall }) => {
-      if (toolCall.dynamic || toolCall.toolName !== 'ui_action') return;
-      const fail = (errorText: string) =>
+      if (toolCall.dynamic) return;
+      const failWith =
+        (tool: 'ui_action' | 'render_component') =>
+        (errorText: string) =>
+          helpersRef.current?.addToolResult({
+            tool,
+            toolCallId: toolCall.toolCallId,
+            state: 'output-error',
+            errorText,
+          });
+
+      if (toolCall.toolName === 'render_component') {
+        const fail = failWith('render_component');
+        const parsed = renderComponentInputSchema.safeParse(toolCall.input);
+        if (!parsed.success) {
+          fail(`render_component 输入不合法：${parsed.error.message}`);
+          return;
+        }
+        const components = getClientKernel().components;
+        const def = components.getComponent(parsed.data.component);
+        if (!def) {
+          fail(
+            `未注册的白名单组件：${parsed.data.component}（可用：${
+              components.listComponents().map((d) => d.id).join(', ') || '无'
+            }）`,
+          );
+          return;
+        }
+        const pr = def.propsSchema.safeParse(parsed.data.props ?? {});
+        if (!pr.success) {
+          fail(`组件 ${def.id} props 不合法：${pr.error.message}`);
+          return;
+        }
+        pushTelemetry('Agent', `动态渲染 · ${def.id}`);
         helpersRef.current?.addToolResult({
-          tool: 'ui_action',
+          tool: 'render_component',
           toolCallId: toolCall.toolCallId,
-          state: 'output-error',
-          errorText,
+          output: `已渲染组件 ${def.id}`,
         });
+        return;
+      }
+
+      if (toolCall.toolName !== 'ui_action') return;
+      const fail = failWith('ui_action');
       const parsed = uiActionInputSchema.safeParse(toolCall.input);
       if (!parsed.success) {
         fail(`ui_action 输入不合法：${parsed.error.message}`);
@@ -301,6 +366,29 @@ export function AgentDrawer() {
                           {part.output}
                         </Badge>
                       )}
+                      {part.state === 'output-error' && (
+                        <Badge variant="danger" className="gap-1 font-normal">
+                          <X className="h-3 w-3" />
+                          {part.errorText}
+                        </Badge>
+                      )}
+                    </div>
+                  );
+                }
+                if (part.type === 'tool-render_component') {
+                  const rendered =
+                    (part.state === 'input-available' || part.state === 'output-available') && part.input ? (
+                      <GeneratedComponent id={part.input.component} props={part.input.props ?? {}} />
+                    ) : null;
+                  return (
+                    <div key={part.toolCallId} className="mt-1.5">
+                      {part.state === 'input-streaming' && (
+                        <Badge variant="secondary" className="gap-1 font-normal">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          生成组件中…
+                        </Badge>
+                      )}
+                      {rendered}
                       {part.state === 'output-error' && (
                         <Badge variant="danger" className="gap-1 font-normal">
                           <X className="h-3 w-3" />

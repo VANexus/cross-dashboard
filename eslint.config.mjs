@@ -26,6 +26,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Temp / scratch files
     ".remember/tmp/**",
+    // Vendored third-party code (Cordis 4.0 / cosmokit / standard-schema)
+    "src/kernel/vendor/**",
   ]),
 ]);
 
