@@ -23,7 +23,7 @@ const ALLOWED_KEYS: Array<keyof B2BSettings> = [
   "b2bDailyRefreshToken",
 ];
 
-export const GET = withDb(async () => success(await service.getSettings()));
+export const GET = withDb(async () => success(await service.getSettings(), undefined, 200, CONFIG_CACHE_HEADERS));
 
 export const POST = withDb(async (request: NextRequest) => {
   let body: Record<string, unknown>;
