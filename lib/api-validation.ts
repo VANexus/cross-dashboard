@@ -277,3 +277,109 @@ export const b2bImageGenSchema = z.object({
   skillId: z.string().min(1),
   prompt: z.string().max(2000).optional(),
 });
+
+// ── TikHub 情报中心 ──
+
+export const adIntelSchema = z.object({
+  action: z.enum(["search_ads", "filters", "locations", "hashtag_detail"]),
+  keyword: z.string().max(120).optional(),
+  hashtagId: z.string().max(64).optional(),
+  period: z.number().int().positive().max(365).optional(),
+  objective: z.number().int().optional(),
+  industry: z.string().max(32).optional(),
+  countryCode: z.string().max(8).optional(),
+  page: z.number().int().positive().optional(),
+  limit: z.number().int().min(1).max(50).optional(),
+  orderBy: z.enum(["for_you", "likes"]).optional(),
+  timeRange: z.number().int().optional(),
+});
+
+export const shopIntelSchema = z.object({
+  action: z.enum(["search", "suggest", "categories", "detail", "reviews", "seller"]),
+  keyword: z.string().max(120).optional(),
+  productId: z.string().max(64).optional(),
+  sellerId: z.string().max(64).optional(),
+  region: z.string().max(8).optional(),
+  limit: z.number().int().min(1).max(50).optional(),
+  offset: z.number().int().min(0).optional(),
+  page: z.number().int().positive().optional(),
+});
+
+export const contentIntelSchema = z.object({
+  action: z.enum([
+    "trending_words", "video_search", "music_chart",
+    "creator_insights", "creator_profile", "ig_hashtag_posts",
+  ]),
+  keyword: z.string().max(120).optional(),
+  uniqueId: z.string().max(120).optional(),
+  withCountry: z.boolean().optional(),
+  limit: z.number().int().min(1).max(50).optional(),
+  region: z.string().max(8).optional(),
+  feedType: z.enum(["top", "recent"]).optional(),
+});
+
+// Workflow: 微信公众号端到端发布（M3）
+export const wechatAccountCreateSchema = z.object({
+  label: z.string().max(80).optional().default(""),
+  appId: z.string().min(6).max(128),
+  appSecret: z.string().min(6).max(256),
+});
+
+export const wechatAccountUpdateSchema = z.object({
+  label: z.string().max(80).optional(),
+  appId: z.string().min(6).max(128).optional(),
+  appSecret: z.string().min(6).max(256).optional(),
+  status: z.enum(["active", "invalid"]).optional(),
+});
+
+export const wechatTestSchema = z.object({
+  id: z.string().min(1).optional(),
+  appId: z.string().max(128).optional(),
+  appSecret: z.string().max(256).optional(),
+});
+
+export const wechatTypesetSchema = z.object({
+  markdown: z.string().min(1).max(100_000),
+  theme: z.enum(["default", "grace", "simple"]).optional(),
+  primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  fontSize: z.string().max(20).optional(),
+});
+
+export const wechatJobCreateSchema = z.object({
+  title: z.string().min(1).max(300),
+  bodyHtml: z.string().min(1).max(500_000),
+  accountId: z.string().min(1).nullable().optional(),
+  summary: z.string().max(300).optional().default(""),
+  author: z.string().max(80).optional().default(""),
+  thumbUrl: z.string().max(2000).optional().default(""),
+  channel: z.enum(["publish", "mass"]).optional().default("publish"),
+  theme: z.string().max(40).optional().default("default"),
+  publishTime: z.number().int().positive().nullable().optional(),
+});
+
+export const wechatJobUpdateSchema = z.object({
+  title: z.string().max(300).optional(),
+  summary: z.string().max(300).optional(),
+  author: z.string().max(80).optional(),
+  bodyHtml: z.string().max(500_000).optional(),
+  thumbUrl: z.string().max(2000).optional(),
+  channel: z.enum(["publish", "mass"]).optional(),
+  theme: z.string().max(40).optional(),
+  publishTime: z.number().int().positive().nullable().optional(),
+  accountId: z.string().min(1).nullable().optional(),
+  status: z.enum(["drafting", "drafted", "publishing", "published", "mass_sent", "failed", "cancelled"]).optional(),
+  step: z.enum(["select", "typeset", "settings", "confirm", "done"]).optional(),
+});
+
+export const wechatJobSubmitSchema = z.object({
+  accountId: z.string().min(1).nullable().optional(),
+  title: z.string().min(1).max(300),
+  summary: z.string().max(300).optional().default(""),
+  author: z.string().max(80).optional().default(""),
+  bodyHtml: z.string().min(1).max(500_000),
+  thumbUrl: z.string().max(2000).optional().default(""),
+  channel: z.enum(["publish", "mass"]),
+  theme: z.string().max(40).optional().default("default"),
+  publishTime: z.number().int().positive().nullable().optional(),
+  publish: z.boolean().optional().default(true),
+});

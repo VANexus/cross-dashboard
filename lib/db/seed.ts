@@ -1,1 +1,1 @@
-export function seedDatabase(db: unknown): void { }
+export function seedDatabase(_db: unknown): void { }

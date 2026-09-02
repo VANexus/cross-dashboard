@@ -68,8 +68,7 @@ export class CompatDatabase {
         return legacyNotRewritten(sql, "query.get");
       },
 
-      all(...params: unknown[]): Array<Record<string, unknown>> {
-        const p = params as unknown[];
+      all(..._params: unknown[]): Array<Record<string, unknown>> {
         // Pattern 1: SELECT cols FROM table WHERE col=? ORDER BY ... LIMIT ?
         const m1 = /^SELECT\s+([^]+?)\s+FROM\s+(\w+)(?:\s+WHERE\s+([^]+?))?(?:\s+ORDER\s+BY\s+([^]+?))?\s*(?:LIMIT\s+(\d+|\?))?\s*;?\s*$/i.exec(
           sql
@@ -82,9 +81,7 @@ export class CompatDatabase {
     };
   }
 
-  run(sql: string, params?: unknown[]): { changes: number } {
-    const sb = this._sb;
-    const p = params ?? [];
+  run(sql: string, _params?: unknown[]): { changes: number } {
     // Pattern 1: DELETE FROM table WHERE col=?
     let m = /^DELETE\s+FROM\s+(\w+)(?:\s+WHERE\s+([^;]+))?\s*;?\s*$/i.exec(sql);
     if (m) {

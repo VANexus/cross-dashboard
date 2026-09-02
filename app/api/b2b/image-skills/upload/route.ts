@@ -1,7 +1,6 @@
 import type { NextRequest } from "next/server";
 import { withDb } from "@/lib/api-helpers";
 import { success, error, methodNotAllowed, badRequest } from "@/lib/api-response";
-import { getSupabase } from "@/lib/db";
 
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const SUPABASE_URL =

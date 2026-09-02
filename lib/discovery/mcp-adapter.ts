@@ -41,13 +41,6 @@ interface RawManifest {
   }>;
 }
 
-/** MCP tool 列表响应中的工具形状（最小子集） */
-interface MCPToolLike {
-  name: string;
-  description?: string;
-  inputSchema?: SkillJsonSchema;
-}
-
 export class MCPAdapter implements ProtocolAdapter {
   readonly protocol = "mcp" as const;
 

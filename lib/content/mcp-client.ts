@@ -157,7 +157,8 @@ export class ContentMCPClient {
     this.stats.totalCalls++;
     let lastErr: ContentMCPError | null = null;
 
-    const maxAttempts = opts?.noRetry ? 1 : 1 + this.cfg.maxRetries;
+    const maxAttempts0 = opts?.noRetry ? 1 : 1 + this.cfg.maxRetries;
+    let maxAttempts = maxAttempts0;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       if (attempt > 0) {
         this.stats.retriedCalls++;
@@ -172,6 +173,14 @@ export class ContentMCPClient {
       } catch (err) {
         lastErr = this.classifyError(err, tool);
         this.onFailure(lastErr);
+
+        // 会话失效（后端重启 / session 过期）：doCall 已 teardown 旧连接，
+        // 这里强制再试一次以走 ensureConnected 重建会话；只读调用安全，不受 noRetry 限制。
+        const cause = err instanceof Error ? err.message : String(err);
+        if (cause.includes("Session not found") && attempt === 0) {
+          maxAttempts = Math.max(maxAttempts, 2);
+          continue;
+        }
 
         // 不可重试的错误直接抛出
         if (!lastErr.retriable) throw lastErr;
