@@ -7,7 +7,6 @@ import * as agentRepo from "../repositories/agent.repository";
 import * as journalRepo from "../repositories/journal.repository";
 import * as memoryRepo from "../repositories/memory.repository";
 import * as rakRepo from "../repositories/rak.repository";
-import * as taskRepo from "../repositories/task.repository";
 import { agentEventBus } from "./event-bus";
 import { assembleContext } from "./context";
 import { RealAgentBrain } from "./real-brain";

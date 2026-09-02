@@ -593,6 +593,12 @@ export interface KeywordTrendsResult {
   failureCategory?: string;
   retriable?: boolean;
   warning?: string;
+  /** 最近一次真实抓取时间（ISO）；GET 秒回/缓存路径由 DB fetched_at 推出 */
+  fetchedAt?: string;
+  /** TikHub 缓存元信息（flowmind _tikhub_cache 透传）：local=本地命中 speculative=免费窗投机 live=真实外呼 */
+  cache?: { mode: string; hit: boolean; ageS?: number };
+  /** true 表示本次响应来自 DB 秒回，且已触发后台保鲜（稍后自动变新） */
+  refreshing?: boolean;
 }
 
 export interface LongtailKeyword {
@@ -617,6 +623,10 @@ export interface AlibabaProductsEnvelope {
   warning?: string;
   failureCategory?: string;
   retriable?: boolean;
+  /** 商品池最近一次真实拉取时间（ISO） */
+  fetchedAt?: string;
+  /** true 表示本次响应来自 DB 秒回，且已触发后台保鲜 */
+  refreshing?: boolean;
 }
 
 export interface ListingRecommendation {
@@ -762,4 +772,319 @@ export interface DailyRefreshResult {
   platforms?: Record<string, { degraded: boolean; count: number; warning?: string }>;
   digest?: DailyDigestResult | null;
   digestError?: string;
+}
+
+// ── TikHub 情报中心（广告 / 选品 / 内容达人，全部真实数据）──
+
+/** 三 skill 共用的降级信封 */
+export interface IntelEnvelope {
+  source: string;
+  degraded: boolean;
+  failureCategory?: string | null;
+  retriable?: boolean;
+  warning?: string | null;
+}
+
+/** 竞品广告创意（tiktok_ad_intel.search_ads） */
+export interface AdMaterial {
+  id: string;
+  rank: number;
+  title: string;
+  brand: string;
+  ctr: number | null;
+  likes: number | null;
+  cost: number | null;
+  objective: string;
+  industryKey: string;
+  isSearch: boolean;
+  durationS: number | null;
+  coverUrl: string;
+  videoUrl: string;
+  width: number | null;
+  height: number | null;
+}
+
+export interface AdIntelResult extends IntelEnvelope {
+  action: string;
+  materials: AdMaterial[];
+  pagination: { hasMore?: boolean; page?: number; total?: number; size?: number };
+  filters: Record<string, Array<{ id: string; label: string; parentId?: number | null }>>;
+  locations: Array<{ id: string; name: string }>;
+  hashtagDetail: HashtagDetail;
+}
+
+export interface HashtagDetail {
+  hashtagId?: string;
+  name?: string;
+  vv?: number | null;
+  publishCnt?: number | null;
+  timeRange?: number | null;
+  curve?: Array<{ timestamp: string; value: number }>;
+  ageProfile?: Array<{ level: string; percent: number | null }>;
+  countryProfile?: Array<{ country: string; tgi: number | null }>;
+  videos?: Array<{ itemId: string; coverUrl: string; videoUrl: string }>;
+  [k: string]: unknown;
+}
+
+/** TikTok Shop 选品（tiktok_shop_intel） */
+export interface ShopProduct {
+  productId: string;
+  title: string;
+  imageUrl: string;
+  price: string;
+  originalPrice: string;
+  discount: string;
+  currency: string;
+  rating: number | null;
+  reviewCount: number | null;
+  soldCount: number | null;
+  sellerId: string;
+  sellerName: string;
+  brand: string;
+  url: string;
+  labels: string[];
+}
+
+export interface ShopReview {
+  reviewId: string;
+  rating: number | null;
+  time: string;
+  verified: boolean;
+  incentivized: boolean;
+  reviewer: string;
+  text: string;
+  images: string[];
+  skuSpec: string;
+  country: string;
+}
+
+export interface ShopCategoryNode {
+  categoryId: string;
+  name: string;
+  level: number | null;
+  isLeaf: boolean;
+  children: ShopCategoryNode[];
+}
+
+export interface ShopIntelResult extends IntelEnvelope {
+  action: string;
+  products: ShopProduct[];
+  page: { hasMore?: boolean; offset?: number; pageToken?: string; size?: number };
+  suggestions: string[];
+  categories: ShopCategoryNode[];
+  detail: ShopProductDetail;
+  reviews: ShopReview[];
+  reviewSummary: {
+    total?: string; avg?: number | null; hasMore?: boolean;
+    distribution?: Record<string, string>;
+  };
+}
+
+export interface ShopProductDetail {
+  productId?: string;
+  sellerId?: string;
+  name?: string;
+  soldCount?: number | null;
+  images?: string[];
+  descImages?: string[];
+  specs?: Array<{ name: string; values: string[] }>;
+  variants?: Array<{ name: string; values: string[] }>;
+  skuCount?: number;
+  videoUrls?: string[];
+  shop?: {
+    sellerId: string; shopName: string; shopRating: number | null;
+    reviewCount: number | null; followers: number | null; shopSold: number | null; onSellCount: number | null;
+  };
+  [k: string]: unknown;
+}
+
+/** 内容 / 达人 / 音乐（tiktok_content_intel） */
+export interface VideoItem {
+  awemeId: string;
+  desc: string;
+  createTime: number | null;
+  durationS: number | null;
+  play: number | null;
+  likes: number | null;
+  comments: number | null;
+  shares: number | null;
+  collects: number | null;
+  authorId: string;
+  author: string;
+  authorHandle: string;
+  authorFollowers: number | null;
+  coverUrl: string;
+  videoUrl: string;
+  musicTitle: string;
+}
+
+export interface MusicItem {
+  rank: number;
+  musicId: string;
+  title: string;
+  author: string;
+  durationS: number | null;
+  userCount: number | null;
+  trend: number | null;
+  coverUrl: string;
+  artists: string[];
+}
+
+export interface CreatorInsight {
+  queryId: string;
+  query: string;
+  popularity: number | null;
+  popularityV2: number | null;
+  videoNum: number | null;
+  trendSeq: number[];
+  categoryL1: string;
+  categoryL2: string;
+  businessTypes: string[];
+}
+
+export interface IgPost {
+  mediaId: string;
+  code: string;
+  caption: string;
+  hashtags: string[];
+  likes: number | null;
+  comments: number | null;
+  plays: number | null;
+  isVideo: boolean;
+  mediaType: number | null;
+  thumbnail: string;
+  videoUrl: string;
+  takenAt: number | null;
+  username: string;
+  userFullname: string;
+  verified: boolean;
+}
+
+export interface CreatorProfile {
+  userId?: string;
+  secUserId?: string;
+  uniqueId?: string;
+  nickname?: string;
+  followers?: number | null;
+  following?: number | null;
+  awemeCount?: number | null;
+  signature?: string;
+  customVerify?: string;
+  isStar?: boolean;
+  avatarUrl?: string;
+  country?: string;
+  [k: string]: unknown;
+}
+
+export interface ContentIntelResult extends IntelEnvelope {
+  action: string;
+  trendingWords: Array<{ word: string; type: string }>;
+  videos: VideoItem[];
+  music: MusicItem[];
+  insights: CreatorInsight[];
+  profile: CreatorProfile;
+  igPosts: IgPost[];
+  igPaginationToken: string;
+}
+
+/** 趋势时序快照（P1，每日落库） */
+export interface TrendSnapshot {
+  id: string;
+  platform: TrendPlatform;
+  word: string;
+  heat: number;
+  delta: number | null;
+  rank: number;
+  industry: string;
+  source: string;
+  snapshotDate: string;
+}
+
+export interface TrendRising {
+  word: string;
+  heat: number;
+  delta: number | null;
+  deltaPct: number | null;
+  rank: number;
+  spark: number[];
+  industry: string;
+}
+
+
+// ── 微信公众号端到端发布（M3：文案 → 排版 → 发布/群发）──
+
+export type WechatChannel = "publish" | "mass";
+export type WechatAccountStatus = "active" | "invalid";
+export type WechatPublishStatus =
+  | "drafting" | "drafted" | "publishing" | "published"
+  | "mass_sent" | "failed" | "cancelled";
+export type WechatPublishStep = "select" | "typeset" | "settings" | "confirm" | "done";
+
+/** 前端展示用公众号账号（明文凭证只在创建/测试时进出，绝不随列表返回） */
+export interface WechatAccount {
+  id: string;
+  label: string;
+  appIdMasked: string;
+  isDefault: boolean;
+  status: WechatAccountStatus;
+  lastCheckedAt: string | null;
+  createdAt: string;
+}
+
+/** 测试连接返回 */
+export interface WechatAccountTestResult {
+  ok: boolean;
+  appIdMasked: string;
+  nickname?: string | null;
+  warning?: string | null;
+  failureCategory?: string | null;
+}
+
+/** 排版主题元数据 */
+export interface WechatTypesetTheme {
+  id: string;
+  label: string;
+  primary: string;
+}
+
+/** 排版结果 */
+export interface WechatTypesetResult {
+  html: string;
+  theme: string;
+  themeLabel: string;
+  stats: Record<string, number>;
+}
+
+/** 发布任务（wf_wechat_publish_jobs） */
+export interface WechatPublishJob {
+  id: string;
+  accountId: string | null;
+  title: string;
+  summary: string;
+  author: string;
+  bodyHtml: string;
+  thumbUrl: string;
+  channel: WechatChannel;
+  theme: string;
+  publishTime: number | null;
+  status: WechatPublishStatus;
+  step: WechatPublishStep;
+  mediaId: string;
+  publishId: string | null;
+  msgId: string | null;
+  articleUrl: string | null;
+  warning: string;
+  steps: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 发布提交返回 */
+export interface WechatPublishSubmitResult {
+  status: string;
+  mediaId: string;
+  publishId: string | null;
+  msgId: string | null;
+  bodyImages: Array<{ src: string; url: string; ok: boolean; error?: string }>;
+  warning?: string;
 }
