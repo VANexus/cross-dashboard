@@ -8,16 +8,16 @@ import { ContentMCPClient, ContentMCPError } from "@/lib/content/mcp-client";
 import { getWorkflowStatuses, updateWorkflowStatus } from "@/lib/repositories/workflow.repository";
 import {
   clearKeywordTrends, clearLongtail, clearProducts, getImageSkill, getImageSkills,
-  getKeywordTrends, getListing, getListings, getLongtail, getProduct, getProducts,
-  incrementImageSkillUsage, insertImageSkill, insertKeywordTrend, insertListing, insertLongtail,
-  insertProduct, updateImageSkill, updateListing,
+  getKeywordTrends, getKeywordTrendsFetchedAt, getListing, getListings, getLongtail, getProduct, getProducts,
+  getProductsFetchedAt, getTrendSnapshots, incrementImageSkillUsage, insertImageSkill, insertKeywordTrend, insertListing,
+  insertLongtail, insertProduct, replaceTrendSnapshots, updateImageSkill, updateListing,
 } from "@/lib/repositories/b2b.repository";
 import { getSupabase } from "@/lib/db";
 import { resolveChannelSession } from "@/lib/repositories/channel-accounts.repository";
 import type {
   AlibabaProduct, B2BListingDraft, B2BPreference, ContentImage, DailyDigestResult, ImageSkill,
   KeywordTrendsResult, ListingPublishResult, ListingRecommendation, LongtailKeyword, PushTestResult,
-  ReversePromptResult, TrendPlatform,
+  ReversePromptResult, TrendPlatform, TrendRising,
 } from "@/lib/types";
 
 interface Bumpable {
@@ -27,6 +27,17 @@ interface Bumpable {
 }
 
 const SETTINGS_CTA = "请前往「设置 → B 端运营」检查密钥配置，或稍后重试。";
+
+// ── 并发去重：同 key 的付费抓取合并为一次（双开页面/双击不重复花钱）──
+const inFlight = new Map<string, Promise<unknown>>();
+
+function dedup<T>(key: string, run: () => Promise<T>): Promise<T> {
+  const existing = inFlight.get(key) as Promise<T> | undefined;
+  if (existing) return existing;
+  const p = run().finally(() => inFlight.delete(key));
+  inFlight.set(key, p);
+  return p;
+}
 
 function shouldClearCache(
   failureCategory: string | undefined,
@@ -69,6 +80,8 @@ export class B2BService {
   }
 
   async fetchKeywordTrends(input: { platform: TrendPlatform; industryId?: number; keyword?: string; refresh?: boolean }): Promise<KeywordTrendsResult> {
+    // 并发去重：同平台+关键词的抓取合并（双开页面/狂点刷新只付一次钱）
+    return dedup(`kw-trends:${input.platform}:${input.industryId ?? ""}:${input.keyword ?? ""}`, async () => {
     const cached = await getKeywordTrends(input.platform);
 
     // 渠道会话：保险库 active 账号优先（多账号），settings 单账号兜底
@@ -101,6 +114,7 @@ export class B2BService {
         platform: string; source: string; degraded: boolean;
         keywords: Array<{ word: string; heat: number; delta: number | null; rank: number; industry: string; source: string }>;
         failure_category?: string; retriable?: boolean; warning?: string;
+        cache?: { mode: string; hit: boolean; age_s?: number };
       }>("b2b_keyword_trends", {
         platform: input.platform,
         industry_id: input.industryId,
@@ -130,6 +144,10 @@ export class B2BService {
         keywords: hasCachedFallback ? cached : keywords,
         failureCategory: result.failure_category,
         retriable: result.retriable,
+        // TikHub 缓存元信息（local=本地命中零成本 / speculative=免费窗投机 / live=真实外呼）
+        cache: result.cache
+          ? { mode: result.cache.mode, hit: result.cache.hit, ageS: result.cache.age_s }
+          : undefined,
         warning: result.degraded || keywords.length === 0
           ? withCta(result.warning, keywords.length === 0 ? "暂无关键词趋势数据" : "趋势接口降级返回")
           : undefined,
@@ -145,6 +163,7 @@ export class B2BService {
           source: "cache_stale",
           degraded: true,
           keywords: cached,
+          fetchedAt: await getKeywordTrendsFetchedAt(input.platform).catch(() => undefined),
           failureCategory: mcpErr?.category,
           retriable: mcpErr?.retriable ?? true,
           warning: withCta(mcpErr?.message, "MCP 服务暂时不可用，展示历史缓存"),
@@ -544,7 +563,43 @@ export class B2BService {
           rank: k.rank, industry: k.industry, source: k.source,
         });
       });
+      // P1：同步写当日时序快照（幂等），供迷你趋势线/飙升榜
+      await replaceTrendSnapshots(platform, keywords).catch(console.error);
     } catch { /* 非关键路径 */ }
+  }
+
+  /** 趋势时序：近 days 天快照聚合出的飙升榜（按环比涨幅降序）+ 每词 sparkline。 */
+  async getTrendRising(platform: TrendPlatform, days = 14): Promise<{ dates: string[]; rising: TrendRising[] }> {
+    const rows = await getTrendSnapshots(platform, days);
+    const dateSet = Array.from(new Set(rows.map((r) => r.snapshotDate))).sort();
+    // word -> 按日期对齐的热度序列
+    const byWord = new Map<string, { spark: number[]; last: number; first: number; rank: number; industry: string; delta: number | null }>();
+    for (const w of new Set(rows.map((r) => r.word))) {
+      const pts = rows.filter((r) => r.word === w);
+      const heatByDate = new Map(pts.map((p) => [p.snapshotDate, p.heat]));
+      const spark = dateSet.map((d) => heatByDate.get(d) ?? 0);
+      const lastPt = pts[pts.length - 1];
+      byWord.set(w, {
+        spark, first: pts[0].heat, last: lastPt.heat,
+        rank: lastPt.rank, industry: lastPt.industry, delta: lastPt.delta,
+      });
+    }
+    const rising: TrendRising[] = [];
+    for (const [word, v] of byWord) {
+      if (v.spark.length < 2) continue; // 至少两天才能看变化
+      const deltaAbs = v.last - v.first;
+      const deltaPct = v.first > 0 ? Math.round((deltaAbs / v.first) * 1000) / 10 : null;
+      rising.push({
+        word, heat: v.last, delta: v.delta, deltaPct, rank: v.rank,
+        spark: v.spark, industry: v.industry,
+      });
+    }
+    rising.sort((a, b) => {
+      const av = a.deltaPct ?? Number.NEGATIVE_INFINITY;
+      const bv = b.deltaPct ?? Number.NEGATIVE_INFINITY;
+      return bv - av;
+    });
+    return { dates: dateSet, rising: rising.slice(0, 30) };
   }
 
   private async safePersistLongtail(industry: string, keywords: LongtailKeyword[]): Promise<void> {

@@ -5,7 +5,6 @@
 import os from "os";
 import { getSupabase } from "../db";
 import * as agentRepo from "../repositories/agent.repository";
-import * as taskRepo from "../repositories/task.repository";
 import * as riskRepo from "../repositories/risk.repository";
 import { parseJsonField } from "../repositories/base";
 import type {
@@ -16,9 +15,14 @@ import * as workflowRepo from "../repositories/workflow.repository";
 
 export class DashboardService {
   async getStats(): Promise<DashboardStats> {
+    const sb = getSupabase();
     const agents = await agentRepo.getAgents();
-    const tasks = await taskRepo.getTasks({ pageSize: 10000 });
     const risks = await riskRepo.getRiskEvents({});
+
+    const { count: totalCount } = await sb.from("tasks").select("*", { count: "exact", head: true });
+    const { count: runningCount } = await sb.from("tasks").select("*", { count: "exact", head: true }).eq("status", "running");
+    const { count: completedCount } = await sb.from("tasks").select("*", { count: "exact", head: true }).eq("status", "completed");
+    const { count: failedCount } = await sb.from("tasks").select("*", { count: "exact", head: true }).eq("status", "failed");
 
     return {
       totalAgents: agents.length,
@@ -26,10 +30,10 @@ export class DashboardService {
       busyAgents: agents.filter((a) => a.status === "busy").length,
       errorAgents: agents.filter((a) => a.status === "error").length,
       offlineAgents: agents.filter((a) => a.status === "offline").length,
-      totalTasks: tasks.pagination.total,
-      runningTasks: tasks.items.filter((t) => t.status === "running").length,
-      completedTasks: tasks.items.filter((t) => t.status === "completed").length,
-      failedTasks: tasks.items.filter((t) => t.status === "failed").length,
+      totalTasks: totalCount ?? 0,
+      runningTasks: runningCount ?? 0,
+      completedTasks: completedCount ?? 0,
+      failedTasks: failedCount ?? 0,
       riskEvents24h: risks.items.length,
       activeCircuitBreakers: 1,
     };

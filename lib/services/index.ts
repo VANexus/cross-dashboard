@@ -12,5 +12,7 @@ export { WorkflowService } from "./workflow.service";
 export { CrawlerService } from "./crawler.service";
 export { LocalizeService } from "./localize.service";
 export { ContentService, ContentMCPError } from "./content.service";
+export { WechatService, ContentMCPError as WechatMCPError, WECHAT_THEMES } from "./wechat.service";
 export { B2BService } from "./b2b.service";
 export { B2BSettingsService } from "./b2b-settings.service";
+export { IntelService } from "./intel.service";

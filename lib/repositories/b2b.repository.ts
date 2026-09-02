@@ -35,6 +35,7 @@ export async function insertKeywordTrend(t: {
       rank: t.rank,
       industry: t.industry,
       source: t.source,
+      fetched_at: new Date().toISOString(),
     },
     { onConflict: "id", ignoreDuplicates: true },
   );
@@ -50,6 +51,94 @@ export async function getKeywordTrends(platform: TrendPlatform, limit = 50): Pro
     .order("heat", { ascending: false })
     .limit(limit);
   return (data as KeywordTrendRow[]) ?? [];
+}
+
+/** 该平台趋势数据的最近抓取时间（ISO 串）；无数据返回 null。GET 秒回 + 后台保鲜用。 */
+export async function getKeywordTrendsFetchedAt(platform: TrendPlatform): Promise<string | null> {
+  const sb = getSupabase();
+  const { data } = await sb
+    .from("wf_keyword_trends")
+    .select("fetched_at")
+    .eq("platform", platform)
+    .order("fetched_at", { ascending: false })
+    .limit(1);
+  const row = (data as Array<{ fetched_at: string | null }> | null)?.[0];
+  return row?.fetched_at ?? null;
+}
+
+// ── 趋势时序快照（P1）──
+
+interface TrendSnapshotRow {
+  id: string;
+  platform: TrendPlatform;
+  word: string;
+  heat: number;
+  delta: number | null;
+  rank: number;
+  industry: string;
+  source: string;
+  snapshot_date: string;
+}
+
+/** 当地 UTC 日期串 YYYY-MM-DD（与快照口径一致）。 */
+function utcDate(d = new Date()): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/** 幂等写入某平台当日快照（同 平台/日期/词 upsert），并顺带清理 100 天前数据。 */
+export async function replaceTrendSnapshots(
+  platform: TrendPlatform,
+  keywords: KeywordTrend[],
+  date = utcDate(),
+): Promise<void> {
+  const sb = getSupabase();
+  if (keywords.length === 0) return;
+  const rows = keywords.map((k, i) => ({
+    id: `${platform}:${date}:${k.word}`,
+    platform,
+    word: k.word,
+    heat: k.heat,
+    delta: k.delta,
+    rank: k.rank || i + 1,
+    industry: k.industry || "通用",
+    source: k.source || "",
+    snapshot_date: date,
+  }));
+  // supabase-js upsert 分批，避免 URL/body 过大；每批 100
+  for (let i = 0; i < rows.length; i += 100) {
+    await sb.from("wf_trend_snapshots").upsert(rows.slice(i, i + 100), {
+      onConflict: "platform,snapshot_date,word",
+    });
+  }
+  // 清理超期快照（migration 00010 提供函数；失败静默，非关键路径）
+  try {
+    await sb.rpc("trim_trend_snapshots", { keep_days: 100 });
+  } catch {
+    // 函数尚未应用或执行失败均不阻塞快照写入
+  }
+}
+
+/** 读取近 days 天快照（按日期升序、rank 升序），供趋势线/飙升榜计算。 */
+export async function getTrendSnapshots(
+  platform: TrendPlatform,
+  days = 14,
+): Promise<Array<{
+  word: string; heat: number; delta: number | null; rank: number;
+  industry: string; source: string; snapshotDate: string;
+}>> {
+  const sb = getSupabase();
+  const since = utcDate(new Date(Date.now() - days * 86_400_000));
+  const { data } = await sb
+    .from("wf_trend_snapshots")
+    .select("word, heat, delta, rank, industry, source, snapshot_date")
+    .eq("platform", platform)
+    .gte("snapshot_date", since)
+    .order("snapshot_date", { ascending: true })
+    .order("rank", { ascending: true });
+  return ((data as TrendSnapshotRow[]) ?? []).map((r) => ({
+    word: r.word, heat: r.heat, delta: r.delta, rank: r.rank,
+    industry: r.industry, source: r.source, snapshotDate: r.snapshot_date,
+  }));
 }
 
 export async function clearLongtail(industry: string): Promise<void> {
@@ -119,9 +208,22 @@ export async function insertProduct(p: AlibabaProduct): Promise<void> {
       image_url: p.imageUrl,
       price: p.price,
       status: p.status,
+      fetched_at: new Date().toISOString(),
     },
-    { onConflict: "id", ignoreDuplicates: true },
+    { onConflict: "id", ignoreDuplicates: false },
   );
+}
+
+/** 商品池最近一次抓取时间（ISO 串）；空池返回 null。GET 秒回 + 后台保鲜用。 */
+export async function getProductsFetchedAt(): Promise<string | null> {
+  const sb = getSupabase();
+  const { data } = await sb
+    .from("wf_b2b_products")
+    .select("fetched_at")
+    .order("fetched_at", { ascending: false })
+    .limit(1);
+  const row = (data as Array<{ fetched_at: string | null }> | null)?.[0];
+  return row?.fetched_at ?? null;
 }
 
 export async function getProducts(limit = 100): Promise<AlibabaProduct[]> {
