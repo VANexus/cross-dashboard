@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/layout/app-shell";
+import { SwrProvider } from "@/components/providers/swr-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,7 +31,9 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-screen bg-background font-sans antialiased">
-        <AppShell>{children}</AppShell>
+        <SwrProvider>
+          <AppShell>{children}</AppShell>
+        </SwrProvider>
       </body>
     </html>
   );

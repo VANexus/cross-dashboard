@@ -12,6 +12,7 @@ import {
   CheckCircle2, AlertTriangle, Flame, ListChecks, ArrowUpRight,
 } from "lucide-react";
 import { B2BNav } from "../b2b-nav";
+import { DataFreshness } from "@/components/data-freshness";
 import { JourneyBar } from "@/components/journey/journey-bar";
 import {
   recommendProducts, generateListing, publishListing, refreshProducts,

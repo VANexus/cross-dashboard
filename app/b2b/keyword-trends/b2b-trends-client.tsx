@@ -18,6 +18,7 @@ import {
   Send, CalendarClock, CheckCircle2, KeyRound, Search,
 } from "lucide-react";
 import { B2BNav } from "../b2b-nav";
+import { DataFreshness } from "@/components/data-freshness";
 import { useAgentPage } from "@/lib/agent/page-context";
 import { JourneyBar } from "@/components/journey/journey-bar";
 import type { UIActionDef } from "@/lib/agent/ui-actions";
@@ -303,6 +304,7 @@ export function B2BTrendsClient({ initialTrends }: { initialTrends: KeywordTrend
               {busy === "refresh" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               更新榜单
             </Button>
+            <DataFreshness fetchedAt={trends?.fetchedAt} refreshing={trends?.refreshing} className="shrink-0" />
           </div>
         </CardContent>
       </Card>
