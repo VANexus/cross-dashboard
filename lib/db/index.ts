@@ -6,6 +6,7 @@
  *   - getDb() / getDbAsync() -> CompatDatabase wrapper (legacy API, used by repositories)
  *   - isDbReady()
  */
+import { cache } from "react";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { CompatDatabase } from "./compat";
 
@@ -33,8 +34,15 @@ export function getSupabase(): SupabaseClient {
   return _supabase;
 }
 
-/** Async init (keeps signature from sql.js era). */
-export async function getDbAsync(): Promise<CompatDatabase> {
+/**
+ * Async init (keeps signature from sql.js era).
+ * Wrapped in React cache(): within a single RSC render pass, multiple islands
+ * calling getDbAsync() share one invocation (per-request dedup). The
+ * module-level _compat/_initPromise singleton below keeps process-wide
+ * behavior unchanged; outside a render scope (e.g. route handlers) cache()
+ * simply executes the call each time.
+ */
+export const getDbAsync = cache(async function getDbAsync(): Promise<CompatDatabase> {
   if (_compat) return _compat;
   if (_initPromise) {
     await _initPromise;
@@ -57,7 +65,7 @@ export async function getDbAsync(): Promise<CompatDatabase> {
   })();
   await _initPromise;
   return _compat!;
-}
+});
 
 /** Synchronous access — only works after getDbAsync() has been called. */
 export function getDb(): CompatDatabase {

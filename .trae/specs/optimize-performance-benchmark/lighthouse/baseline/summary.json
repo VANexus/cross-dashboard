@@ -1,0 +1,43 @@
+{
+  "base": "http://localhost:3100",
+  "tag": "baseline",
+  "date": "2026-09-01T13:16:29.066Z",
+  "results": [
+    {
+      "page": "/dashboard",
+      "perfScore": 72,
+      "fcp": "0.9 s",
+      "lcp": "3.8 s",
+      "tbt": "470 ms",
+      "cls": "0.123",
+      "tti": "6.6 s"
+    },
+    {
+      "page": "/tasks",
+      "perfScore": 71,
+      "fcp": "0.9 s",
+      "lcp": "7.1 s",
+      "tbt": "270 ms",
+      "cls": "0.023",
+      "tti": "7.1 s"
+    },
+    {
+      "page": "/content-studio",
+      "perfScore": 70,
+      "fcp": "0.9 s",
+      "lcp": "7.1 s",
+      "tbt": "310 ms",
+      "cls": "0.023",
+      "tti": "7.1 s"
+    },
+    {
+      "page": "/workflows/ai-advertising",
+      "perfScore": 69,
+      "fcp": "0.9 s",
+      "lcp": "7.1 s",
+      "tbt": "320 ms",
+      "cls": "0.023",
+      "tti": "7.1 s"
+    }
+  ]
+}

@@ -171,13 +171,7 @@ export async function getHealthData(): Promise<{
 
   const score = Math.max(0, 100 - unresolved * 5 - level1 * 15);
 
-  const { data: sourceCountsRaw, error: e3 } = await sb
-    .from("risk_events")
-    .select("source");
-  if (e3) throw e3;
-
   const bySource = new Map<string, { total: number; open: number; critical: number }>();
-  const sourceRows = sourceCountsRaw as Array<{ source: string; level: string; resolved: number }> & { level?: string; resolved?: number }[];
   const allSourceData = await sb.from("risk_events").select("source, level, resolved");
   if (allSourceData.error) throw allSourceData.error;
   for (const r of allSourceData.data as Array<{ source: string; level: string; resolved: number }>) {
@@ -217,7 +211,6 @@ export async function getHealthData(): Promise<{
   const shipRows = shipStatsRaw as Array<{ ship_days: number }>;
   const shipDays = shipRows.map((r) => r.ship_days).filter((v) => v != null && !isNaN(v));
   const avgShip = shipDays.length > 0 ? shipDays.reduce((a, b) => a + b, 0) / shipDays.length : 0;
-  const maxShip = shipDays.length > 0 ? Math.max(...shipDays) : 0;
 
   const supplyDim = dimScore("ops-001", 91, 80);
   const shipPenalty = avgShip > 30 ? Math.round((avgShip - 30) * 0.5) : 0;
