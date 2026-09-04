@@ -9,10 +9,11 @@
  *
  * 图表（line-chart/bar-chart）经 next/dynamic(ssr:false) 拆包——recharts 不进首屏 bundle。
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { z } from 'zod';
 import { gsap } from 'gsap';
+import DOMPurify from 'dompurify';
 import { ArrowDownRight, ArrowRight, ArrowUpRight, Play, Video, ListOrdered, Scale } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -203,6 +204,52 @@ const metricGridProps = z.object({
     )
     .min(1)
     .max(8),
+});
+
+const htmlBlockProps = z.object({
+  // 允许 LLM 输出一段受控 HTML 富内容（如指标面板、对比网格、徽章列表、样式化差异等，
+  // markdown 表达不了的布局）。渲染前经 DOMPurify 白名单消毒：剔除 script/事件属性/危险标签，
+  // 保留常用排版与语义标签。切勿让模型输出 <script>、on* 事件、style 中的 url() 等——会被消毒丢弃。
+  html: z.string().min(1).max(20000).describe('受控 HTML 片段（流式/静态均可）'),
+  title: z.string().optional().describe('可选标题栏（显示在 HTML 上方）'),
+});
+
+// ── AHTML：让 AI 生成「没预设 UI 组件」的完整页面（沙箱 iframe 渲染） ──
+// 相比 htmlBlock（DOMPurify 静态富内容），html-app 走「AI 生成完整 HTML 文档 → sandbox iframe」：
+// - 任意/未预设的 UI 都能生成：自由布局、CSS 动画、内联 JS 交互、图表、卡片墙……
+//   不再受白名单组件约束（这就是 AHTML「没预设」的诉求）。
+// - 安全：iframe sandbox 只授予 allow-scripts（不授予 allow-same-origin），
+//   页面运行在隔离源里——碰不到主应用的 DOM、localStorage、cookie，天然防 XSS。
+// - 上下文：主应用经 postMessage 把 data 注入 iframe（iframe 内 window.__AHTML__ 读取），
+//   并监听 iframe 发来的 postMessage 事件回传（如按钮点击、指标点击），形成交互闭环。
+const htmlAppProps = z.object({
+  title: z.string().optional().describe('可选标题栏'),
+  html: z
+    .string()
+    .min(1)
+    .max(60000)
+    .describe('AI 生成的完整 HTML 文档（含 style/script 标签）。自由布局、CSS 动画、交互逻辑都在这里。不要 html/head/body 外层，只给片段即可（会自动包装）。可读取 window.__AHTML__.data 拿上下文数据；调用 window.parent.postMessage({type,payload},"*") 把事件回传给主应用。'),
+  height: z.number().min(120).max(1400).optional().describe('iframe 高度 px（默认 360）'),
+  data: z.record(z.string(), z.unknown()).optional().describe('注入给 iframe 的上下文数据（如当前选品/指标/KPI），iframe 内经 window.__AHTML__.data 读取'),
+});
+
+// ── 组装式（json-render/A2UI 范式）：AI 定义「布局壳 + 槽位」，用现成白名单组件快速拼装 ──
+// compose = 「只给壳子、内容 AI 填」。AI 指定布局（grid/stack/tabs/columns）与一组槽位，
+// 每个槽位引用一个已注册的白名单组件（id + props，props 可含 ${data.x} 绑定占位 → 由 data 注入）。
+// 渲染递归走 GeneratedComponent（复用白名单引擎、零 eval、安全）；实现真正的「AI 用组件组装 UI」。
+const composeCellProps = z.object({
+  title: z.string().optional().describe('槽位标题（可选，tabs/columns 用作标签/列名）'),
+  component: z.string().min(1).describe('要组装的白名单组件 id（可用：stat-card/line-chart/bar-chart/data-table/ranking/compare/metric-grid/callout/tag-list/progress/timeline 等）'),
+  props: z.record(z.string(), z.unknown()).optional().describe('该组件的 props（形状同单组件调用）；字符串值可含 ${data.字段} 占位，渲染时从外层 data 注入'),
+  // 布局附加信息
+  span: z.number().min(1).max(12).optional().describe('grid 布局下的列宽（1-12，默认按列均分）'),
+});
+const composeProps = z.object({
+  title: z.string().optional().describe('整块标题栏'),
+  layout: z.enum(['grid', 'stack', 'tabs', 'columns']).describe('布局壳：grid=栅格多列 / stack=纵向堆叠 / tabs=标签页 / columns=并排分栏'),
+  cols: z.number().min(1).max(4).optional().describe('grid 布局的列数（默认 2）'),
+  data: z.record(z.string(), z.unknown()).optional().describe('注入给所有槽位的数据上下文，槽位 props 用 ${data.字段} 绑定'),
+  cells: z.array(composeCellProps).min(1).max(12).describe('槽位列表：用现成白名单组件把壳子填满'),
 });
 
 // ── 组件实现 ─────────────────────────────────────────────────────────
@@ -674,6 +721,172 @@ function MetricGrid({ title, metrics }: z.infer<typeof metricGridProps>) {
 
 // ── 注册表 + 渲染入口 ───────────────────────────────────────────────
 
+/** 受控 HTML 富内容块：LLM 输出 HTML 时经 DOMPurify 白名单消毒后渲染（防 XSS）。
+ *  白名单：保留常用排版/语义标签，剔除 script/iframe/object/事件属性/危险 URI。
+ *  样式使用现有 token（深色卡面 + 边框），保证与 FlowMind 视觉一致。 */
+function HtmlBlock({ title, html }: z.infer<typeof htmlBlockProps>) {
+  const clean = useMemo(() => DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [
+      'h1', 'h2', 'h3', 'h4', 'p', 'br', 'hr',
+      'strong', 'b', 'em', 'i', 'u', 's', 'del', 'code', 'pre', 'mark',
+      'a', 'ul', 'ol', 'li', 'blockquote', 'table', 'thead', 'tbody', 'tfoot',
+      'tr', 'th', 'td', 'span', 'div', 'img', 'small', 'sup', 'sub',
+    ],
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'title', 'class'],
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$))/i,
+  }), [html]);
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
+      {title && <div className="border-b border-border bg-muted/60 px-3 py-1.5 text-caption font-semibold text-foreground">{title}</div>}
+      {/* DOMPurify 已消毒：禁 script/事件/危险 URI，安全渲染受控 HTML */}
+      <div className="rich-html px-3 py-2 text-xs leading-relaxed" dangerouslySetInnerHTML={{ __html: clean }} />
+    </div>
+  );
+}
+
+/**
+ * AHTML · 沙箱 iframe 渲染器：把 AI 生成的完整 HTML（含内联 CSS/JS）放进 sandbox iframe 渲染。
+ * - 任意/未预设的 UI 都能生成（自由布局 + CSS 动画 + 交互），不再受白名单组件约束。
+ * - sandbox 只给 allow-scripts、不给 allow-same-origin → 隔离源运行，碰不到主应用存储/DOM，天然防 XSS。
+ * - 上下文注入：data 经 postMessage 写入 iframe（window.__AHTML__.data），iframe 可回传事件给主应用。
+ * - srcdoc 内预置桥接脚本：等待 data 注入后渲染；支持文档自带 onMessage 处理回传。
+ */
+function HtmlApp({ title, html, height = 360, data }: z.infer<typeof htmlAppProps>) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const dataRef = useRef(data);
+  useEffect(() => { dataRef.current = data; }, [data]);
+
+  // 注入上下文数据：srcdoc 变更后，等 iframe load 完再 postMessage（避免竞态）。
+  useEffect(() => {
+    const win = iframeRef.current?.contentWindow;
+    if (!win) return;
+    win.postMessage({ __ahtml__: 'data', data: dataRef.current ?? {} }, '*');
+  }, [html, data]);
+
+  // 包装成独立文档 + 注入桥接脚本：读取注入数据、暴露回传通道。
+  const doc = useMemo(() => {
+    const bridge = `<script>
+      window.__AHTML__ = { data: {}, post: function (type, payload) { window.parent.postMessage({ __ahtml__: 'event', type: type, payload: payload }, '*'); } };
+      window.addEventListener('message', function (e) {
+        if (e.data && e.data.__ahtml__ === 'data') { window.__AHTML__.data = e.data.data || {}; }
+        if (typeof window.onAhtmlData === 'function') { window.onAhtmlData(window.__AHTML__.data); }
+      });
+    <\/script>`;
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">${bridge}<style>body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;background:transparent;color:#e5e5e5}*{box-sizing:border-box}</style></head><body>${html}</body></html>`;
+  }, [html]);
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
+      {title && <div className="flex items-center justify-between border-b border-border bg-muted/60 px-3 py-1.5 text-caption font-semibold text-foreground">
+        <span>{title}</span>
+        <span className="font-mono text-tiny text-muted-foreground">AHTML</span>
+      </div>}
+      <iframe
+        ref={iframeRef}
+        title={title ?? 'AHTML'}
+        sandbox="allow-scripts"
+        srcDoc={doc}
+        className="block w-full"
+        style={{ height, border: 0 }}
+      />
+    </div>
+  );
+}
+
+/** 递归把字符串中的 ${data.字段} 占位替换成 data 里的值（数据绑定：壳子 + AI 填内容）。 */
+function bindData(value: unknown, data: Record<string, unknown>): unknown {
+  if (typeof value === 'string') {
+    return value.replace(/\$\{data\.([\w.]+)\}/g, (_, path: string) => {
+      let cur: unknown = data;
+      for (const key of path.split('.')) {
+        if (cur && typeof cur === 'object' && key in (cur as Record<string, unknown>)) {
+          cur = (cur as Record<string, unknown>)[key];
+        } else return `\${data.${path}}`; // 缺失保留占位
+      }
+      return String(cur ?? '');
+    });
+  }
+  if (Array.isArray(value)) return value.map((v) => bindData(v, data));
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = bindData(v, data);
+    return out;
+  }
+  return value;
+}
+
+/** 组装式容器：布局壳 + 槽位，递归渲染白名单组件（json-render/A2UI 范式）。 */
+function ComposeBlock({ title, layout, cols = 2, data = {}, cells }: z.infer<typeof composeProps>) {
+  const [tab, setTab] = useState(0);
+  // 单元格渲染：绑数据 + 查白名单 + 递归 GeneratedComponent
+  const renderCell = (cell: z.infer<typeof composeCellProps>, cellIdx: number) => {
+    const bound = bindData(cell.props ?? {}, data) as Record<string, unknown>;
+    const def = componentDefs.find((d) => d.id === cell.component);
+    // 直接调 def.render（不包 GeneratedComponent，避免嵌套 GSAP 动画与 max-w 约束）
+    const body = def ? def.render(bound) : <p className="text-xs text-destructive">未注册组件：{cell.component}</p>;
+    if (layout === 'columns') {
+      return (
+        <div key={cellIdx} data-comp-cell className="min-w-0 flex-1 rounded-xl border border-border bg-muted/20 p-2">
+          {cell.title && <div className="mb-1.5 text-caption font-semibold text-foreground">{cell.title}</div>}
+          {body}
+        </div>
+      );
+    }
+    // grid：按 span 或均分
+    const span = cell.span ?? Math.max(1, Math.floor(12 / cols));
+    return (
+      <div key={cellIdx} data-comp-cell className="min-w-0" style={{ gridColumn: `span ${Math.min(12, span)}` }}>
+        {cell.title && <div className="mb-1.5 text-caption font-semibold text-foreground">{cell.title}</div>}
+        {body}
+      </div>
+    );
+  };
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
+      {title && <div className="border-b border-border bg-muted/60 px-3 py-1.5 text-caption font-semibold text-foreground">{title}</div>}
+      <div className="p-2">
+        {layout === 'stack' ? (
+          <div className="space-y-2">{cells.map((c, i) => renderCell(c, i))}</div>
+        ) : layout === 'tabs' ? (
+          cells.length <= 1 ? (
+            <div className="space-y-2">{cells.map((c, i) => renderCell(c, i))}</div>
+          ) : (
+            <div>
+              {/* 标签栏 */}
+              <div className="mb-2 flex flex-wrap gap-1 border-b border-border pb-1">
+                {cells.map((c, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setTab(i)}
+                    className={cn(
+                      'rounded-md px-2.5 py-1 text-caption transition-colors',
+                      tab === i ? 'bg-primary/15 font-semibold text-primary' : 'text-muted-foreground hover:bg-muted',
+                    )}
+                  >
+                    {c.title ?? `第 ${i + 1} 页`}
+                  </button>
+                ))}
+              </div>
+              {/* 当前页 */}
+              <div data-comp-cell className="rounded-xl border border-border bg-muted/20 p-2">
+                {renderCell(cells[Math.min(tab, cells.length - 1)], tab)}
+              </div>
+            </div>
+          )
+        ) : layout === 'columns' ? (
+          <div className="flex gap-2 overflow-x-auto">{cells.map((c, i) => renderCell(c, i))}</div>
+        ) : (
+          <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+            {cells.map((c, i) => renderCell(c, i))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export const componentDefs: ComponentDef[] = [
   {
     id: 'stat-card',
@@ -782,6 +995,27 @@ export const componentDefs: ComponentDef[] = [
     description: '指标网格：多个关键数字指标紧凑组合（一排两个，含趋势）',
     propsSchema: metricGridProps,
     render: (props) => <MetricGrid {...(props as z.infer<typeof metricGridProps>)} />,
+  },
+  {
+    id: 'html',
+    description:
+      '受控 HTML 富内容块：markdown 表达不了的布局（指标面板、对比网格、徽章列表、样式化差异等）用一段 HTML；渲染前自动 DOMPurify 消毒，安全。只输出纯展示 HTML，禁止 <script>/<iframe>/on* 事件/style url()（会被过滤）',
+    propsSchema: htmlBlockProps,
+    render: (props) => <HtmlBlock {...(props as z.infer<typeof htmlBlockProps>)} />,
+  },
+  {
+    id: 'html-app',
+    description:
+      'AHTML · 自由完整页面（沙箱 iframe）：生成「没预设」的任意 UI——自由布局、CSS 动画、内联 JS 交互、卡片墙/看板等，不再受白名单组件约束。给一段 HTML（含 style/script）。安全：运行在 sandbox 隔离源，碰不到主应用数据。可读 window.__AHTML__.data 拿上下文 data；window.parent.postMessage({type,payload},"*") 回传事件。适合要"做一个 xxx 卡片/看板/动效页"这类自由 UI',
+    propsSchema: htmlAppProps,
+    render: (props) => <HtmlApp {...(props as z.infer<typeof htmlAppProps>)} />,
+  },
+  {
+    id: 'compose',
+    description:
+      '组装式布局容器（json-render/A2UI 范式）：AI 定义「布局壳 + 槽位」，用现成白名单组件快速拼装，像 React 组件一样组合。layout=grid(多列栅格)/stack(纵向堆叠)/tabs(标签页)/columns(并排分栏)，cells 是槽位列表（每个引用一个组件 id+props）。data 供槽位 props 用 ${data.字段} 绑定。适合"把一个结论组合成一块看板/概览"——比单个组件更整、比 html-app 更结构化可交互',
+    propsSchema: composeProps,
+    render: (props) => <ComposeBlock {...(props as z.infer<typeof composeProps>)} />,
   },
 ];
 

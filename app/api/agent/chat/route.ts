@@ -17,10 +17,13 @@ import {
   convertToModelMessages,
   tool,
   stepCountIs,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
   type UIMessage,
   type LanguageModel,
   type ToolSet,
 } from "ai";
+import { pipeJsonRender } from "@json-render/core";
 import { z } from "zod";
 import { withDb } from "@/lib/server/api-helpers";
 import { AIConfigError } from "@/lib/server/ai";
@@ -44,6 +47,7 @@ import {
 } from "@/lib/server/agent-runtime/agent-factory";
 import { ensurePresetTemplates } from "@/lib/server/agent-runtime/templates";
 import * as teamRepo from "@/lib/server/repositories/team.repository";
+import { buildGenUISystem } from "@/lib/server/agent/genui-prompt";
 
 // pi 深度子代理 + 业务工具链放宽上限（token 不设限）
 export const maxDuration = 300;
@@ -94,10 +98,13 @@ const COMPONENT_IDS = [
   "ranking",
   "compare",
   "metric-grid",
+  "html",
+  "html-app",
+  "compose",
 ] as const;
 
 const COMPONENT_SHAPES =
-  "stat-card{title,value,delta?,hint?}；line-chart/bar-chart/area-chart{title?,data:[{label,value}],seriesName?}；pie-chart{title?,data:[{label,value}],seriesName?}；radar-chart{title?,data:[{label,value}]}；data-table{title?,columns:[string],rows:[[cell]]}；progress{label?,value:0-100,display?}；timeline{title?,items:[{time?,title,description?}]}；tag-list{title?,tags:[string],tone?}；form{title?,submitLabel?,fields:[{name,label,type?,placeholder?,options?}]}；action-list{title?,items:[{label,description?,actionId?,params?}]}；callout{tone:info|success|warning|danger,title?,text}；video-scroll{title?,videos:[{title?,cover,url,durationS?,brand?,badge?}]}（竞品广告素材横向滑动视频墙）；question{title?,text,options:[{label,value?,hint?}],multiple?,submitLabel?}（向人类提问并回传答案）；ranking{title?,unit?,items:[{rank?,label,value,delta?,hint?}]}；compare{title?,left,right,rows:[{label,left,right,winner?}]}；metric-grid{title?,metrics:[{label,value,delta?,tone?}]}";
+  "stat-card{title,value,delta?,hint?}；line-chart/bar-chart/area-chart{title?,data:[{label,value}],seriesName?}；pie-chart{title?,data:[{label,value}],seriesName?}；radar-chart{title?,data:[{label,value}]}；data-table{title?,columns:[string],rows:[[cell]]}；progress{label?,value:0-100,display?}；timeline{title?,items:[{time?,title,description?}]}；tag-list{title?,tags:[string],tone?}；form{title?,submitLabel?,fields:[{name,label,type?,placeholder?,options?}]}；action-list{title?,items:[{label,description?,actionId?,params?}]}；callout{tone:info|success|warning|danger,title?,text}；video-scroll{title?,videos:[{title?,cover,url,durationS?,brand?,badge?}]}（竞品广告素材横向滑动视频墙）；question{title?,text,options:[{label,value?,hint?}],multiple?,submitLabel?}（向人类提问并回传答案）；ranking{title?,unit?,items:[{rank?,label,value,delta?,hint?}]}；compare{title?,left,right,rows:[{label,left,right,winner?}]}；metric-grid{title?,metrics:[{label,value,delta?,tone?}]}；html{title?,html:受控HTML片段}（markdown 表达不了的自由富布局，渲染前 DOMPurify 消毒；只输出纯展示 HTML，禁止 script/iframe/on* 事件/style url()/javascript: 链接）；html-app{title?,html:完整HTML片段(含style/script),height?,data?}（AHTML 自由完整页面：任意未预设 UI、CSS 动画、内联 JS 交互、看板/卡片墙，沙箱 iframe 安全渲染；读 window.__AHTML__.data 拿上下文，window.parent.postMessage 回传事件）；compose{title?,layout:grid|stack|tabs|columns,cols?,data?,cells:[{title?,component,props?,span?}]}（组装式布局容器：用现成白名单组件快速拼装成看板/概览；props 值可含 ${data.字段} 从 data 绑定）";
 
 const renderComponentTool = tool({
   description:
@@ -424,7 +431,7 @@ export const POST = withDb(async (request: NextRequest) => {
     }),
   };
 
-  const system = (buildSystemPrompt(body.pageContext) + augment.block).trim();
+  const system = (buildSystemPrompt(body.pageContext) + augment.block + "\n\n" + buildGenUISystem()).trim();
 
   // 对话开始时把全局 presence 置 busy（球/顶栏/心跳同一数据源），结束时复位 idle
   publish(WORKFLOW_TOPIC, { type: 'state', state: 'busy', activity: 0.7 });
@@ -460,7 +467,40 @@ export const POST = withDb(async (request: NextRequest) => {
     },
   });
 
-  return result.toUIMessageStreamResponse({
+  // json-render Inline：把 UIMessage 流经 pipeJsonRender 包装，抽出行级 JSONL patches 为 data part
+  // （客户端 useJsonRenderMessage 编译成 spec → <Renderer> 渲染）。工具调用/文本/数据原样穿透。
+  // 同时 tee 一份流，收集 data-spec parts 用于会话持久化（历史恢复时组件能重现）。
+  const stream = createUIMessageStream({
+    execute: async ({ writer }) => {
+      const piped = pipeJsonRender(result.toUIMessageStream());
+      const [a, b] = piped.tee();
+      writer.merge(a);
+      // 收集 data-spec parts（data 载荷为 JSONL patch 数组，可序列化 → 落库供恢复）
+      const collectedParts: unknown[] = [];
+      const reader = b.getReader();
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value && (value as { type?: string }).type === 'data-spec') {
+            const data = (value as { data?: unknown }).data;
+            if (Array.isArray(data)) collectedParts.push(...data);
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+      // 流结束后把 data-spec parts 随消息落库（content 已由 onFinish 落 text）
+      if (conversationId && collectedParts.length > 0) {
+        conversationService
+          .appendMessage(conversationId, {
+            role: "assistant",
+            content: "",
+            parts: collectedParts.map((p) => ({ type: "data", data: p })),
+          })
+          .catch((e) => console.error("[chat] persist genui parts failed:", (e as Error).message));
+      }
+    },
     onError: (error) => {
       console.error("[agent/chat]", error);
       // 出错同样复位（否则球/顶栏卡在 busy）
@@ -468,4 +508,5 @@ export const POST = withDb(async (request: NextRequest) => {
       return error instanceof AIConfigError ? error.message : "生成失败，请稍后重试";
     },
   });
+  return createUIMessageStreamResponse({ stream });
 });

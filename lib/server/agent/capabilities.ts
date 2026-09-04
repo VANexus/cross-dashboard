@@ -191,7 +191,8 @@ export const CAPABILITIES: Capability[] = [
     id: "render_component",
     name: "动态组件渲染",
     category: "orchestrate",
-    description: "在对话中动态渲染白名单 UI 组件（卡片/图表/表格/表单），把结果变成可交互 UI。",
+    description:
+      "在对话中动态渲染白名单 UI 组件（卡片/图表/数据表格/排行/对比/表单等），把结果变成可交互 UI。能用组件就别用长段落文字：结论性数据优先组件化表达，视觉更高级、信息更聚焦。输出能力分三档：1) 单组件=结论性单块；2) compose=组装式（定义布局壳+槽位，用多个现成组件拼成看板/概览，props 用 ${data.字段} 从 data 绑定，像 React 组件一样组合）——大多数「概览/看板」类优先用 compose；3) html-app(AHTML)=需要自由布局/动效/未预设 UI 时用沙箱 iframe 生成任意 HTML；纯展示富内容用 html(DOMPurify)。",
     prompt: "把刚才的选品结论渲染成一个数据表格和一个趋势图",
     humanDecision: "渲染出的组件可直接在对话中交互查看",
   },
