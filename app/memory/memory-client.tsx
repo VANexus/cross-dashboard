@@ -1,6 +1,7 @@
 "use client";
 
 import { PageHeader } from "@/components/ui/page-header";
+import { ageLabel } from "@/lib/time";
 import dynamic from "next/dynamic";
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -345,7 +346,7 @@ export function MemoryClient({ initialData, agents, indexStats }: MemoryClientPr
                           <LinkIcon className="h-2.5 w-2.5" /> {memory.title}
                         </span>
                         <span className="text-tiny text-muted-foreground flex items-center gap-1">
-                          <Clock className="h-2.5 w-2.5" /> {memory.createdAt}
+                          <Clock className="h-2.5 w-2.5" /> {ageLabel(memory.createdAt)}
                         </span>
                         <Badge variant="outline" className={cn(zone.color, zone.bg, "border-0 text-tiny h-4")}>
                           {zone.label}

@@ -31,6 +31,7 @@ import {
   UserMinus,
 } from "lucide-react";
 import type { Agent, AgentStatus, AgentTemplate, MoodState, Team } from "@/lib/shared/types";
+import { ageLabel } from "@/lib/time";
 
 const statusConfig: Record<AgentStatus, { label: string; variant: "success" | "warning" | "danger" | "secondary"; dot: "success" | "idle" | "warning" | "danger" }> = {
   online: { label: "在线", variant: "success", dot: "success" },
@@ -389,7 +390,7 @@ export function AgentsClient({ initialData }: AgentsClientProps) {
                       <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
                         <span className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          {agent.lastHeartbeat}
+                          {ageLabel(agent.lastHeartbeat)}
                         </span>
                         <span className="flex items-center gap-1 group-hover:text-primary transition-colors">
                           查看详情 <ArrowRight className="h-3 w-3" />
