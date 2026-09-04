@@ -325,30 +325,50 @@ async function generateStructuredJson<T>(
   maxOutputTokens = 4096,
 ): Promise<T> {
   const models: LanguageModel[] = [];
-  try {
-    models.push(await getAISDKModel());
-  } catch {
-    /* 配置模型不可用则仅用回退 */
-  }
+  // 可靠模型优先：DeepSeek-V3 对结构化长输出（Listing/长尾/趋势摘要）实测 ~18s 一次成功；
+  // 配置模型（如 4B 轻量 reasoning）同任务常 45s 超时空返，故作为兜底而非首选。
   try {
     models.push(await createFallbackModel());
   } catch {
-    /* 回退模型同样不可用时走下方报错 */
+    /* 回退模型不可用时用配置模型 */
+  }
+  try {
+    models.push(await getAISDKModel());
+  } catch {
+    /* 配置模型不可用则仅用已入队的模型 */
   }
   if (models.length === 0) {
     throw new SelfhostError("environment", `模型网关未配置，无法生成${what}。`);
   }
 
   let lastErr: unknown = null;
+  const callTimeoutMs = 45_000; // 慢网关防护：单次 LLM 调用最多 45s，避免 90s+ 双模型叠加
   for (const model of models) {
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
-        const res = await generateText({ model, system, prompt, maxOutputTokens });
-        const parsed = extractJson(res.text);
+        const res = await generateText({
+          model,
+          system,
+          prompt,
+          maxOutputTokens,
+          abortSignal: AbortSignal.timeout(callTimeoutMs),
+        });
+        // 空/过短 content：立即短路，不把它当"无效 JSON"再空耗一次慢重试
+        const text = (res.text ?? "").trim();
+        if (text.length < 1) {
+          lastErr = new SelfhostError("skill", `模型返回了空内容${what}，请重试。`);
+          continue;
+        }
+        const parsed = extractJson(text);
         const checked = parsed == null ? null : schema.safeParse(parsed);
         if (checked && checked.success) return checked.data;
         lastErr = new SelfhostError("skill", `模型未返回有效的${what} JSON，请重试。`);
       } catch (err) {
+        const aborted = err instanceof Error && (err.name === "TimeoutError" || err.message.toLowerCase().includes("timeout"));
+        if (aborted) {
+          lastErr = new SelfhostError("timeout", `${what}生成超时（${callTimeoutMs / 1000}s），模型网关响应过慢。`);
+          continue;
+        }
         lastErr = err;
       }
     }
