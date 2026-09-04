@@ -348,17 +348,24 @@ export class B2BService {
       }
       this.bump("b2b-listing", "running").catch(console.error);
       await updateListing(draft.id, { uploadStatus: "uploading" });
-      const result = await this.mcp.call<{
-        product_id: string;
-        str_product_id: string;
-        posted: boolean;
-        warnings?: string[];
-      }>("alibaba_product_post", {
+
+      // 自举：TOP 协议直连阿里发品（替代 flowmind MCP alibaba_product_post）。
+      // MCP 端若不可用不再导致黑盒失败——真实错误/缺必填都从阿里返回。
+      const biz: Record<string, unknown> = {
         subject: draft.title,
         keywords: draft.keywords,
         description: draft.description,
-        image_url: draft.imageUrl,
-      });
+        product_type: "sourcing",
+      };
+      if (draft.imageUrl) biz["product_image.image_file_list.1.image_file_url"] = draft.imageUrl;
+
+      const data = await alibabaTopCall("alibaba.icbu.product.add", biz);
+      const result = {
+        product_id: String(data.product_id ?? ""),
+        str_product_id: String(data.str_product_id ?? ""),
+        posted: Boolean(data.product_id || data.str_product_id),
+        warnings: [] as string[],
+      };
       const warnings = Array.isArray(result.warnings) ? result.warnings : [];
       await updateListing(draft.id, {
         uploadStatus: result.posted ? "uploaded" : "failed",
