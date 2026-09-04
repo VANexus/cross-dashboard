@@ -15,7 +15,7 @@
 import { generateText } from "ai";
 import type { LanguageModel } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
-import { getAISDKModel } from "@/lib/server/ai";
+import { getAIConfig, getAISDKModel } from "@/lib/server/ai";
 import {
   buildListingPrompt, buildRecommendPrompt, buildTrendDigestPrompt,
   type ListingTaskInput, type RecommendTaskInput, type TrendDigestTaskInput,
@@ -298,22 +298,34 @@ const LONGTAIL_SYSTEM =
   "2) 每个词给 category（小类，如 包装/功效/场景）与 search_intent（搜索意图，如 informational/commercial/transactional）；\n" +
   '3) 只输出 JSON 对象：{"keywords": [{"word": "...", "category": "...", "search_intent": "..."}]}。';
 
-/** 可靠回退模型（SiliconFlow DeepSeek-V3，结构化输出稳定）。 */
+/** 可靠结构化模型（结构化长输出更稳定）。模型名不写死：
+ *  prod 优先读 ai_config 的 model（前端「设置」页可改），dev 用 AI_LLM_STRUCTURED_MODEL env，
+ *  最后回退 AI_LLM_MODEL env。 */
 async function createFallbackModel(): Promise<LanguageModel> {
   const apiKey = process.env.AI_LLM_API_KEY?.trim();
   const baseUrl = process.env.AI_LLM_BASE_URL?.trim();
   if (!apiKey || !baseUrl) throw new SelfhostError("environment", "模型网关未配置。");
+  // prod：前端设置页改 model 写入 ai_config，此处优先采纳；dev 用 AI_LLM_STRUCTURED_MODEL/AI_LLM_MODEL env。
+  let configured: string | undefined;
+  try {
+    const cfg = await getAIConfig();
+    configured = cfg.model?.trim();
+  } catch {
+    /* 读不到配置则用 env */
+  }
+  const model = configured || process.env.AI_LLM_STRUCTURED_MODEL?.trim() || process.env.AI_LLM_MODEL?.trim();
+  if (!model) throw new SelfhostError("environment", "结构化模型未配置（前端设置 / AI_LLM_STRUCTURED_MODEL / AI_LLM_MODEL）。");
   const base = baseUrl.replace(/\/+$/, "");
   const openai = createOpenAI({
     apiKey,
     baseURL: base.endsWith("/v1") ? base : `${base}/v1`,
   });
-  return openai.chat("deepseek-ai/DeepSeek-V3");
+  return openai.chat(model);
 }
 
 /**
- * 「配置模型优先 + 可靠回退模型」链：Qwen3.5-4B 等 reasoning 模型在 production 下
- * content 常为空（textLen=0），每模型至多 2 次，取首个通过 zod schema 校验的结果。
+ * 「可靠结构化模型 + 配置模型」链：结构化长输出优先用 AI_LLM_STRUCTURED_MODEL
+ * （dev 环境变量 / prod 前端可配），每模型至多 2 次，取首个通过 zod schema 校验的结果。
  * 输出先走 extractJson 稳健抠取，再由 schema.safeParse 做运行时校验（框架级契约，
  * 替代散装手写 normalize）。
  */
@@ -325,12 +337,11 @@ async function generateStructuredJson<T>(
   maxOutputTokens = 4096,
 ): Promise<T> {
   const models: LanguageModel[] = [];
-  // 可靠模型优先：DeepSeek-V3 对结构化长输出（Listing/长尾/趋势摘要）实测 ~18s 一次成功；
-  // 配置模型（如 4B 轻量 reasoning）同任务常 45s 超时空返，故作为兜底而非首选。
+  // 结构化模型优先（稳定出 JSON）；配置模型兜底。
   try {
     models.push(await createFallbackModel());
   } catch {
-    /* 回退模型不可用时用配置模型 */
+    /* 结构化模型不可用时用配置模型 */
   }
   try {
     models.push(await getAISDKModel());
