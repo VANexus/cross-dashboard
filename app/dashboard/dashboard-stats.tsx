@@ -210,7 +210,7 @@ export function DashboardStatsCards({ stats, workflowCount, runningCount, warnin
           label="在线 Agent"
           value={stats.onlineAgents}
           suffix={`/ ${stats.totalAgents}`}
-          delta="心跳正常"
+          delta="运行正常"
           deltaTone="up"
           sparkColor="var(--success)"
           sparkPath={sparklines[1]}
@@ -240,7 +240,7 @@ export function DashboardStatsCards({ stats, workflowCount, runningCount, warnin
           label="风险事件 · 24h"
           value={stats.riskEvents24h}
           suffix="起"
-          delta={stats.riskEvents24h > 0 ? "需处理" : "无风险"}
+          delta={stats.riskEvents24h > 0 ? "待处理" : "无告警"}
           deltaTone={stats.riskEvents24h > 0 ? "down" : "up"}
           sparkColor="var(--destructive)"
           sparkPath={sparklines[3]}

@@ -5,7 +5,6 @@ import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { Sparkles } from "lucide-react";
-import { AiLivePanel } from "./dashboard-ai-live";
 import { useDataChanged } from "@/hooks/use-data-changed";
 import { usePresence } from "@/stores/agent-presence";
 import { useAgentPage } from "@/lib/agent/page-context";
@@ -16,22 +15,13 @@ import type { DashboardStats } from "@/lib/shared/types";
 
 interface DashboardShellProps {
   children: React.ReactNode;
-  /** 单屏指挥台模式：整页不滚动，面板在格子内独立滚动 */
-  cockpit?: boolean;
 }
 
-/** 页头（含「发起编排」按钮）+ 各 island + AI 实时任务流 */
-export function DashboardShell({ children, cockpit = false }: DashboardShellProps) {
+/** 页头（含「打开助手」按钮）+ KPI 状态条 + Agent 动态画布 */
+export function DashboardShell({ children }: DashboardShellProps) {
   const router = useRouter();
-  // 「发起编排」= 打开 Agent 抽屉（全站唯一 Agent 入口，旧编排面板已删除）
+  // 「打开助手」= 打开 Agent 抽屉（全站唯一 Agent 入口）
   const openOrchestrator = () => usePresence.getState().setDrawerOpen(true);
-
-  // AI-Native 指挥台：进入仪表盘即自动展开右侧 Copilot 抽屉（对话即主操作台）。
-  // 仅挂载时开一次——用户手动收起后不再强开。
-  useEffect(() => {
-    const t = window.setTimeout(() => usePresence.getState().setDrawerOpen(true), 350);
-    return () => window.clearTimeout(t);
-  }, []);
 
   // 全站数据联动：编排工具执行 / 产物转化落库后，防抖刷新所有 server islands
   useDataChanged(() => router.refresh());
@@ -97,36 +87,36 @@ export function DashboardShell({ children, cockpit = false }: DashboardShellProp
         ` · 24h 风险事件 ${s.riskEvents24h} 起`
       );
     },
-    state: () => ({ kpiLoaded: statsRef.current !== null }),
+    state: () => ({
+      kpiLoaded: statsRef.current !== null,
+      canvas: usePresence.getState().canvas.map((c) => ({ id: c.id, component: c.component, title: c.title })),
+    }),
     actions: agentActions,
   });
 
   return (
-    <div className={cockpit ? "cockpit" : "space-y-6"}>
+    <div className="space-y-6">
       <DashboardEntryAnim />
       <PageHeader
         breadcrumb={<><span>工作台</span> / <b>总览</b></>}
         title="仪表盘"
-        description="多智能体协同编排 · 内容工作台总览"
+        description="工作流、内容与 Agent 状态的实时总览"
         actions={<>
-          <span className="hidden font-mono text-caption text-muted-foreground sm:inline">实时数据 · 本地编排</span>
+          <span className="hidden font-mono text-caption text-muted-foreground sm:inline">实时数据</span>
           <button
             type="button"
             className="btn-orchestrate"
             data-agent-action="orchestrate"
             onClick={openOrchestrator}
-            title="打开 AI 编排助手（Ctrl+Shift+A）"
+            title="打开助手（Ctrl+Shift+A）"
           >
             <Sparkles className="h-4 w-4" />
-            发起编排
+            打开助手
           </button>
         </>}
       />
 
       {children}
-
-      {/* AI 实时任务流：cockpit 模式移到网格内（B2），非 cockpit 保持页尾 */}
-      {!cockpit && <AiLivePanel />}
     </div>
   );
 }

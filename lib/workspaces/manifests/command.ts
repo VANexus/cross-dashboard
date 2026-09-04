@@ -4,8 +4,8 @@ import type { WorkspaceManifest } from "../types";
 
 export const commandWorkspace: WorkspaceManifest = {
   id: "command-deck",
-  label: "指挥台",
-  description: "全局运营总览：KPI、工作流健康、AI 实时动态",
+  label: "工作台",
+  description: "运营总览：KPI 与工作流状态",
   icon: LayoutDashboard,
   group: "command",
   order: 1,

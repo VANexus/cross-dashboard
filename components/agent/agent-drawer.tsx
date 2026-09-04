@@ -829,7 +829,7 @@ export function AgentDrawer() {
       return;
     }
     streamBusyRef.current = true;
-    pushTelemetry('选品 Agent', '就地提问 · ' + q.slice(0, 18));
+    pushTelemetry('选品 Agent', '提问 · ' + q.slice(0, 18));
     setLiveState('busy', 0.72);
     const p = chat.sendMessage({ text: q });
     if (p && typeof p.then === 'function') {
@@ -906,8 +906,8 @@ export function AgentDrawer() {
   }
 
   const stateLabel = state === 'consensus' ? '共识投票 · 投票中'
-    : state === 'busy' ? '流式执行中 · 湍流升高'
-    : '空闲 · 与 RAK 网络协同';
+    : state === 'busy' ? '执行中'
+    : '空闲';
   // header 状态标签动态化：liveActivity 非 idle 时直接显示「当前动作」，比静态 busy 文字更有信息量
   const dotStatus =
     liveActivity.kind === 'l2' ? 'warning'
@@ -965,7 +965,7 @@ export function AgentDrawer() {
       <header className="flex items-center gap-2.5 border-b border-border px-4 py-3">
         <Radar className="h-4 w-4 shrink-0 text-primary" />
         <div className="min-w-0">
-          <div className="text-body font-bold leading-tight text-foreground">Agent 视域</div>
+          <div className="text-body font-bold leading-tight text-foreground">Agent 助手</div>
           <div className="mt-0.5 flex items-center gap-1.5 font-mono text-caption text-muted-foreground">
             <StatusDot status={dotStatus} pulse={liveActivity.kind !== 'idle' || state !== 'idle'} size="sm" />
             <span className="truncate">{headerLabel}</span>
@@ -1066,7 +1066,7 @@ export function AgentDrawer() {
           className="mx-4 mt-2 flex shrink-0 items-center gap-1.5 self-start rounded-lg border border-primary/30 bg-primary/8 px-2.5 py-1.5 text-caption font-medium text-primary transition-colors hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Maximize2 className="h-3 w-3 shrink-0" />
-          组件已生成 · 点此进入舞台全宽查看
+          组件已生成，展开全宽查看
         </button>
       )}
 
@@ -1382,13 +1382,13 @@ export function AgentDrawer() {
               <div className="text-caption text-muted-foreground">Agent 遥测(实时)</div>
               {liveActivity.kind !== 'idle' && (
                 <span className="flex items-center gap-1 font-mono text-[10px] text-primary">
-                  <Loader2 className="h-2.5 w-2.5 animate-spin" /> 直播中
+                  <Loader2 className="h-2.5 w-2.5 animate-spin" /> 实时
                 </span>
               )}
             </div>
             <ul aria-live="polite" className="mt-1.5">
               {telemetry.length === 0 && (
-                <li className="py-1.5 text-caption text-muted-foreground">等待事件…</li>
+                <li className="py-1.5 text-caption text-muted-foreground">暂无事件</li>
               )}
               {telemetry.map((t, idx) => (
                 <li key={t.id}>

@@ -36,6 +36,32 @@ export interface DockSuggestion {
   source: string;
 }
 
+/** 仪表盘 Agent 画布项：Agent 经 panel.pin 固定到主区、长期保留的组件。 */
+export interface CanvasItem {
+  /** 稳定 id（unpin / 去重用），pin 时生成 */
+  id: string;
+  /** 白名单组件 id（componentDefs） */
+  component: string;
+  /** 已过 propsSchema 校验的 props */
+  props: Record<string, unknown>;
+  /** 画布面板标题（可选） */
+  title?: string;
+  pinnedAt: number;
+}
+
+/** 画布持久化 key（刷新/重开会话不丢） */
+export const CANVAS_STORAGE_KEY = "flowmind.dashboardCanvas";
+
+/** 写穿 localStorage（浏览器环境守卫 + 容错）。 */
+function persistCanvas(items: CanvasItem[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(CANVAS_STORAGE_KEY, JSON.stringify(items));
+  } catch {
+    /* 存储不可用（隐私模式/超限）静默降级为仅内存 */
+  }
+}
+
 interface PresenceState {
   state: AgentStateValue;
   activity: number;            // 0..1 → GSAP timeScale
@@ -57,6 +83,8 @@ interface PresenceState {
   focus: FocusTarget | null;
   /** 灵动岛建议项：Agent 主动推荐（dock.suggest 写入） */
   dockSuggestion: DockSuggestion | null;
+  /** 仪表盘 Agent 画布：Agent 经 panel.pin 固定的组件（长期保留，用户可移除） */
+  canvas: CanvasItem[];
   /** 主 Agent 当前在干嘛（抽屉实时推导写回；无对话/空闲为 idle） */
   liveActivity: LiveActivity;
   connect: () => () => void;
@@ -74,6 +102,13 @@ interface PresenceState {
   pushTelemetry: (agent: string, text: string) => void;
   setLiveState: (state: AgentStateValue, activity: number) => void;
   setLiveActivity: (live: LiveActivity) => void;
+  /** 追加或按 id 覆盖画布项（同 id 重 pin 去重），写穿 localStorage */
+  pinCanvasItem: (item: CanvasItem) => void;
+  /** 按 id 移除画布项 */
+  unpinCanvasItem: (id: string) => void;
+  /** 整体替换画布（localStorage 恢复 / 测试缝） */
+  setCanvas: (items: CanvasItem[]) => void;
+  clearCanvas: () => void;
 }
 
 let seq = 0;
@@ -90,6 +125,7 @@ export const usePresence = create<PresenceState>((set) => ({
   stageOpen: false,
   focus: null,
   dockSuggestion: null,
+  canvas: [],
   liveActivity: { kind: 'idle', text: '' },
 
   connect: () => {
@@ -124,4 +160,27 @@ export const usePresence = create<PresenceState>((set) => ({
     set((s) => ({ telemetry: [{ id: ++seq, agent, text, ts: Date.now() }, ...s.telemetry].slice(0, 8) })),
   setLiveState: (state, activity) => set({ state, activity }),
   setLiveActivity: (live) => set({ liveActivity: live }),
+
+  pinCanvasItem: (item) =>
+    set((s) => {
+      const next = s.canvas.some((c) => c.id === item.id)
+        ? s.canvas.map((c) => (c.id === item.id ? item : c))
+        : [...s.canvas, item];
+      persistCanvas(next);
+      return { canvas: next };
+    }),
+  unpinCanvasItem: (id) =>
+    set((s) => {
+      const next = s.canvas.filter((c) => c.id !== id);
+      persistCanvas(next);
+      return { canvas: next };
+    }),
+  setCanvas: (items) => {
+    persistCanvas(items);
+    set({ canvas: items });
+  },
+  clearCanvas: () => {
+    persistCanvas([]);
+    set({ canvas: [] });
+  },
 }));

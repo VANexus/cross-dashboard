@@ -350,6 +350,59 @@ export function createGlobalActions(opts: GlobalActionOptions = {}): UIActionDef
         return `已在灵动岛放下建议「${String(params.label).slice(0, 20)}」`;
       },
     },
+    {
+      id: 'panel.pin',
+      description:
+        '把白名单组件固定到仪表盘主画布，长期保留（刷新不丢，用户可手动移除）。' +
+        'component 与 render_component 的组件 id 一致，props 形状相同。' +
+        '适合用户要「把这张图/表放到仪表盘」时：先 render_component 确认，再 pin 到主区。',
+      riskLevel: 'L0',
+      schema: z.object({
+        component: z.string().min(1).describe('白名单组件 id，如 stat-card / line-chart / data-table'),
+        props: z.record(z.string(), z.unknown()).optional().describe('组件参数（与 render_component 的 props 相同）'),
+        title: z.string().optional().describe('画布面板标题，缺省取组件名'),
+      }),
+      execute: (params) => {
+        const components = getClientKernel().components;
+        const def = components?.getComponent(String(params.component));
+        if (!def) {
+          return `未注册的白名单组件：${params.component}（可用：${components?.listComponents().map((d) => d.id).join('、') ?? '无'}）`;
+        }
+        const pr = def.propsSchema.safeParse(params.props ?? {});
+        if (!pr.success) return `组件 ${def.id} 参数不合法：${pr.error.message}`;
+        const id = `pin-${def.id}-${Date.now().toString(36)}`;
+        usePresence.getState().pinCanvasItem({
+          id,
+          component: def.id,
+          props: pr.data as Record<string, unknown>,
+          title: typeof params.title === 'string' ? params.title : undefined,
+          pinnedAt: Date.now(),
+        });
+        const t = typeof params.title === 'string' && params.title.trim() ? params.title : def.id;
+        return `已固定到主画布：${def.id}（${t}），id=${id}`;
+      },
+    },
+    {
+      id: 'panel.unpin',
+      description:
+        '从仪表盘主画布移除已固定的组件。优先用 id（panel.pin 返回的 id）；不记得 id 时可用 component + title 匹配首个。',
+      riskLevel: 'L0',
+      schema: z.object({
+        id: z.string().optional(),
+        component: z.string().optional(),
+        title: z.string().optional(),
+      }),
+      execute: (params) => {
+        const s = usePresence.getState();
+        const item = s.canvas.find((c) =>
+          (typeof params.id === 'string' && c.id === params.id) ||
+          (typeof params.component === 'string' && c.component === params.component &&
+            (!params.title || c.title === params.title)));
+        if (!item) return `画布中没有可移除的组件（当前 ${s.canvas.length} 个）`;
+        s.unpinCanvasItem(item.id);
+        return `已从主画布移除：${item.component}（${item.title ?? item.id}）`;
+      },
+    },
   ];
 }
 
