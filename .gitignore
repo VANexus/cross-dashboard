@@ -37,6 +37,11 @@ bun.lockb
 # runtime database
 /data/*.db
 
+# 本地运行/构建调试日志与临时产物（不入库）
+/data/*.log
+/data/chat-body*.json
+/data/conv-check.json
+
 # root-level screenshots
 /*.png
 
@@ -63,3 +68,10 @@ next-env.d.ts
 /*.log
 *.d3
 *.bak
+
+# 本地暂存（含集群技能包等敏感参考材料，严禁入库）
+/.scratch/
+
+# 运营提供的敏感参考材料（严禁入库，仅本地参考）
+/docs/*.docx
+/docs/*.zip
