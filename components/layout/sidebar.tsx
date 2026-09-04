@@ -139,10 +139,13 @@ export function Sidebar() {
     return items;
   }, [navGroups]);
 
-  // 归类：工作台（journeys + dashboard + agents + memory + evolution）vs 工作流（其余）
+  // 归类：工作台（核心）vs B端运营（独立分组，展开态）vs 工作流（折叠）
   const workspaceHrefs = new Set(["/journeys", "/dashboard", "/agents", "/memory", "/evolution", "/tasks", "/risk"]);
+  // B端运营：独立显眼分组，覆盖情报/关键词趋势/一键上架/生图 Skill 四入口
+  const b2bHrefs = new Set(["/b2b/intel", "/b2b/keyword-trends", "/b2b/listing", "/b2b/image-skills"]);
   const workspaceItems = allItems.filter((i) => workspaceHrefs.has(i.href));
-  const workflowItems = allItems.filter((i) => !workspaceHrefs.has(i.href) && i.href !== "/settings");
+  const b2bItems = allItems.filter((i) => b2bHrefs.has(i.href));
+  const workflowItems = allItems.filter((i) => !workspaceHrefs.has(i.href) && !b2bHrefs.has(i.href) && i.href !== "/settings");
   const dynamicItems = (dynamicPages ?? []).map((p) => ({
     href: `/p/${p.id}`, label: p.title, icon: Sparkles, dot: undefined as string | undefined,
   }));
@@ -198,6 +201,14 @@ export function Sidebar() {
           {/* 工作台：核心页面 */}
           <NavGroup label="工作台" collapsedSidebar={collapsed}>
             {workspaceItems.map((it) => (
+              <NavLink key={it.href} href={it.href} label={it.label} icon={it.icon} dot={it.dot}
+                collapsed={collapsed} pathname={pathname} />
+            ))}
+          </NavGroup>
+
+          {/* B端运营：跨境 B2B 运营台，独立展开分组 */}
+          <NavGroup label="B端运营" collapsedSidebar={collapsed}>
+            {b2bItems.map((it) => (
               <NavLink key={it.href} href={it.href} label={it.label} icon={it.icon} dot={it.dot}
                 collapsed={collapsed} pathname={pathname} />
             ))}
