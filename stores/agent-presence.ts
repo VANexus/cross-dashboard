@@ -6,6 +6,10 @@ import { create } from 'zustand';
 import type { AgentEvent, AgentStateValue } from '@/lib/agent/contracts';
 import type { PageAgentContext } from '@/lib/agent/page-context';
 
+/** Agent 三面一体的当前形态（由 drawerOpen/stageOpen 派生的唯一口径）：
+ *  dock = 底部灵动岛 / sidebar = 右侧对话侧栏 / stage = 近全宽舞台（内嵌仪表盘画布）。 */
+export type AgentSurface = 'dock' | 'sidebar' | 'stage';
+
 export interface TelemetryItem {
   id: number;
   agent: string;
@@ -94,6 +98,8 @@ interface PresenceState {
   setDrawerOpen: (open: boolean) => void;
   setDrawerWidth: (w: number) => void;
   setStageOpen: (open: boolean) => void;
+  /** 三面一体形态切换（原子设置 drawerOpen/stageOpen，是 UI 层唯一的换面入口） */
+  setSurface: (mode: AgentSurface) => void;
   setFocus: (focus: FocusTarget | null) => void;
   clearFocus: () => void;
   setDockSuggestion: (s: DockSuggestion | null) => void;
@@ -152,6 +158,17 @@ export const usePresence = create<PresenceState>((set) => ({
   setDrawerOpen: (open) => set({ drawerOpen: open }),
   setDrawerWidth: (w) => set({ drawerWidth: w }),
   setStageOpen: (open) => set({ stageOpen: open }),
+  setSurface: (mode) =>
+    set((s) => {
+      const next =
+        mode === 'dock'
+          ? { drawerOpen: false, stageOpen: false }
+          : mode === 'stage'
+            ? { drawerOpen: true, stageOpen: true }
+            : { drawerOpen: true, stageOpen: false };
+      if (s.drawerOpen === next.drawerOpen && s.stageOpen === next.stageOpen) return s;
+      return next;
+    }),
   setFocus: (focus) => set({ focus }),
   clearFocus: () => set({ focus: null }),
   setDockSuggestion: (dockSuggestion) => set({ dockSuggestion }),

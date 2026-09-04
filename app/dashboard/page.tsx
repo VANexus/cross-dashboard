@@ -1,38 +1,17 @@
-import { Suspense } from "react";
 import { DashboardShell } from "./dashboard-shell";
-import { StatsIsland } from "./islands/stats-island";
-import { DashboardCanvas, CanvasSkeleton } from "./dashboard-canvas";
-
-function StatsSkeleton() {
-  return (
-    <div className="dash-kpi-grid">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="glass dash-kpi">
-          <div className="skeleton h-3 w-16" />
-          <div className="skeleton h-7 w-24 mt-3" />
-          <div className="skeleton h-2 w-20 mt-3" />
-        </div>
-      ))}
-    </div>
-  );
-}
+import { DashboardChat } from "./dashboard-chat";
 
 /**
- * 仪表盘：顶部紧凑状态条（KPI / 心跳 / 告警）+ Agent 动态画布。
- * 画布内容由 Agent 经 panel.pin 按需固定，空态给引导；不预置静态面板。
+ * 仪表盘（沉浸式对话画布）：整个 main 就是一张 Agent 对话画布。
+ * - 动态 UI 组件包内联渲染在对话流中（不设独立 pin 栏）。
+ * dashboard 不启用三面一体面板（drawer 禁用）；入口仅灵动岛 dock。
+ * 其他页面维持三面一体设计。
  */
 export default function DashboardPage() {
   return (
     <DashboardShell>
-      {/* 顶部紧凑状态条（不换行、不滚动） */}
-      <Suspense fallback={<StatsSkeleton />}>
-        <StatsIsland compact />
-      </Suspense>
-
-      {/* Agent 动态画布：主区 = 被钉组件的渲染区 */}
-      <Suspense fallback={<CanvasSkeleton />}>
-        <DashboardCanvas />
-      </Suspense>
+      {/* 沉浸式对话画布：消息正常文档流 + 输入框 sticky 吸底（随页面滚动始终可见） */}
+      <DashboardChat />
     </DashboardShell>
   );
 }

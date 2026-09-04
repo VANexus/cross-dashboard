@@ -21,8 +21,9 @@ const TopBar = dynamic(
 );
 
 // ── AI-Native Agent 三面一体 ─────────────────────────────
-// 主力 = 右侧对话抽屉；辅助 = 底部灵动岛(agent-dock) + 追焦船台(agent-float-dock)。
-// 已取代 FloatingAIButton + OrchestratorPanel + 单一智体球。
+// 三面 = 底部灵动岛(agent-dock) + 右侧对话侧栏(agent-drawer/sidebar 面) + 舞台即仪表盘(agent-drawer/stage 面)。
+// dock ↔ sidebar ↔ stage 状态交换 GSAP 优先（FLIP 幽灵形变）；聚焦气泡随 sidebar 面追踪页面焦点。
+// 已取代 FloatingAIButton + OrchestratorPanel + 单一智体球 + 独立追焦船台。
 const AgentDock = dynamic(
   () => import("@/components/agent/agent-dock").then((m) => ({ default: m.AgentDock })),
   { ssr: false, loading: () => null }
@@ -30,11 +31,6 @@ const AgentDock = dynamic(
 
 const AgentDrawer = dynamic(
   () => import("@/components/agent/agent-drawer").then((m) => ({ default: m.AgentDrawer })),
-  { ssr: false, loading: () => null }
-);
-
-const AgentFloatDock = dynamic(
-  () => import("@/components/agent/agent-float-dock").then((m) => ({ default: m.AgentFloatDock })),
   { ssr: false, loading: () => null }
 );
 
@@ -65,10 +61,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             </div>
 
-            {/* 全局 AI 入口 — 灵动岛 + 右侧抽屉 + 追焦船台 + ⌘K 计划面板,贯穿所有页面 */}
+            {/* 全局 AI 入口 — 灵动岛 + 侧栏/舞台一体面板 + ⌘K 计划面板,贯穿所有页面 */}
             <AgentDock />
             <AgentDrawer />
-            <AgentFloatDock />
             <AgentPalette />
 
             {/* 全局操作反馈（sonner） */}

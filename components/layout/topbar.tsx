@@ -62,7 +62,7 @@ export function TopBar() {
 
   return (
     <>
-      <header className="sticky top-0 z-20 flex h-12 items-center justify-between border-b bg-background/80 backdrop-blur px-5">
+      <header className="glass-liquid sticky top-0 z-20 flex h-12 items-center justify-between border-b px-5">
         {/* Left: Search trigger — 紧凑 */}
         <Button
           variant="outline"

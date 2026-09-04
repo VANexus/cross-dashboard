@@ -1,10 +1,8 @@
 "use client";
 
-import { PageHeader } from "@/components/ui/page-header";
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
-import { Sparkles } from "lucide-react";
 import { useDataChanged } from "@/hooks/use-data-changed";
 import { usePresence } from "@/stores/agent-presence";
 import { useAgentPage } from "@/lib/agent/page-context";
@@ -17,11 +15,9 @@ interface DashboardShellProps {
   children: React.ReactNode;
 }
 
-/** 页头（含「打开助手」按钮）+ KPI 状态条 + Agent 动态画布 */
+/** 沉浸式对话画布壳：页头（无按钮，入口仅 dock）+ KPI 状态条 + 中心对话（满高 flex 列） */
 export function DashboardShell({ children }: DashboardShellProps) {
   const router = useRouter();
-  // 「打开助手」= 打开 Agent 抽屉（全站唯一 Agent 入口）
-  const openOrchestrator = () => usePresence.getState().setDrawerOpen(true);
 
   // 全站数据联动：编排工具执行 / 产物转化落库后，防抖刷新所有 server islands
   useDataChanged(() => router.refresh());
@@ -95,27 +91,8 @@ export function DashboardShell({ children }: DashboardShellProps) {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-3">
       <DashboardEntryAnim />
-      <PageHeader
-        breadcrumb={<><span>工作台</span> / <b>总览</b></>}
-        title="仪表盘"
-        description="工作流、内容与 Agent 状态的实时总览"
-        actions={<>
-          <span className="hidden font-mono text-caption text-muted-foreground sm:inline">实时数据</span>
-          <button
-            type="button"
-            className="btn-orchestrate"
-            data-agent-action="orchestrate"
-            onClick={openOrchestrator}
-            title="打开助手（Ctrl+Shift+A）"
-          >
-            <Sparkles className="h-4 w-4" />
-            打开助手
-          </button>
-        </>}
-      />
-
       {children}
     </div>
   );

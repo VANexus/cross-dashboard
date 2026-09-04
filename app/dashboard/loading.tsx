@@ -1,22 +1,12 @@
 export default function Loading() {
   return (
-    <div className="space-y-6">
-      <div className="data-grid grid-cols-2 md:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="flex flex-col gap-1 p-4">
-            <div className="h-3 w-20 skeleton rounded" />
-            <div className="h-7 w-16 skeleton rounded mt-1" />
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="flex flex-col gap-3 p-4">
-            <div className="h-4 w-28 skeleton rounded" />
-            <div className="h-24 w-full skeleton rounded" />
-          </div>
-        ))}
+    <div className="flex h-full min-h-0 flex-col">
+      {/* 沉浸式对话画布：居中骨架 */}
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
+        <div className="h-12 w-12 skeleton rounded-2xl" />
+        <div className="h-4 w-40 skeleton rounded" />
+        <div className="h-3 w-64 skeleton rounded" />
+        <div className="mt-4 h-12 w-full max-w-xl skeleton rounded-2xl" />
       </div>
     </div>
   );

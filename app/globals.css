@@ -373,6 +373,37 @@ body {
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
+/* ── Agent 三面一体（灵动岛/侧栏/舞台）动效 ── */
+/* 灵动岛忙碌呼吸：主色光晕柔和收放，提示 Agent 正在工作 */
+@keyframes agent-island-breathe {
+  0%, 100% { box-shadow: 0 1px 2px oklch(0 0 0 / 0.04), 0 4px 12px -6px oklch(0 0 0 / 0.08), 0 0 0 0 color-mix(in oklab, var(--primary) 30%, transparent); }
+  50%      { box-shadow: 0 1px 2px oklch(0 0 0 / 0.04), 0 4px 12px -6px oklch(0 0 0 / 0.08), 0 0 0 7px color-mix(in oklab, var(--primary) 18%, transparent); }
+}
+
+.agent-island-breathe {
+  animation: agent-island-breathe 1.8s ease-in-out infinite;
+}
+
+/* 聚焦气泡（sidebar 面追踪页面焦点）：底部细线流动，暗示实时追踪中 */
+@keyframes agent-bubble-scan {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(360%); }
+}
+
+.agent-focus-bubble::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 1.5px;
+  width: 34%;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0.45;
+  overflow: hidden;
+  animation: agent-bubble-scan 1.6s ease-in-out infinite;
+}
+
 /* ── Scrollbar — minimal ── */
 .scrollbar-thin {
   scrollbar-width: thin;
@@ -383,6 +414,21 @@ body {
 .scrollbar-thin::-webkit-scrollbar-thumb {
   background-color: var(--border);
   border-radius: 3px;
+}
+
+/* 统一页面滚动：隐藏滚动条（沉浸式无条），保留滚轮/触摸滚动 */
+.page-container {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/旧 Edge */
+}
+.page-container::-webkit-scrollbar { display: none; } /* Chromium */
+
+/* ── 液态玻璃（Liquid Glass）：纯高斯模糊 + 饱和度 + 高透明低实底，无手动白光 ── */
+.glass-liquid {
+  background: color-mix(in oklab, var(--card) 28%, transparent);
+  -webkit-backdrop-filter: blur(26px) saturate(150%);
+  backdrop-filter: blur(26px) saturate(150%);
+  border: 1px solid color-mix(in oklab, var(--border) 42%, transparent);
 }
 
 /* ── Skeleton — subtle shimmer ── */
@@ -1096,3 +1142,28 @@ body {
 /* 单屏紧凑：面板头更省高 */
 .cockpit .dash-panel-head { padding-top: 0; padding-bottom: 8px; margin-bottom: 10px; }
 .cockpit-panel .dash-panel-more { display: none; }
+
+/* 受控 HTML 富内容块（HtmlBlock 组件，经 DOMPurify 消毒后渲染）的基础排版，
+   与 FlowMind 深色 token 对齐：表格/链接/代码/引用在富布局里依然清晰。
+   颜色直接用 --foreground/--primary/--muted 等 oklch 原始值（与 globals 主题一致）。 */
+.rich-html > :first-child { margin-top: 0; }
+.rich-html > :last-child { margin-bottom: 0; }
+.rich-html h1 { font-size: 15px; font-weight: 700; margin: 10px 0 6px; color: var(--foreground); }
+.rich-html h2 { font-size: 14px; font-weight: 700; margin: 10px 0 6px; color: var(--foreground); }
+.rich-html h3 { font-size: 13px; font-weight: 700; margin: 8px 0 4px; color: var(--foreground); }
+.rich-html h4 { font-size: 12px; font-weight: 700; margin: 8px 0 4px; color: var(--foreground); }
+.rich-html p { margin: 6px 0; }
+.rich-html ul { list-style: disc; padding-left: 18px; margin: 6px 0; }
+.rich-html ol { list-style: decimal; padding-left: 18px; margin: 6px 0; }
+.rich-html li { margin: 2px 0; }
+.rich-html a { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; }
+.rich-html code { background: var(--muted); border-radius: 4px; padding: 1px 4px; font-family: var(--font-mono, monospace); font-size: 11px; color: var(--primary); }
+.rich-html pre { background: var(--muted); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; overflow-x: auto; margin: 8px 0; }
+.rich-html pre code { background: transparent; padding: 0; color: var(--foreground); }
+.rich-html blockquote { border-left: 2px solid color-mix(in oklab, var(--primary) 40%, transparent); background: color-mix(in oklab, var(--primary) 5%, transparent); padding: 6px 10px; margin: 8px 0; color: var(--muted-foreground); }
+.rich-html table { width: 100%; border-collapse: collapse; font-size: 11px; margin: 8px 0; }
+.rich-html th, .rich-html td { border: 1px solid var(--border); padding: 4px 8px; text-align: left; }
+.rich-html th { background: color-mix(in oklab, var(--muted) 70%, transparent); font-weight: 600; color: var(--foreground); }
+.rich-html img { max-width: 100%; border-radius: 8px; border: 1px solid var(--border); }
+.rich-html hr { border: 0; border-top: 1px solid var(--border); margin: 10px 0; }
+.rich-html strong, .rich-html b { font-weight: 600; color: var(--foreground); }
