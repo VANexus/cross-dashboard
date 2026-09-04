@@ -2,6 +2,35 @@
 
 import useSWR, { useSWRConfig } from "swr";
 
+/** 生成/发布等长任务请求超时兜底：防止后端未起/网关慢时按钮无限 disabled、无反馈。
+ *  超时后 AbortController 中断请求并抛出可读错误，由调用方（run/await）catch 后提示。 */
+const REQUEST_TIMEOUT_MS = 45_000;
+
+async function requestWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (err) {
+    if (controller.signal.aborted) {
+      throw new Error("请求超时，服务暂时无响应，请稍后重试。");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function parseJson(res: Response): Promise<{ success: boolean; data?: unknown; error?: string }> {
+  let json: { success: boolean; data?: unknown; error?: string };
+  try {
+    json = (await res.json()) as { success: boolean; data?: unknown; error?: string };
+  } catch {
+    throw new Error(`服务返回异常（HTTP ${res.status}），请稍后重试。`);
+  }
+  return json;
+}
+
 interface FetchState<T> {
   data: T | null;
   loading: boolean;
@@ -62,13 +91,13 @@ export async function apiGet<T>(url: string): Promise<T> {
 }
 
 export async function apiPost<T>(url: string, body: unknown): Promise<T> {
-  const res = await fetch(url, {
+  const res = await requestWithTimeout(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  const json = await res.json();
-  if (!json.success) throw new Error(json.error);
+  const json = await parseJson(res);
+  if (!json.success) throw new Error(json.error ?? `请求失败（HTTP ${res.status}）`);
   return json.data as T;
 }
 
