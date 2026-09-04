@@ -11,19 +11,19 @@ test.describe("RSC Features", () => {
   test("Suspense: agents skeleton appears then replaced", async ({ page }) => {
     await page.goto("/agents");
     await expect(page.locator(".skeleton").first()).toBeVisible({ timeout: 5000 }).catch(() => {});
-    await expect(page.getByRole("heading", { name: "Agent 管理" })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("heading", { name: "Agent 管理" }).first()).toBeVisible({ timeout: 15000 });
   });
 
   test("Suspense: tasks skeleton appears then replaced", async ({ page }) => {
     await page.goto("/tasks");
     await expect(page.locator(".skeleton").first()).toBeVisible({ timeout: 5000 }).catch(() => {});
-    await expect(page.locator("text=任务管理")).toBeVisible({ timeout: 15000 });
+    await expect(page.locator("text=任务管理").first()).toBeVisible({ timeout: 15000 });
   });
 
   test("Suspense: risk skeleton appears then replaced", async ({ page }) => {
     await page.goto("/risk");
     await expect(page.locator(".skeleton").first()).toBeVisible({ timeout: 5000 }).catch(() => {});
-    await expect(page.locator("text=风控中心")).toBeVisible({ timeout: 15000 });
+    await expect(page.locator("text=风控中心").first()).toBeVisible({ timeout: 15000 });
   });
 
   test("loading.tsx: workflow pages show skeleton during load", async ({ page }) => {
@@ -61,12 +61,14 @@ test.describe("RSC Features", () => {
     await page.goto("/dashboard");
     await expect(page.locator("text=工作流").first()).toBeVisible({ timeout: 15000 });
     await expect(page.locator("text=Agent").first()).toBeVisible();
-    await expect(page.locator("text=最近告警").first()).toBeVisible();
+    // AI-Native 精简后：dashboard 主体为 Agent 协同拓扑 + 动态工作流，不再堆砌告警面板
+    await expect(page.locator("text=Agent 协同拓扑").first()).toBeVisible();
+    await expect(page.locator("text=动态工作流").first()).toBeVisible();
   });
 
   test("full chain: agents page loads from backend without mock data", async ({ page }) => {
     await page.goto("/agents");
-    await expect(page.getByRole("heading", { name: "Agent 管理" })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("heading", { name: "Agent 管理" }).first()).toBeVisible({ timeout: 15000 });
     // 无种子数据：页面渲染不崩溃即可；运行时创建的 Agent 出现则正常展示
     const cards = page.locator("a[href*='/agents/']");
     const count = await cards.count();

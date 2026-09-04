@@ -1,7 +1,7 @@
 import { RiskClient } from "../risk-client";
-import { RiskService } from "@/lib/services";
-import { getDbAsync } from "@/lib/db";
-import type { RiskEvent } from "@/lib/types";
+import { RiskService } from "@/lib/server/services";
+import { getDbAsync } from "@/lib/server/db";
+import type { RiskEvent } from "@/lib/shared/types";
 
 export async function RiskIsland() {
   await getDbAsync();

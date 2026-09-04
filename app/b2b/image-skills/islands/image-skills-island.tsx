@@ -1,6 +1,6 @@
 import { connection } from "next/server";
-import { getDbAsync } from "@/lib/db";
-import { B2BService } from "@/lib/services";
+import { getDbAsync } from "@/lib/server/db";
+import { B2BService } from "@/lib/server/services";
 import { B2BImageSkillsClient } from "../b2b-image-skills-client";
 
 /**

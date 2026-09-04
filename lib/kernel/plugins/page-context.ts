@@ -72,6 +72,12 @@ export class PageContextService extends Service {
       }
     }
 
+    // 追焦注入：把用户当前聚焦的模块写进快照，让 Agent 的回答锚定在焦点上（追焦船台/灵动岛联动）
+    const focus = usePresence.getState().focus;
+    if (focus && focus.module) {
+      snapshot += `\n用户当前聚焦模块：${focus.label}${focus.annotatedAction ? `（可操作把手 [data-agent-action="${focus.annotatedAction}"]）` : ''}`;
+    }
+
     let state: Record<string, unknown> | undefined;
     if (pc.state) {
       try {

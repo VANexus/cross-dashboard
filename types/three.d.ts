@@ -82,6 +82,16 @@ declare module "three" {
     constructor(radius?: number, widthSegments?: number, heightSegments?: number);
   }
 
+  export class TorusGeometry extends BufferGeometry {
+    constructor(
+      radius?: number,
+      tube?: number,
+      radialSegments?: number,
+      tubularSegments?: number,
+      arc?: number,
+    );
+  }
+
   export interface MaterialParameters {
     color?: number | string;
     transparent?: boolean;

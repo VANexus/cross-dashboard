@@ -6,8 +6,8 @@ import type { WorkspaceManifest } from "../types";
 
 export const growthWorkspace: WorkspaceManifest = {
   id: "growth",
-  label: "增长工作流",
-  description: "六大专项工作流：选品、作图、广告、库销、竞品、视频本地化",
+  label: "能力工作台",
+  description: "Agent 驱动的工作台：选品、作图、广告、库销、竞品、视频本地化（无预设工作流，一切由主 Agent 编排）",
   icon: Radar,
   group: "growth",
   order: 5,

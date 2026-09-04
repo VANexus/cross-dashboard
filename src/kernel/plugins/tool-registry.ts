@@ -11,8 +11,9 @@ import { tool } from 'ai'
 import type { ToolSet } from 'ai'
 import { z } from 'zod'
 import { Context, Service } from '../vendor/cordis'
-import { localTools } from '@/lib/mastra/tools/local-tools'
-import { mcpTools } from '@/lib/mastra/tools/mcp-tools'
+import { localTools } from '@/lib/server/mastra/tools/local-tools'
+import { selfhostTools } from '@/lib/server/mastra/tools/selfhost-tools'
+import { mcpTools } from '@/lib/server/mastra/tools/mcp-tools'
 
 declare module '../vendor/cordis/context' {
   interface Context {
@@ -37,11 +38,12 @@ export class ToolsService extends Service {
 
   constructor(ctx: Context) {
     super(ctx, 'tools')
-    this.mastra = { ...localTools, ...mcpTools } as unknown as Record<string, MastraToolLike>
+    this.mastra = { ...localTools, ...selfhostTools, ...mcpTools } as unknown as Record<string, MastraToolLike>
   }
 
-  /** 全部工具的 AI SDK ToolSet 视图（chat 流式调用用；无 execute 的工具跳过）。 */
-  toAiSdkTools(): ToolSet {
+  /** 全部工具的 AI SDK ToolSet 视图（chat 流式调用用；无 execute 的工具跳过）。
+   *  onExecuted：业务工具成功执行后的回调（chat 路由用于沉淀 outcome 记忆，工作流→记忆反馈闭环）。 */
+  toAiSdkTools(onExecuted?: (name: string, input: unknown, output: unknown) => void): ToolSet {
     const out: ToolSet = {}
     for (const [name, mt] of Object.entries(this.mastra)) {
       if (!mt.execute) continue
@@ -49,7 +51,15 @@ export class ToolsService extends Service {
       out[name] = tool({
         description: mt.description ?? name,
         inputSchema: mt.inputSchema ?? z.object({}),
-        execute: async (input) => execute(input),
+        execute: async (input) => {
+          const result = await execute(input)
+          try {
+            onExecuted?.(name, input, result)
+          } catch {
+            /* 记忆沉淀失败不阻断工具结果 */
+          }
+          return result
+        },
       })
     }
     return out

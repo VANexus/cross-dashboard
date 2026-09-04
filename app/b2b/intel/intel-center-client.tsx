@@ -11,7 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type {
   AdMaterial, ShopProduct, VideoItem, MusicItem, CreatorInsight, IgPost, CreatorProfile,
-} from "@/lib/types";
+} from "@/lib/shared/types";
 import {
   Satellite, Flame, Megaphone, ShoppingBag, PlayCircle, Music, Users, AtSign,
   Loader2, Search, Star, AlertTriangle,

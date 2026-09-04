@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, badRequest, methodNotAllowed } from "@/lib/api-response";
-import { parseBody, updateIsolationSchema } from "@/lib/api-validation";
-import { RiskService } from "@/lib/services";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, badRequest, methodNotAllowed } from "@/lib/server/api-response";
+import { parseBody, updateIsolationSchema } from "@/lib/server/api-validation";
+import { RiskService } from "@/lib/server/services";
 
 const service = new RiskService();
 

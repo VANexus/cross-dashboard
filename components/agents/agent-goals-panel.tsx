@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Target } from "lucide-react";
-import type { AgentGoal } from "@/lib/types";
+import type { AgentGoal } from "@/lib/shared/types";
 
 interface AgentGoalsPanelProps {
   goals: AgentGoal[];

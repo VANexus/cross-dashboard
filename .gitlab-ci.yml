@@ -1,0 +1,63 @@
+# =============================================================================
+# FlowMind UI — GitLab CI（标准接入流程 A · go-kernel 实证版）
+#   build(kaniko→Harbor) → validate(kubeconform) → deploy-gitops(argocd-apps SHA bump)
+#     └─ ArgoCD auto-sync → Argo Rollouts canary 25%→60%→100% + analysis 门自动回滚
+#
+# 项目 CI 变量（GitLab API 写入，见 deploy/README.md）：
+#   HARBOR_CONFIG_B64  普通变量 = base64 -w0 docker config.json
+#                      ⚠ 禁用 file 型 + robot 凭据（robot 名含 $，runner 展开吃段 → 401，2026-09-02 实证）
+#   AGOCD_TOKEN        masked = 有 api 权限的 GitLab PAT（bump argocd-apps 用）
+# =============================================================================
+stages:
+  - build
+  - validate
+  - deploy-gitops
+
+variables:
+  IMAGE: harbor.app.xrak.top/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}
+  DOCKER_CONFIG: /kaniko/.docker
+  ROLLOUT_PATH: apps/flowmind/rollout.yaml   # argocd-apps 仓库内路径
+
+build:
+  stage: build
+  image:
+    name: harbor.app.xrak.top/infra/kaniko:debug   # ⚠ 用 infra 版（tenants/kaniko 旧版 token-flow bug）
+    entrypoint: [""]
+  script:
+    - echo "$HARBOR_CONFIG_B64" | base64 -d > /kaniko/.docker/config.json
+    - /kaniko/executor
+        --context=$CI_PROJECT_DIR
+        --dockerfile=$CI_PROJECT_DIR/Dockerfile
+        --destination=$IMAGE:$CI_COMMIT_SHORT_SHA
+        --destination=$IMAGE:latest
+        --registry-mirror=docker.m.daocloud.io
+        --snapshot-mode=redo
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+validate:
+  stage: validate
+  image:
+    name: harbor.app.xrak.top/infra/kubeconform:v0.6.7-alpine   # ⚠ alpine 版（scratch 原版无 shell）
+    entrypoint: [""]
+  script:
+    - kubeconform -strict -summary -ignore-missing-schemas
+        deploy/gitops/flowmind/*.yaml
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+deploy-gitops:
+  stage: deploy-gitops
+  image: alpine/git:latest
+  script:
+    - git clone --depth 1
+        "https://oauth2:${AGOCD_TOKEN}@gitlab.app.xrak.top/xrak/argocd-apps.git" /ops
+    - cd /ops
+    # 金丝雀模式：钉 SHA tag（8 位，与 kaniko destination 对齐）
+    - sed -i -E "s|(image: ${IMAGE}):[^[:space:]]+|\\1:${CI_COMMIT_SHORT_SHA}|" "$ROLLOUT_PATH"
+    - git config user.email "ci-robot@xrak.top"
+    - git config user.name "flowmind-ci"
+    - git commit -am "deploy(flowmind): ${CI_COMMIT_SHORT_SHA} ${CI_COMMIT_TITLE}" --allow-empty
+    - git push
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"

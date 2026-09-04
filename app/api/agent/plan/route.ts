@@ -2,7 +2,7 @@
 // 计划执行端点:POST { plan?: string[] } → SSE plan_step 流。
 // 每一步调用真实 RAK 领域服务(只读),失败时如实上报"服务暂不可用",不伪造结果。
 import { NextRequest } from "next/server";
-import { CrawlerService, DashboardService, RiskService } from "@/lib/services";
+import { CrawlerService, DashboardService, RiskService } from "@/lib/server/services";
 
 export const maxDuration = 60;
 

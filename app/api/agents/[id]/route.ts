@@ -1,9 +1,9 @@
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, notFound, badRequest, methodNotAllowed } from "@/lib/api-response";
-import { AgentService } from "@/lib/services";
-import * as agentRepo from "@/lib/repositories/agent.repository";
-import type { AgentConfig } from "@/lib/types";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, notFound, badRequest, methodNotAllowed } from "@/lib/server/api-response";
+import { AgentService } from "@/lib/server/services";
+import * as agentRepo from "@/lib/server/repositories/agent.repository";
+import type { AgentConfig } from "@/lib/shared/types";
 
 const service = new AgentService();
 
@@ -38,6 +38,18 @@ export const PATCH = withDb(async (request: NextRequest,
   } catch {
     return badRequest("Invalid request body");
   }
+});
+
+export const DELETE = withDb(async (_request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }) => {
+  const { id } = await params;
+  const agent = await agentRepo.getAgentById(id);
+  if (!agent) return notFound("Agent");
+  // 停止运行时节律（若在跑）
+  const { agentRuntime } = await import("@/lib/server/agent-runtime/runtime");
+  agentRuntime.stopAgent(id);
+  await agentRepo.deleteAgent(id);
+  return success({ id, deleted: true });
 });
 
 export { methodNotAllowed as POST };

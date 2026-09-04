@@ -1,7 +1,7 @@
 "use client";
 
 import { useFetch, apiPost, apiPut, apiDelete } from "./use-fetch";
-import type { MemoryEntry, MemoryUsageStats } from "@/lib/types";
+import type { MemoryEntry, MemoryUsageStats } from "@/lib/shared/types";
 
 interface MemoryListResponse {
   items: MemoryEntry[];

@@ -28,9 +28,9 @@ import {
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { updateTask } from "@/hooks/use-tasks";
-import type { Task, Agent, TaskStatus } from "@/lib/types";
+import type { Task, Agent, TaskStatus } from "@/lib/shared/types";
 
-const statusConfig: Record<import("@/lib/types").TaskStatus, { label: string; icon: React.ComponentType<{ className?: string }>; variant: "success" | "secondary" | "danger" | "warning" }> = {
+const statusConfig: Record<import("@/lib/shared/types").TaskStatus, { label: string; icon: React.ComponentType<{ className?: string }>; variant: "success" | "secondary" | "danger" | "warning" }> = {
   completed: { label: "已完成", icon: CheckCircle2, variant: "success" },
   running: { label: "运行中", icon: Loader2, variant: "secondary" },
   pending: { label: "等待中", icon: Clock, variant: "secondary" },

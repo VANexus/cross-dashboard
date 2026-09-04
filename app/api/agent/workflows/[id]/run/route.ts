@@ -5,8 +5,8 @@
  * 单步失败记录并继续、整体标 failed（与 chat 的 run_workflow 工具同一执行内核）。
  */
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, error, methodNotAllowed } from "@/lib/api-response";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, error, methodNotAllowed } from "@/lib/server/api-response";
 import { getKernel } from "@/src/kernel";
 
 type Ctx = { params: Promise<{ id: string }> };

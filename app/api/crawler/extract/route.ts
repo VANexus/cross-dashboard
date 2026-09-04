@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, badRequest, error, methodNotAllowed } from "@/lib/api-response";
-import { CrawlerService } from "@/lib/services/crawler.service";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, badRequest, error, methodNotAllowed } from "@/lib/server/api-response";
+import { CrawlerService } from "@/lib/server/services/crawler.service";
 
 const service = new CrawlerService();
 

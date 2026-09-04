@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import type { AdMaterial } from "@/lib/types";
+import type { AdMaterial } from "@/lib/shared/types";
 import {
   BarChart3, Search, AlertTriangle, CheckCircle2, XCircle, ChevronDown, ChevronRight,
   Zap, Target, Download, Loader2, Play, ExternalLink, Info,

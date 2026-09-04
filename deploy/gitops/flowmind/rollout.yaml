@@ -1,0 +1,97 @@
+# =============================================================================
+# flowmind — core-ui ns · Argo Rollouts 金丝雀（标准接入流程 A · go-kernel 实证版）
+# ⚠ 本目录是 argocd-apps/apps/flowmind/ 的仓库内模板源；接入时整目录复制过去，
+#   CI deploy-gitops 只 sed 下面 image 行的 tag（保持 `:placeholder` 前缀格式勿改）。
+# =============================================================================
+apiVersion: argoproj.io/v1beta1
+kind: Rollout
+metadata:
+  name: flowmind
+  namespace: core-ui
+  labels: { app: flowmind }
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels: { app: flowmind }
+  strategy:
+    canary:
+      stableService: flowmind
+      canaryService: flowmind-canary
+      maxSurge: "25%"
+      maxUnavailable: 0
+      steps:
+        - setWeight: 25
+        - pause: { duration: 2m }
+        - analysis:                     # 第一道门：25% 期指标核验
+            templates:
+              - templateName: flowmind-canary-gate
+            args:                       # ⚠ 坑#24：hash 不会自动注入，必须显式传
+              - name: rollouts-pod-template-hash
+                valueFrom: { podTemplateHashValue: Latest }
+        - setWeight: 60
+        - pause: { duration: 2m }
+        - setWeight: 100
+        - analysis:
+            templates:
+              - templateName: flowmind-canary-gate
+            args:
+              - name: rollouts-pod-template-hash
+                valueFrom: { podTemplateHashValue: Latest }
+  template:
+    metadata:
+      labels: { app: flowmind }
+    spec:
+      # Harbor core-ui 项目为私有时需要 pull secret（public 则删）
+      # imagePullSecrets: [{ name: harbor-pull-core-ui }]
+      containers:
+        - name: flowmind
+          image: harbor.app.xrak.top/core-ui/flowmind:placeholder
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: RAK_RUNTIME
+              value: "cluster"          # 显式声明运行形态（服务目录→集群内 svc DNS）
+            - name: NODE_ENV
+              value: "production"
+            # ⚠ 本镜像零密钥：UI 不接 DB/模型端点；API/MCP 的 Secret 见 flowmind-api-env
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { cpu: "1", memory: 1Gi }
+          readinessProbe:
+            tcpSocket: { port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: http }
+            initialDelaySeconds: 20
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flowmind
+  namespace: core-ui
+spec:
+  type: ClusterIP
+  selector: { app: flowmind }
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flowmind-canary
+  namespace: core-ui
+spec:
+  type: ClusterIP
+  # Rollout 接管 canary service 的选择器（自动注入 pod-template-hash）
+  selector: { app: flowmind }
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

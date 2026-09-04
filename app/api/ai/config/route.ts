@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, badRequest, methodNotAllowed } from "@/lib/api-response";
-import { getAIConfig, updateAIConfig } from "@/lib/ai";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, badRequest, methodNotAllowed } from "@/lib/server/api-response";
+import { getAIConfig, updateAIConfig } from "@/lib/server/ai";
 
 export const GET = withDb(async (_request: NextRequest) => {
   const config = await getAIConfig();

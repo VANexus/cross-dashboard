@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, notFound, methodNotAllowed } from "@/lib/api-response";
-import * as journalRepo from "@/lib/repositories/journal.repository";
-import * as agentRepo from "@/lib/repositories/agent.repository";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, notFound, methodNotAllowed } from "@/lib/server/api-response";
+import * as journalRepo from "@/lib/server/repositories/journal.repository";
+import * as agentRepo from "@/lib/server/repositories/agent.repository";
 
 export const GET = withDb(async (request: NextRequest,
   { params }: { params: Promise<{ id: string }> }) => {

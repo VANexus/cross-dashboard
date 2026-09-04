@@ -1,7 +1,7 @@
 "use client";
 
 import { useFetch, apiPost } from "./use-fetch";
-import type { InfringementWord, CategoryRec, BulletPoint } from "@/lib/types";
+import type { InfringementWord, CategoryRec, BulletPoint } from "@/lib/shared/types";
 
 export function useInfringementWords() {
   return useFetch<InfringementWord[]>("/api/workflows/ai-listing/infringement");

@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, badRequest } from "@/lib/api-response";
-import { parseBody, createMemorySchema, paginationSchema } from "@/lib/api-validation";
-import { MemoryService } from "@/lib/services";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, badRequest } from "@/lib/server/api-response";
+import { parseBody, createMemorySchema, paginationSchema } from "@/lib/server/api-validation";
+import { MemoryService } from "@/lib/server/services";
 
 const service = new MemoryService();
 

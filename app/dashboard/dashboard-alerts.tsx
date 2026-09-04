@@ -2,7 +2,7 @@
 
 import { ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Alert } from "@/lib/types";
+import type { Alert } from "@/lib/shared/types";
 
 interface DashboardAlertsProps {
   alerts: Alert[];

@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, error, badRequest, methodNotAllowed } from "@/lib/api-response";
-import { parseBody, b2bReversePromptSchema } from "@/lib/api-validation";
-import { B2BService, ContentMCPError } from "@/lib/services";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, error, badRequest, methodNotAllowed } from "@/lib/server/api-response";
+import { parseBody, b2bReversePromptSchema } from "@/lib/server/api-validation";
+import { B2BService, ContentMCPError } from "@/lib/server/services";
 
 const service = new B2BService();
 

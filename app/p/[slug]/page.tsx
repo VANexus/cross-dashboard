@@ -6,6 +6,7 @@
  */
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { getKernel } from "@/src/kernel";
 import { PageSpecRenderer } from "./page-spec-renderer";
@@ -25,6 +26,11 @@ async function loadSpec(slug: string) {
   }
 }
 
+// cache-components 要求动态路由提供至少一个真实样本供 build-time validation。
+export async function generateStaticParams(): Promise<Array<{ slug: string }>> {
+  return [{ slug: "sample" }];
+}
+
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug } = await params;
   const row = await loadSpec(slug);
@@ -32,6 +38,15 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 }
 
 export default async function GeneratedPage({ params }: Params) {
+  // cache-components：async page 顶层 await params 属 uncached，须落在 Suspense 内
+  return (
+    <Suspense fallback={null}>
+      <PageSpecLoader params={params} />
+    </Suspense>
+  );
+}
+
+async function PageSpecLoader({ params }: Params) {
   const { slug } = await params;
   const row = await loadSpec(slug);
   if (!row) notFound();

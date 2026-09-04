@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { CrawlerClient } from "./crawler-client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { CrawlerService } from "@/lib/services/crawler.service";
+import { CrawlerService } from "@/lib/server/services/crawler.service";
 
 function CrawlerSkeleton() {
   return (

@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Heart } from "lucide-react";
-import type { AgentMood, MoodState } from "@/lib/types";
+import type { AgentMood, MoodState } from "@/lib/shared/types";
 
 interface AgentMoodIndicatorProps {
   mood: AgentMood;

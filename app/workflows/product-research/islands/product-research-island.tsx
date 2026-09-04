@@ -1,6 +1,6 @@
 import { ProductResearchClient } from "../product-research-client";
-import { getDbAsync } from "@/lib/db";
-import { getRecentResearchResults } from "@/lib/repositories/workflow.repository";
+import { getDbAsync } from "@/lib/server/db";
+import { getRecentResearchResults } from "@/lib/server/repositories/workflow.repository";
 
 export async function ProductResearchIsland() {
   await getDbAsync();

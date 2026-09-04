@@ -6,7 +6,7 @@
 //  - 已配置   → 真实流式生成,按 delta 逐段下发。
 import { NextRequest } from "next/server";
 import { streamText } from "ai";
-import { AIConfigError, getAIConfig } from "@/lib/ai";
+import { AIConfigError, getAIConfig } from "@/lib/server/ai";
 import { getKernel } from "@/src/kernel";
 
 export const maxDuration = 60;

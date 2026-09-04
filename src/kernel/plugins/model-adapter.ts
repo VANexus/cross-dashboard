@@ -23,7 +23,7 @@ export class AIModelService extends Service {
 
   /** 解析当前 AI 配置 → AI SDK LanguageModel（配置缺失时抛 AIConfigError）。 */
   async get(): Promise<LanguageModel> {
-    const { getAISDKModel } = await import('@/lib/ai')
+    const { getAISDKModel } = await import('@/lib/server/ai')
     return getAISDKModel()
   }
 }

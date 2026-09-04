@@ -1,11 +1,11 @@
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, badRequest } from "@/lib/api-response";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, badRequest } from "@/lib/server/api-response";
 import {
   listSessions,
   createSession,
   type StoredMessage,
-} from "@/lib/orchestrator/session-store";
+} from "@/lib/server/orchestrator/session-store";
 
 export const GET = withDb(async () => {
   const sessions = await listSessions();

@@ -1,10 +1,10 @@
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, error, methodNotAllowed } from "@/lib/api-response";
-import { B2BService } from "@/lib/services";
-import { B2BSettingsService } from "@/lib/services/b2b-settings.service";
-import { getSupabase } from "@/lib/db";
-import type { TrendPlatform } from "@/lib/types";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, error, methodNotAllowed } from "@/lib/server/api-response";
+import { B2BService } from "@/lib/server/services";
+import { B2BSettingsService } from "@/lib/server/services/b2b-settings.service";
+import { prisma } from "@/lib/server/db";
+import type { TrendPlatform } from "@/lib/shared/types";
 
 const b2b = new B2BService();
 const settingsService = new B2BSettingsService();
@@ -39,14 +39,12 @@ export const POST = withDb(async (request: NextRequest) => {
 
   // 幂等：同一自然日只执行一次（手动触发可用 ?force=1 跳过）
   const force = new URL(request.url).searchParams.get("force") === "1";
-  const sb = getSupabase();
   if (!force) {
-    const { data } = await sb
-      .from("ai_config")
-      .select("value")
-      .eq("key", "b2b_daily_refresh_last_run")
-      .maybeSingle();
-    if ((data as { value?: string } | null)?.value === today()) {
+    const row = await prisma.ai_config.findUnique({
+      where: { key: "b2b_daily_refresh_last_run" },
+      select: { value: true },
+    });
+    if (row?.value === today()) {
       return success({ idempotent: true, date: today(), message: "今日任务已执行，跳过重复触发（可加 ?force=1 强制）" });
     }
   }
@@ -83,10 +81,11 @@ export const POST = withDb(async (request: NextRequest) => {
   }
 
   // 3) 记录执行日期（幂等标记）
-  await sb.from("ai_config").upsert(
-    { key: "b2b_daily_refresh_last_run", value: today(), updated_at: new Date().toISOString() },
-    { onConflict: "key" },
-  );
+  await prisma.ai_config.upsert({
+    where: { key: "b2b_daily_refresh_last_run" },
+    create: { key: "b2b_daily_refresh_last_run", value: today(), updated_at: new Date().toISOString() },
+    update: { value: today(), updated_at: new Date().toISOString() },
+  });
 
   return success({
     date: today(),

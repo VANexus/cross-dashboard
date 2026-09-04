@@ -34,7 +34,7 @@ import {
 import type {
   AuditResult, ContentIdea, ContentImageResult, ContentPlatform,
   ContentPlatformMeta, ContentWorks, CopyDraft,
-} from "@/lib/types";
+} from "@/lib/shared/types";
 import {
   HOT_BOARD_LABELS, HOT_BOARD_ORDER,
   type HotBoardType, type HotEngineResult, type TopicCard,
@@ -514,30 +514,30 @@ function ContentStudioInner({ platforms, works: initialWorks }: ContentStudioCli
                             </div>
                             <div className="mt-1.5 flex flex-wrap gap-1">
                               {c.hitBoards.map((b) => (
-                                <span key={b} className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                <span key={b} className="rounded bg-muted px-1.5 py-0.5 text-tiny text-muted-foreground">
                                   {HOT_BOARD_LABELS[b]}
                                 </span>
                               ))}
                               <span className={cn(
-                                "rounded px-1.5 py-0.5 text-[10px]",
+                                "rounded px-1.5 py-0.5 text-tiny",
                                 c.competition === "high" ? "bg-warning/15 text-warning"
                                   : c.competition === "medium" ? "bg-muted text-muted-foreground" : "bg-success/15 text-success",
                               )}>
                                 {c.competition === "high" ? "竞争高" : c.competition === "medium" ? "竞争中" : "竞争低"}
                               </span>
                               <span className={cn(
-                                "rounded px-1.5 py-0.5 text-[10px]",
+                                "rounded px-1.5 py-0.5 text-tiny",
                                 c.freshness === "fresh" ? "bg-success/15 text-success" : "bg-muted text-muted-foreground",
                               )}>
                                 {c.freshness === "fresh" ? "新上榜" : c.freshness === "day" ? "24h内" : "较早"}
                               </span>
                             </div>
                             <div className="mt-1.5 text-xs text-muted-foreground">
-                              <span className="font-mono text-[10px]">
+                              <span className="font-mono text-tiny">
                                 名次 {c.bestRank} · 热度 {c.bestHeat} · 命中 {c.hitBoards.length} 榜
                               </span>
                               {c.angleSuggestion && (
-                                <div className="mt-0.5 truncate text-[11px]">角度建议：{c.angleSuggestion}</div>
+                                <div className="mt-0.5 truncate text-caption">角度建议：{c.angleSuggestion}</div>
                               )}
                             </div>
                           </button>

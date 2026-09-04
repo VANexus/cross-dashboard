@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Brain, Eye, Lightbulb, GitBranch } from "lucide-react";
-import type { JournalEntry } from "@/lib/types";
+import type { JournalEntry } from "@/lib/shared/types";
 
 interface AgentJournalTimelineProps {
   entries: JournalEntry[];

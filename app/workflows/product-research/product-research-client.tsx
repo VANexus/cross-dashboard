@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import type { ShopProduct, ShopReview } from "@/lib/types";
+import type { ShopProduct, ShopReview } from "@/lib/shared/types";
 import {
   Radar, Play, Search, ChevronRight, AlertTriangle, CheckCircle2, ArrowRight,
   ShieldAlert, Package, Star, FileText, Loader2, ExternalLink, MessageSquareWarning,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useFetch, apiPost, apiPatch } from "./use-fetch";
-import type { EvolutionRecord, BeforeMetrics } from "@/lib/types";
+import type { EvolutionRecord, BeforeMetrics } from "@/lib/shared/types";
 
 interface EvolutionListResponse {
   items: EvolutionRecord[];

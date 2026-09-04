@@ -1,10 +1,10 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
-import { withDb } from "@/lib/api-helpers";
-import { success, badRequest, methodNotAllowed } from "@/lib/api-response";
-import { parseBody } from "@/lib/api-validation";
-import { B2BService, ContentMCPError } from "@/lib/services";
-import type { PushTestResult } from "@/lib/types";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, badRequest, methodNotAllowed } from "@/lib/server/api-response";
+import { parseBody } from "@/lib/server/api-validation";
+import { B2BService, ContentMCPError } from "@/lib/server/services";
+import type { PushTestResult } from "@/lib/shared/types";
 
 const service = new B2BService();
 

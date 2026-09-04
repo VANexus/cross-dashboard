@@ -1,7 +1,7 @@
 import { AgentsClient } from "../agents-client";
-import { AgentService } from "@/lib/services";
-import { getDbAsync } from "@/lib/db";
-import type { Agent } from "@/lib/types";
+import { AgentService } from "@/lib/server/services";
+import { getDbAsync } from "@/lib/server/db";
+import type { Agent } from "@/lib/shared/types";
 
 export async function AgentsIsland() {
   await getDbAsync();

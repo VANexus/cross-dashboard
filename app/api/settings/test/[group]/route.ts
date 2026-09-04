@@ -1,11 +1,11 @@
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, badRequest, methodNotAllowed } from "@/lib/api-response";
-import { B2BSettingsService } from "@/lib/services";
-import type { B2BSettingsGroup } from "@/lib/types";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, badRequest, methodNotAllowed } from "@/lib/server/api-response";
+import { B2BSettingsService } from "@/lib/server/services";
+import type { B2BSettingsGroup } from "@/lib/shared/types";
 
 const service = new B2BSettingsService();
-const GROUPS: B2BSettingsGroup[] = ["mcp", "channel", "alibaba", "longcat", "allin", "webhook"];
+const GROUPS: B2BSettingsGroup[] = ["mcp", "channel", "alibaba", "webhook"];
 
 export const GET = withDb(async (
   _request: NextRequest,

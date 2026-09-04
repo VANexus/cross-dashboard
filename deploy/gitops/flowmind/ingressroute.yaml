@@ -1,0 +1,45 @@
+# =============================================================================
+# flowmind.xrak.top — 边缘同源反代入口（决策①）
+# 浏览器只见这一个域；/api → flowmind-api、/backend-mcp → flowmind-mcp 由 Traefik 分流。
+# ⚠ 坑#21：一级子域必须用 xrak-wildcard-tls（二级层证书会回退自签）
+# ⚠ /api 路由必须禁压缩/缓冲（SSE），前端层默认压缩优化会破坏流式——见 routes 注释
+# P0 上线：仅 /* → flowmind（Next 自带 /api 路由仍由 UI 进程提供）；
+# P2 拆分时：解注释 /api 路由并把 UI 层切到 flowmind-api（同 PR 内完成切流）。
+# =============================================================================
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: flowmind
+  namespace: core-ui
+  labels: { app: flowmind }
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    # ── P2（前后端分离）启用：同源 /api → core-api 的 flowmind-api ──────────
+    # - match: Host(`flowmind.xrak.top`) && PathPrefix(`/api`)
+    #   kind: Rule
+    #   priority: 20                      # 大于兜底路由
+    #   middlewares:                      # 限流防爆破 + 禁压缩（SSE 流式友好）
+    #     - name: rak-api-ratelimit
+    #     - name: flowmind-api-nocompress  # 需在 argocd-apps 建 Headers/Buffering 中间件 CR
+    #   services:
+    #     - name: flowmind-api
+    #       namespace: core-api
+    #       port: 8080
+    # ── P3（flowmind MCP 服务化）启用：浏览器技能发现经同源反代 ──────────────
+    # - match: Host(`flowmind.xrak.top`) && PathPrefix(`/backend-mcp`)
+    #   kind: Rule
+    #   priority: 20
+    #   services:
+    #     - name: flowmind-mcp
+    #       namespace: core-api
+    #       port: 8001
+    # ── 兜底：UI ──────────────────────────────────────────────────────────
+    - match: Host(`flowmind.xrak.top`)
+      kind: Rule
+      services:
+        - name: flowmind
+          port: 80
+  tls:
+    secretName: xrak-wildcard-tls        # ⚠ 一级子域专用（坑#21）

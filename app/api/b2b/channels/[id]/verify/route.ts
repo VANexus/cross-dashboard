@@ -1,11 +1,11 @@
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, badRequest, methodNotAllowed } from "@/lib/api-response";
-import { ContentMCPClient } from "@/lib/content/mcp-client";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, badRequest, methodNotAllowed } from "@/lib/server/api-response";
+import { ContentMCPClient } from "@/lib/mcp/client";
 import {
   decryptAccountSession, getChannelAccount, updateChannelAccount,
-} from "@/lib/repositories/channel-accounts.repository";
-import type { ChannelAccountStatus } from "@/lib/types";
+} from "@/lib/server/repositories/channel-accounts.repository";
+import type { ChannelAccountStatus } from "@/lib/shared/types";
 
 /**
  * 会话探活：解密该账号会话 → MCP b2b_channel_verify 只读探活 → 回写 status / last_checked_at。

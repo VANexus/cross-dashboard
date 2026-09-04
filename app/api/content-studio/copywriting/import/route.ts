@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
-import { withDb } from "@/lib/api-helpers";
-import { success, badRequest, methodNotAllowed } from "@/lib/api-response";
-import { insertDraft, getDraft } from "@/lib/repositories/content.repository";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, badRequest, methodNotAllowed } from "@/lib/server/api-response";
+import { insertDraft, getDraft } from "@/lib/server/repositories/content.repository";
 import { isPlatform } from "@/lib/content/platforms";
 
 const importDraftSchema = z.object({

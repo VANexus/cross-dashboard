@@ -1,24 +1,60 @@
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, error, methodNotAllowed, badRequest } from "@/lib/api-response";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, error, methodNotAllowed, badRequest } from "@/lib/server/api-response";
+import { s3Config } from "@/lib/cluster";
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  HeadBucketCommand,
+  CreateBucketCommand,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const SUPABASE_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://xbdznkpdtlysvbcoptyw.supabase.co";
+/**
+ * 图片上传 → MinIO（集群 S3，P1 数据层）。
+ * 凭据/端点经 lib/cluster 目录（S3_ACCESS_KEY/S3_SECRET_KEY/S3_ENDPOINT）；
+ * 返回 7 天预签名 URL（dev 与集群同源可用，不依赖桶公开策略）。
+ */
 
-// Prefer service role if present — upload large files — but withDb req doesn't need db just storage
-import { createClient } from "@supabase/supabase-js";
-
-function storageClient() {
-  const key = SERVICE_ROLE_KEY!;
-  return createClient(SUPABASE_URL, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-}
-
-const BUCKET = "image-skills";
 const MAX_BYTES = 20 * 1024 * 1024;
 const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/avif", "image/gif"];
+
+let _client: S3Client | null = null;
+let _bucketReady: Promise<string> | null = null;
+
+function client(): S3Client {
+  if (!_client) {
+    const c = s3Config();
+    if (!c.accessKey || !c.secretKey) {
+      throw new Error("MinIO 凭据缺失：设置 S3_ACCESS_KEY / S3_SECRET_KEY（集群由 Secret 注入）");
+    }
+    _client = new S3Client({
+      endpoint: c.endpoint,
+      region: "us-east-1",
+      forcePathStyle: c.forcePathStyle,
+      credentials: { accessKeyId: c.accessKey, secretAccessKey: c.secretKey },
+    });
+  }
+  return _client;
+}
+
+/** 确保桶存在（幂等），返回桶名 */
+function ensureBucket(): Promise<string> {
+  if (!_bucketReady) {
+    _bucketReady = (async () => {
+      const c = s3Config();
+      const s3 = client();
+      try {
+        await s3.send(new HeadBucketCommand({ Bucket: c.bucket }));
+      } catch {
+        await s3.send(new CreateBucketCommand({ Bucket: c.bucket }));
+      }
+      return c.bucket;
+    })();
+  }
+  return _bucketReady;
+}
 
 export const POST = withDb(async (request: NextRequest) => {
   const contentType = request.headers.get("content-type") ?? "";
@@ -37,32 +73,31 @@ export const POST = withDb(async (request: NextRequest) => {
   const now = new Date();
   const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
   const rand = Math.random().toString(36).slice(2, 10);
-  const path = `uploads/${stamp}/${rand}.${safeExt}`;
+  const key = `image-skills/uploads/${stamp}/${rand}.${safeExt}`;
 
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const sb = storageClient();
 
-  const { data: uploadData, error: uploadErr } = await sb.storage
-    .from(BUCKET)
-    .upload(path, bytes, {
-      contentType: file.type,
-      cacheControl: "public, max-age=31536000, immutable",
-      upsert: false,
-    });
-
-  if (uploadErr || !uploadData) {
-    return error(`上传失败：${uploadErr?.message ?? "未知错误"}`, 502);
+  try {
+    const bucket = await ensureBucket();
+    const s3 = client();
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: bytes,
+        ContentType: file.type,
+        CacheControl: "public, max-age=31536000, immutable",
+      }),
+    );
+    const url = await getSignedUrl(
+      s3,
+      new GetObjectCommand({ Bucket: bucket, Key: key }),
+      { expiresIn: 7 * 24 * 3600 },
+    );
+    return success({ path: key, url, size: file.size, type: file.type });
+  } catch (e) {
+    return error(`上传失败：${e instanceof Error ? e.message : String(e)}`, 502);
   }
-
-  // Get public URL
-  const { data: pub } = sb.storage.from(BUCKET).getPublicUrl(path);
-
-  return success({
-    path: uploadData.path ?? path,
-    url: pub.publicUrl,
-    size: file.size,
-    type: file.type,
-  });
 });
 
 export { methodNotAllowed as GET };

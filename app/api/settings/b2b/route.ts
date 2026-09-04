@@ -1,20 +1,22 @@
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, badRequest, methodNotAllowed, CONFIG_CACHE_HEADERS } from "@/lib/api-response";
-import { B2BSettingsService } from "@/lib/services";
-import type { B2BSettings } from "@/lib/types";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, badRequest, methodNotAllowed, CONFIG_CACHE_HEADERS } from "@/lib/server/api-response";
+import { B2BSettingsService } from "@/lib/server/services";
+import type { B2BSettings } from "@/lib/shared/types";
 
 const service = new B2BSettingsService();
 
+/**
+ * 服务化（2026-09-03）：白名单只含业务凭证。
+ * 曾接受的 flowmindMcpUrl / longcatApiKey / allinApiKey 已退役——
+ * 端点走集群服务目录、凭据走 Secret，提交这些键返回 400 引导。
+ */
 const ALLOWED_KEYS: Array<keyof B2BSettings> = [
-  "flowmindMcpUrl",
   "tiktokSessionCookie",
   "instagramSessionCookie",
   "alibabaAppKey",
   "alibabaAppSecret",
   "alibabaSession",
-  "longcatApiKey",
-  "allinApiKey",
   "feishuWebhookUrl",
   "wecomWebhookUrl",
   "b2bPushFeishuEnabled",

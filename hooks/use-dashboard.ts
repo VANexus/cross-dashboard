@@ -1,7 +1,7 @@
 "use client";
 
 import { useFetch } from "./use-fetch";
-import type { DashboardStats, BusinessMetrics, WorkflowStatus, Alert } from "@/lib/types";
+import type { DashboardStats, BusinessMetrics, WorkflowStatus, Alert } from "@/lib/shared/types";
 
 interface DashboardData {
   stats: DashboardStats;

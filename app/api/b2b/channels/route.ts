@@ -1,11 +1,11 @@
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, badRequest, methodNotAllowed } from "@/lib/api-response";
-import { parseBody, b2bChannelCreateSchema } from "@/lib/api-validation";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, badRequest, methodNotAllowed } from "@/lib/server/api-response";
+import { parseBody, b2bChannelCreateSchema } from "@/lib/server/api-validation";
 import {
   insertChannelAccount, listChannelAccounts,
-} from "@/lib/repositories/channel-accounts.repository";
-import { encryptSecret } from "@/lib/vault";
+} from "@/lib/server/repositories/channel-accounts.repository";
+import { encryptSecret } from "@/lib/server/vault";
 
 /**
  * 渠道账号保险库（M2）列表与创建。

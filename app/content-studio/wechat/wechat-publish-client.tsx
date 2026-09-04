@@ -28,7 +28,7 @@ import {
 import type {
   CopyDraft, WechatAccount, WechatAccountTestResult, WechatChannel,
   WechatPublishJob, WechatPublishSubmitResult, WechatTypesetTheme,
-} from "@/lib/types";
+} from "@/lib/shared/types";
 import { cn } from "@/lib/utils";
 import { useAgentPage } from "@/lib/agent/page-context";
 import { JourneyBar } from "@/components/journey/journey-bar";
@@ -62,8 +62,8 @@ function PhonePreview({ html, title }: { html: string; title: string }) {
         </div>
         <div className="flex items-center gap-2 border-b px-3 py-2">
           <div className="h-7 w-7 rounded-full bg-brand-wechat/10" />
-          <div className="flex-1 truncate text-xs font-medium text-gray-800">{title || "未命名"}</div>
-          <span className="text-tiny text-gray-400">···</span>
+          <div className="flex-1 truncate text-xs font-medium text-black/80">{title || "未命名"}</div>
+          <span className="text-tiny text-black/40">···</span>
         </div>
         <iframe
           title="公众号正文预览"

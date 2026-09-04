@@ -14,8 +14,8 @@
 import { NextRequest } from 'next/server';
 import type { WorkflowStreamEvent } from '@mastra/core/workflows';
 import { getKernel } from '@/src/kernel';
-import type { WorkflowId } from '@/lib/mastra';
-import { publish, WORKFLOW_TOPIC } from '@/lib/mastra/event-bus';
+import type { WorkflowId } from '@/lib/server/mastra';
+import { publish, WORKFLOW_TOPIC } from '@/lib/server/mastra/event-bus';
 import { encodeEvent, type AgentEvent } from '@/lib/agent/contracts';
 
 // 长流程(趋势 MCP 拉取/生图)放宽执行时限

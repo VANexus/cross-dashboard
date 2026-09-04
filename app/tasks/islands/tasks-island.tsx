@@ -1,7 +1,7 @@
 import { TasksClient } from "../tasks-client";
-import { TaskService, AgentService } from "@/lib/services";
-import { getDbAsync } from "@/lib/db";
-import type { Task, Agent } from "@/lib/types";
+import { TaskService, AgentService } from "@/lib/server/services";
+import { getDbAsync } from "@/lib/server/db";
+import type { Task, Agent } from "@/lib/shared/types";
 
 export async function TasksIsland() {
   await getDbAsync();

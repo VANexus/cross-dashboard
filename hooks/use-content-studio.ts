@@ -4,7 +4,7 @@ import { useFetch, apiPost, apiPatch, apiDelete } from "./use-fetch";
 import type {
   AuditResult, ContentIdea, ContentImageResult, ContentPlatform,
   ContentPlatformMeta, ContentWorks, CopyDraft, HotTopicsResult,
-} from "@/lib/types";
+} from "@/lib/shared/types";
 import type { HotEngineResult, HotBoardType } from "@/lib/content/hot-engine";
 
 export function usePlatforms() {

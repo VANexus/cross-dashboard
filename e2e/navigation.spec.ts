@@ -18,13 +18,13 @@ const navItems = [
 test.describe("Navigation", () => {
   test("should have sidebar with FlowMind branding", async ({ page }) => {
     await page.goto("/dashboard");
-    await expect(page.locator("text=FlowMind")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("text=FlowMind").first()).toBeVisible({ timeout: 10000 });
   });
 
   for (const item of navItems) {
     test(`should navigate to ${item.label} via sidebar`, async ({ page }) => {
       await page.goto("/dashboard");
-      await expect(page.locator("text=FlowMind")).toBeVisible({ timeout: 10000 });
+      await expect(page.locator("text=FlowMind").first()).toBeVisible({ timeout: 10000 });
       const link = page.locator(`a[href='${item.route}']`).first();
       if (await link.isVisible()) {
         await link.click();

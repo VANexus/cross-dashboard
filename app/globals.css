@@ -112,6 +112,23 @@
   /* ── Token v3 · 语义渐变（审计卡等柔色背景）── */
   --gradient-success: linear-gradient(160deg, #cfe8d8, #7fbfa5);
   --gradient-warning: linear-gradient(160deg, #f4e3c4, #e0a06a);
+
+  /* 鈹€鈹€ Token v4 路 AI 鍛戒护闈㈡澘锛堚寴K锛屽浐瀹氭繁鑹诧紝涓嶉殢涓婚鍒囨崲锛夆攢鈹€ */
+  --palette-veil: oklch(0.1 0.01 260 / 0.55);
+  --palette-bg: oklch(0.2 0.012 260 / 0.92);
+  --palette-fg: oklch(0.95 0.005 90);
+  --palette-muted: oklch(0.68 0.012 260);
+  --palette-border: oklch(0.95 0.01 260 / 0.1);
+  --palette-ai: oklch(0.8 0.12 200);
+  --palette-ai-soft: oklch(0.8 0.12 200 / 0.3);
+  --palette-ai-faint: oklch(0.8 0.12 200 / 0.35);
+  --palette-wf: oklch(0.79 0.16 75);
+  --palette-wf-soft: oklch(0.79 0.16 75 / 0.2);
+  --palette-wf-faint: oklch(0.79 0.16 75 / 0.08);
+  --palette-wf-ink: oklch(0.18 0.02 75);
+  --palette-ok: oklch(0.75 0.15 155);
+  --palette-ok-ink: oklch(0.16 0.01 260);
+  --palette-footer: oklch(0.95 0.01 260 / 0.03);
 }
 
 .dark {
@@ -318,6 +335,10 @@ body {
     max-width: 1200px;
     margin-inline: auto;
     padding: 28px clamp(16px, 3vw, 32px);
+    /* 单屏：容器填满视口剩余高度，内容在自己内部滚动（窗口永不滚动） */
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
   }
 
   /* ── stagger 入场（复用 fade-in-up 动效）── */
@@ -484,14 +505,15 @@ body {
   cursor: default;
 }
 
-/* ── KPI 卡 ── */
+/* ── KPI 网格骨架（仅 skeleton 用，真实卡片已用 Tailwind inline）── */
 .dash-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 18px;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 14px;
 }
+
+/* 旧版 KPI 样式（skeleton / 其他页面兼容） */
 .dash-kpi {
-  padding: 18px 20px 16px;
   position: relative;
   z-index: 0;
 }
@@ -499,6 +521,8 @@ body {
   position: relative;
   z-index: 2;
 }
+
+/* 旧类兼容（其他页面可能还在用） */
 .dash-kpi-top {
   display: flex;
   align-items: center;
@@ -535,53 +559,37 @@ body {
   justify-content: space-between;
   margin-top: 10px;
 }
-.dash-kpi-delta {
-  font-family: var(--font-mono), monospace;
-  font-size: 12px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-.dash-kpi-delta.up {
-  color: var(--success);
-}
-.dash-kpi-delta.down {
-  color: var(--destructive);
-}
-.dash-kpi-delta.warn {
-  color: var(--warning);
-}
-.dash-kpi-delta.muted {
-  color: var(--muted-foreground);
-}
 .dash-kpi-spark {
   height: 34px;
 }
 
 /* ── 面板 ── */
 .dash-panel {
-  padding: 20px 22px;
+  padding: 16px 18px;
 }
 .dash-panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
 }
 .dash-panel-title {
   font-weight: 600;
-  font-size: 15px;
+  font-size: 13.5px;
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
+  letter-spacing: -0.005em;
 }
 .dash-panel-title svg {
-  width: 16px;
-  height: 16px;
-  color: var(--primary);
+  width: 14px;
+  height: 14px;
+  color: var(--muted-foreground);
 }
 .dash-panel-more {
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--muted-foreground);
   display: inline-flex;
   align-items: center;
@@ -593,12 +601,12 @@ body {
 .dash-grid-main {
   display: grid;
   grid-template-columns: 3fr 2fr;
-  gap: 18px;
+  gap: 14px;
 }
 .dash-grid-sub {
   display: grid;
   grid-template-columns: 3fr 2fr;
-  gap: 18px;
+  gap: 14px;
 }
 
 /* ── 工作流行 ── */
@@ -934,6 +942,36 @@ body {
   }
 }
 
+/* ── 拓扑面板：舞台感径向光晕（复杂渐变，保留自定义）── */
+.dash-topology-stage {
+  position: relative;
+  overflow: hidden;
+}
+.dash-topology-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 60%, color-mix(in oklch, var(--primary) 8%, transparent) 0%, transparent 60%),
+    linear-gradient(180deg, color-mix(in oklch, var(--foreground) 1.5%, transparent), transparent 40%);
+  pointer-events: none;
+  z-index: 0;
+}
+.dark .dash-topology-stage::before {
+  background:
+    radial-gradient(ellipse at 50% 60%, color-mix(in oklch, var(--primary) 12%, transparent) 0%, transparent 60%),
+    linear-gradient(180deg, color-mix(in oklch, var(--foreground) 3%, transparent), transparent 40%);
+}
+.dash-topology-stage > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* GSAP 入场钩子 */
+[data-animate="panel"] {
+  will-change: transform, opacity;
+}
+
 /* ── Agent 智体球层 ── */
 .orb-layer {
   position: absolute;
@@ -988,3 +1026,73 @@ body {
     @apply font-sans;
   }
 }
+
+/* ── 单屏指挥台（cockpit）：整页不滚动，各面板在格子内独立滚动 ── */
+.cockpit {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: hidden;
+}
+.cockpit-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1.12fr) minmax(0, 1fr);
+  gap: 14px;
+}
+.cockpit-panel {
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+/* 面板卡片填满格子：头固定、主体内部滚动 */
+.cockpit-panel > .glass,
+.cockpit-panel > .glass-surface {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.cockpit-panel > .glass > :last-child,
+.cockpit-panel > .glass-surface > :last-child {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+/* 两段式格子（上下堆叠两个面板） */
+.cockpit-stack {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.cockpit-stack-item {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.cockpit-stack-item > .glass,
+.cockpit-stack-item > .glass-surface {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.cockpit-stack-item > .glass > :last-child,
+.cockpit-stack-item > .glass-surface > :last-child {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+/* 单屏紧凑：面板头更省高 */
+.cockpit .dash-panel-head { padding-top: 0; padding-bottom: 8px; margin-bottom: 10px; }
+.cockpit-panel .dash-panel-more { display: none; }

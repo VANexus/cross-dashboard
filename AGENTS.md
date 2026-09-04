@@ -8,6 +8,17 @@ cross-dashboard 是 **FlowMind** 的前端与后端一体化项目，基于 Next
 
 ## 关键规则
 
+### ⚠️ 集群零配置纪律（2026-09-03 起，架构真源 `docs/architecture/2026-09-03-cluster-native-service-architecture.md`）
+
+FlowMind 已切换为「集群原生化服务架构」（三次拍板：权威设计 `docs/architecture/2026-09-03-nextjs-fullstack-architecture.md`）：系统 = **前端全栈**（本仓 Next.js 16，**UI 角色/core-ui**，= **BFF × 前端 Agent 内核 × MCP 客户端** 三支柱融合，一镜像三角色 web/worker/cron）＋ **后端 flowmind**（父目录 `rak-flowmind` Python 技能后端 → 集群 `flowmind-mcp`，core-api/仅内网，云密钥唯一持有者）。全自托管于 XRAK 集群。
+
+1. **端点解析唯一入口 = `lib/cluster`**（服务目录）。业务代码禁止再写 `process.env.X ?? "http://…"` 的散装默认值；新增外部依赖 = 目录加一行（cluster svc DNS / dev mesh / env 逃生门三级解析）。
+2. **UI 不允许出现基础设施配置输入框**（MCP 地址、模型/生图 key、DB 连接串等一律零填写，状态只读展示走 `/api/cluster/services`）。设置页只放「业务凭证/登录态」。
+3. **凭据不落库**：api_key/base_url 等属集群 Secret → env 链路，禁止写入 `ai_config`；前端包内禁止出现任何密钥（`NEXT_PUBLIC_*` 白名单只剩端点提示）。
+4. **浏览器只访问同源 `flowmind.xrak.top`**（边缘同源反代；`/api/*` 由本 Next.js 全栈服务自己承载，**没有也不许引入独立后端服务**；`flowmind.api.xrak.top` 只是同一服务的机器流量域；`/backend-mcp` → 内网 flowmind-mcp）；跨域方案被否，勿引入 CORS 配置。
+5. **全栈分层方向（F1 已落地）**：UI 层（components/hooks/stores/lib/kernel/lib/ui）**禁止 import** `lib/server/**`（eslint `no-restricted-imports` 强制）；服务端能力（lib/server：services/db/ai/kernel 编排等）只经 RSC props、`/api/*`、Server Actions 到达 UI；跨边界类型放 `lib/shared`；MCP 协议层在 `lib/mcp`（支柱三）。
+6. 部署/接入/GitOps 操作按 `deploy/README.md` + rak-infra skill 执行，**一切 manifest 走 git（argocd-apps），手改集群会被 selfHeal 反杀**。
+
 ### ⚠️ 这不是你熟悉的 Next.js
 
 本项目使用 Next.js 16.2.6，有破坏性变更。编写代码前**必须**阅读 `node_modules/next/dist/docs/` 中的指南。注意弃用通知。

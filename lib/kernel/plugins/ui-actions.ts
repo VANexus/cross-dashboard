@@ -13,6 +13,7 @@ import { Context, Service } from '../../../src/kernel/vendor/cordis';
 import { usePresence } from '@/stores/agent-presence';
 import { getJourneyById } from '@/lib/journeys/registry';
 import { useJourneyRun } from '@/stores/journey-run';
+import { sendAgentCommand } from '@/lib/agent/agent-bus';
 // 循环导入仅函数体内使用（live binding），模块初始化期不触碰，安全
 import { getClientKernel } from '../index';
 
@@ -288,6 +289,65 @@ export function createGlobalActions(opts: GlobalActionOptions = {}): UIActionDef
         setter?.call(input, value);
         input.dispatchEvent(new Event('input', { bubbles: true }));
         return `已填充 ${selector} = "${value.slice(0, 40)}"`;
+      },
+    },
+    {
+      id: 'panel.morph',
+      description:
+        '变换 Agent 对话面板形态：stage 进入近全宽「舞台」（生成组件/图表最适合）、expanded/compact/drawer 打开右侧对话列，dock/float 收起回灵动岛。可选 width 精确设像素宽，question 存在则同时把问题送进对话。',
+      riskLevel: 'L0',
+      schema: z.object({
+        shape: z.enum(['dock', 'float', 'drawer', 'compact', 'expanded', 'stage']).describe('目标形态'),
+        width: z.number().min(320).max(1200).optional(),
+        question: z.string().optional(),
+      }),
+      execute: (params) => {
+        const shape = String(params.shape ?? 'drawer');
+        const width = typeof params.width === 'number' ? params.width : undefined;
+        const s = usePresence.getState();
+        if (shape === 'dock' || shape === 'float') {
+          s.setDrawerOpen(false);
+          s.setStageOpen(false);
+          return `已收起为${shape === 'dock' ? '灵动岛 Dock' : '悬浮船台 Float'}（右侧对话收起）`;
+        }
+        s.setDrawerOpen(true);
+        s.setStageOpen(shape === 'stage');
+        if (shape !== 'stage') {
+          s.setDrawerWidth(width ?? (shape === 'expanded' ? 748 : shape === 'compact' ? 440 : 540));
+        }
+        const q = typeof params.question === 'string' ? params.question.trim() : '';
+        if (q) {
+          sendAgentCommand(q);
+          return `已${shape === 'stage' ? '进入全画布舞台' : `展开右侧对话面板（${shape}）`}并推送问题：${q.slice(0, 24)}`;
+        }
+        return shape === 'stage' ? '已进入全画布舞台（生成组件以大画布呈现）' : `已展开右侧对话面板（${shape}）`;
+      },
+    },
+    {
+      id: 'panel.expand',
+      description: '进入全画布舞台：对话展开到近全宽，适合展示图表/表格等生成组件与长编排',
+      riskLevel: 'L0',
+      execute: () => {
+        const s = usePresence.getState();
+        s.setDrawerOpen(true);
+        s.setStageOpen(true);
+        return '已进入全画布舞台';
+      },
+    },
+    {
+      id: 'dock.suggest',
+      description: '在底部灵动岛放一条 AI 主动建议（label + prompt），用户点击即作为命令送进对话执行',
+      riskLevel: 'L0',
+      schema: z.object({ label: z.string().min(1), prompt: z.string().min(1) }),
+      execute: (params) => {
+        usePresence
+          .getState()
+          .setDockSuggestion({
+            label: String(params.label),
+            prompt: String(params.prompt),
+            source: 'agent',
+          });
+        return `已在灵动岛放下建议「${String(params.label).slice(0, 20)}」`;
       },
     },
   ];

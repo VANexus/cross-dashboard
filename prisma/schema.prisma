@@ -1,0 +1,710 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model agent_journal {
+  id         String  @id
+  agent_id   String
+  type       String  @default("thought")
+  content    String
+  context    String  @default("{}")
+  mood_at    String?
+  created_at String  @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+  agents     agents  @relation(fields: [agent_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([agent_id, created_at], map: "idx_journal_agent")
+}
+
+model agents {
+  id             String          @id
+  name           String
+  type           String
+  status         String          @default("offline")
+  description    String          @default("")
+  uptime         Float           @default(0) @db.Real
+  task_count     Int             @default(0)
+  success_rate   Float           @default(0) @db.Real
+  last_heartbeat String?
+  reflex_level   Int             @default(0)
+  config         String          @default("{}")
+  created_at     String          @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+  updated_at     String          @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+  agent_journal  agent_journal[]
+  sub_agents     sub_agents[]
+}
+
+model ai_config {
+  key        String @id
+  value      String
+  updated_at String @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model channel_accounts {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  platform        String
+  label           String    @default("")
+  session_enc     String
+  status          String    @default("active")
+  last_checked_at DateTime? @db.Timestamptz(6)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([platform, status, created_at(sort: Desc)], map: "idx_channel_accounts_platform")
+}
+
+model crawl_results {
+  id         String @id
+  store_id   String
+  store_name String @default("")
+  platform   String @default("")
+  url        String @default("")
+  data       String @default("{}")
+  timestamp  String @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+
+  @@index([store_id], map: "idx_crawl_store")
+  @@index([timestamp], map: "idx_crawl_time")
+}
+
+model evolution_records {
+  id             String  @id
+  stage          String
+  title          String
+  description    String  @default("")
+  agent_id       String
+  started_at     String  @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+  completed_at   String?
+  status         String  @default("in_progress")
+  metrics        String?
+  before_metrics String?
+  source         String  @default("manual")
+}
+
+model memory_entries {
+  id         String  @id
+  zone       String
+  title      String
+  content    String
+  type       String
+  version    Int     @default(1)
+  verified   Int     @default(0)
+  tags       String  @default("[]")
+  agent_id   String?
+  created_at String  @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+  updated_at String  @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+
+  @@index([agent_id], map: "idx_memory_agent")
+}
+
+model orchestrator_sessions {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title      String   @default("新会话")
+  messages   Json     @default("[]")
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([updated_at(sort: Desc)], map: "idx_orchestrator_sessions_updated")
+}
+
+model rak_conflicts {
+  id            String  @id
+  task_id       String
+  agents        String  @default("[]")
+  conflict_type String
+  description   String  @default("")
+  resolution    String?
+  resolved_at   String?
+  result        String?
+  created_at    String  @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+
+  @@index([task_id], map: "idx_rak_conflicts_task")
+}
+
+model rak_consensus_log {
+  id          String  @id
+  proposal_id String
+  proposer    String
+  voters      String  @default("[]")
+  status      String  @default("pending")
+  threshold   Float   @default(0.67) @db.Real
+  result      String?
+  created_at  String  @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+  resolved_at String?
+}
+
+model rak_dag_nodes {
+  id             String  @id
+  task_id        String
+  name           String
+  type           String  @default("task")
+  status         String  @default("pending")
+  assigned_agent String?
+  dependencies   String  @default("[]")
+  config         String  @default("{}")
+  result         String?
+  started_at     String?
+  completed_at   String?
+  tasks          tasks   @relation(fields: [task_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([task_id], map: "idx_rak_dag_task")
+}
+
+model rak_messages {
+  id           String  @id
+  from_agent   String
+  to_agent     String
+  type         String
+  protocol     String  @default("rak-v1")
+  payload      String  @default("{}")
+  status       String  @default("pending")
+  created_at   String  @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+  delivered_at String?
+  ttl          Int     @default(30000)
+
+  @@index([status], map: "idx_rak_messages_status")
+  @@index([to_agent], map: "idx_rak_messages_to")
+}
+
+model risk_events {
+  id          String  @id
+  level       String
+  title       String
+  description String  @default("")
+  source      String  @default("")
+  timestamp   String  @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+  resolved    Int     @default(0)
+  resolved_at String?
+  actions     String  @default("[]")
+}
+
+model risk_isolation {
+  id          Int    @id @default(autoincrement())
+  label       String
+  description String @default("")
+  checked     Int    @default(0)
+}
+
+model schema_migrations {
+  id         String   @id
+  applied_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model wf_workflow_runs {
+  id           String  @id
+  workflow_id  String
+  status       String  @default("running")
+  steps        String  @default("[]")
+  summary      String  @default("")
+  created_by   String  @default("agent")
+  started_at   String  @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+  completed_at String?
+
+  @@index([workflow_id, started_at], map: "idx_wf_workflow_runs_wf")
+}
+
+model agent_templates {
+  id          String @id
+  type        String
+  name        String
+  description String @default("")
+  config      String @default("{}")
+  sort        Int    @default(0)
+  created_at  String @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+}
+
+model teams {
+  id              String @id
+  name            String
+  goal            String @default("")
+  leader_agent_id String?
+  created_at      String @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+  updated_at      String @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+
+  @@index([leader_agent_id], map: "idx_teams_leader")
+}
+
+model team_members {
+  team_id   String
+  agent_id  String
+  role      String @default("member")
+  joined_at String @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+
+  @@id([team_id, agent_id])
+  @@index([agent_id], map: "idx_team_members_agent")
+}
+
+model sub_agents {
+  id               String @id
+  parent_id        String
+  name             String
+  status           String @default("offline")
+  spawned_at       String @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+  task_description String @default("")
+  agents           agents @relation(fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([parent_id], map: "idx_sub_agents_parent")
+}
+
+model task_steps {
+  id           String
+  task_id      String
+  name         String
+  status       String  @default("pending")
+  agent_id     String  @default("")
+  sort_order   Int     @default(0)
+  started_at   String?
+  completed_at String?
+  output       String?
+  tasks        tasks   @relation(fields: [task_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([id, task_id])
+  @@index([task_id], map: "idx_task_steps_task")
+}
+
+model tasks {
+  id              String          @id
+  title           String
+  description     String          @default("")
+  status          String          @default("pending")
+  priority        String          @default("medium")
+  assigned_agents String          @default("[]")
+  output          String?
+  created_at      String          @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+  updated_at      String          @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+  completed_at    String?
+  rak_dag_nodes   rak_dag_nodes[]
+  task_steps      task_steps[]
+}
+
+model wf_ad_analyses {
+  id           String @id
+  keyword      String @default("")
+  current_data String @default("{}")
+  result_json  String @default("{}")
+  created_at   String @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+}
+
+model wf_ad_keywords {
+  id          String @id
+  keyword     String
+  impressions Int    @default(0)
+  clicks      Int    @default(0)
+  spend       Float  @default(0) @db.Real
+  sales       Float  @default(0) @db.Real
+  acos        Float  @default(0) @db.Real
+  conversion  Float  @default(0) @db.Real
+  cpc         Float  @default(0) @db.Real
+  tag         String @default("")
+  type        String @default("SP")
+  trend       String @default("[]")
+}
+
+model wf_ad_positions {
+  id       Int    @id @default(autoincrement())
+  position String
+  share    Float  @default(0) @db.Real
+  trend    String @default("[]")
+}
+
+model wf_b2b_listings {
+  id                  String @id
+  product_id          String
+  preference          String @default("alibaba")
+  title               String @default("")
+  description         String @default("")
+  keywords            String @default("[]")
+  image_url           String @default("")
+  image_prompt        String @default("")
+  upload_status       String @default("draft")
+  uploaded_product_id String @default("")
+  created_at          String @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+}
+
+model wf_b2b_products {
+  id         String  @id
+  product_id String
+  subject    String
+  keywords   String  @default("[]")
+  image_url  String  @default("")
+  price      String  @default("")
+  status     String  @default("onSelling")
+  fetched_at String?
+  created_at String  @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+}
+
+model wf_bullet_points {
+  id        String @id
+  title     String
+  content   String @default("")
+  seo_score Int    @default(0)
+  rufus     Int    @default(0)
+}
+
+model wf_categories {
+  id         String @id
+  name       String
+  confidence Float  @default(0) @db.Real
+  reason     String @default("")
+  bsr        Int    @default(0)
+  fee        Float  @default(0) @db.Real
+}
+
+model wf_competitor_keywords {
+  id          Int    @id @default(autoincrement())
+  keyword     String
+  volume      Int    @default(0)
+  competition Float  @default(0) @db.Real
+  cpc         Float  @default(0) @db.Real
+  trend       String @default("[]")
+  type        String @default("core")
+}
+
+model wf_competitors {
+  id       String @id
+  name     String
+  sp_count Int    @default(0)
+  sb_count Int    @default(0)
+  sd_count Int    @default(0)
+  keywords Int    @default(0)
+  rank     Int    @default(0)
+  strategy String @default("complementary")
+}
+
+model wf_content_drafts {
+  id           String @id
+  platform     String
+  title        String @default("")
+  body         String @default("")
+  tags         String @default("[]")
+  status       String @default("draft")
+  audit_passed Int    @default(0)
+  audit_result String @default("{}")
+  image_count  Int    @default(0)
+  created_at   String @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+  updated_at   String @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+
+  @@index([platform], map: "idx_content_drafts_platform")
+}
+
+model wf_content_hot_topics {
+  id         String  @id
+  platform   String
+  word       String
+  heat       Int     @default(0)
+  delta      Int?
+  url        String  @default("")
+  source     String  @default("")
+  fetched_at String?
+  created_at String  @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+
+  @@index([platform, fetched_at], map: "idx_content_hot_platform")
+}
+
+model wf_content_ideas {
+  id         String @id
+  platform   String
+  angle      String @default("")
+  title      String
+  subject    String @default("")
+  created_at String @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+
+  @@index([platform], map: "idx_content_ideas_platform")
+}
+
+model wf_content_rules {
+  id         String @id
+  platform   String @default("*")
+  category   String @default("advert")
+  severity   String @default("warning")
+  pattern    String @default("")
+  label      String @default("")
+  suggestion String @default("")
+  enabled    Int    @default(1)
+  created_at String @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+
+  @@index([platform], map: "idx_content_rules_platform")
+}
+
+model wf_data_sources {
+  id       String @id
+  name     String
+  enabled  Int    @default(1)
+  status   String @default("pending")
+  progress Int    @default(0)
+}
+
+model wf_generated_competitor_analysis {
+  id          String @id
+  asins       String @default("[]")
+  marketplace String @default("US")
+  keywords    String @default("[]")
+  result_json String @default("{}")
+  created_at  String @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+}
+
+model wf_generated_images {
+  id             String  @id
+  type           String
+  url            String  @default("")
+  platform       String  @default("")
+  draft_id       String  @default("")
+  clip_score     Float   @default(0) @db.Real
+  ctr_score      Float   @default(0) @db.Real
+  overall        Float   @default(0) @db.Real
+  is_best        Int     @default(0)
+  prompt         String  @default("")
+  model          String  @default("")
+  seed           Int     @default(0)
+  revised_prompt String?
+  created_at     String  @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+}
+
+model wf_generated_listings {
+  id            String @id
+  keyword       String @default("")
+  category      String @default("")
+  language      String @default("en")
+  title         String @default("")
+  bullets       String @default("[]")
+  description   String @default("")
+  search_terms  String @default("[]")
+  seo_score     Int    @default(0)
+  estimated_ctr String @default("")
+  result_json   String @default("{}")
+  created_at    String @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+}
+
+model wf_generated_research {
+  id          String @id
+  marketplace String @default("US")
+  category    String @default("")
+  keywords    String @default("[]")
+  sources     String @default("[]")
+  result_json String @default("{}")
+  created_at  String @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model wf_image_skills {
+  id              String   @id
+  name            String
+  cover_url       String   @default("")
+  reversed_prompt String   @default("")
+  style_tags      String   @default("[]")
+  aspect_ratio    String   @default("1:1")
+  platform        String   @default("generic")
+  usage_count     Int      @default(0)
+  created_at      String   @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+  updated_at      String   @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+  is_builtin      Boolean? @default(false)
+  template_type   String?  @default("")
+}
+
+model wf_infringement_words {
+  id     Int    @id @default(autoincrement())
+  word   String
+  type   String
+  risk   String @default("")
+  action String @default("")
+}
+
+model wf_inventory {
+  id            String  @id
+  sku           String  @unique
+  name          String
+  stock         Int     @default(0)
+  daily_sales   Float   @default(0) @db.Real
+  ratio_days    Float   @default(0) @db.Real
+  stockout_date String?
+  restock_qty   Int     @default(0)
+  restock_date  String?
+  status        String  @default("normal")
+  trend         String  @default("[]")
+  avg_cost      Float   @default(0) @db.Real
+  ship_days     Int     @default(0)
+}
+
+model wf_keyword_trends {
+  id          String  @id
+  platform    String
+  industry_id String  @default("")
+  word        String
+  heat        Int     @default(0)
+  delta       Int?
+  rank        Int     @default(0)
+  industry    String  @default("通用")
+  source      String  @default("")
+  fetched_at  String?
+  created_at  String  @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+
+  @@index([platform, fetched_at], map: "idx_keyword_trends_platform")
+}
+
+model wf_localize_tasks {
+  id               String  @id
+  batch_id         String  @default("")
+  video_path       String
+  target_lang      String  @default("en")
+  source_lang      String  @default("zh")
+  enable_tts       Int     @default(1)
+  remove_subtitles Int     @default(1)
+  status           String  @default("queued")
+  outputs          String  @default("{}")
+  error            String?
+  created_at       String?
+  started_at       String?
+  finished_at      String?
+  updated_at       String  @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+
+  @@index([batch_id], map: "idx_localize_batch")
+}
+
+model wf_longtail_keywords {
+  id            String @id
+  industry      String
+  word          String
+  category      String @default("")
+  search_intent String @default("")
+  created_at    String @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+
+  @@index([industry], map: "idx_longtail_industry")
+}
+
+model wf_page_specs {
+  id           String   @id
+  title        String
+  spec         Json
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime @default(now()) @db.Timestamptz(6)
+  workspace_id String   @default("default-workspace")
+  created_by   String   @default("self")
+
+  @@index([updated_at(sort: Desc)], map: "idx_wf_page_specs_updated")
+  @@index([workspace_id, updated_at(sort: Desc)], map: "idx_wf_page_specs_ws")
+}
+
+model wf_pain_points {
+  id       Int    @id @default(autoincrement())
+  category String
+  count    Int    @default(0)
+  pct      Float  @default(0) @db.Real
+  examples String @default("[]")
+}
+
+model wf_product_keywords {
+  id            Int    @id @default(autoincrement())
+  keyword       String
+  volume        Int    @default(0)
+  cpc           Float  @default(0) @db.Real
+  competition   Float  @default(0) @db.Real
+  supply_demand Float  @default(0) @db.Real
+  trend         String @default("[]")
+  ai_tag        String @default("potential")
+  marketplace   String @default("US")
+}
+
+model wf_restock_orders {
+  id          String @id
+  items       String @default("[]")
+  status      String @default("created")
+  total_items Int    @default(0)
+  created_at  String @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+}
+
+model wf_storyboard_frames {
+  id          String @id
+  description String
+  duration    String
+  script      String @default("")
+  camera      String @default("")
+  source      String @default("")
+  sort_order  Int    @default(0)
+}
+
+model wf_trend_snapshots {
+  id            String   @id
+  platform      String
+  word          String
+  heat          BigInt   @default(0)
+  delta         BigInt?
+  rank          Int      @default(0)
+  industry      String   @default("通用")
+  source        String   @default("")
+  snapshot_date DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([platform, snapshot_date, word], map: "uq_trend_snapshot_word")
+  @@index([platform, snapshot_date(sort: Desc), rank], map: "idx_trend_snapshot_date")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model wf_wechat_accounts {
+  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  label                  String                   @default("")
+  app_id_enc             String
+  app_secret_enc         String
+  is_default             Boolean                  @default(false)
+  status                 String                   @default("active")
+  last_checked_at        DateTime?                @db.Timestamptz(6)
+  created_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  wf_wechat_publish_jobs wf_wechat_publish_jobs[]
+
+  @@index([status, created_at(sort: Desc)], map: "idx_wf_wechat_accounts_status")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model wf_wechat_publish_jobs {
+  id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id         String?             @db.Uuid
+  title              String              @default("")
+  summary            String              @default("")
+  author             String              @default("")
+  body_html          String              @default("")
+  thumb_url          String              @default("")
+  channel            String              @default("publish")
+  theme              String              @default("default")
+  publish_time       BigInt?
+  status             String              @default("drafting")
+  step               String              @default("select")
+  media_id           String              @default("")
+  publish_id         String?
+  msg_id             String?
+  article_url        String?
+  warning            String              @default("")
+  steps_json         String              @default("[]")
+  created_at         DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime            @default(now()) @db.Timestamptz(6)
+  wf_wechat_accounts wf_wechat_accounts? @relation(fields: [account_id], references: [id], onUpdate: NoAction)
+
+  @@index([account_id, created_at(sort: Desc)], map: "idx_wf_wechat_publish_jobs_account")
+  @@index([status, created_at(sort: Desc)], map: "idx_wf_wechat_publish_jobs_status")
+}
+
+model wf_workflow_specs {
+  id           String   @id
+  title        String
+  goal         String
+  spec         Json
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime @default(now()) @db.Timestamptz(6)
+  workspace_id String   @default("default-workspace")
+  created_by   String   @default("self")
+
+  @@index([updated_at(sort: Desc)], map: "idx_wf_workflow_specs_updated")
+  @@index([workspace_id, updated_at(sort: Desc)], map: "idx_wf_workflow_specs_ws")
+}
+
+model wf_workflow_statuses {
+  id           String  @id
+  name         String
+  href         String  @default("")
+  status       String  @default("idle")
+  last_run     String?
+  run_count    Int     @default(0)
+  success_rate Float   @default(0) @db.Real
+  updated_at   String  @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import type { AgentEvent } from "@/lib/types";
+import type { AgentEvent } from "@/lib/shared/types";
 
 interface AgentStreamState {
   events: AgentEvent[];

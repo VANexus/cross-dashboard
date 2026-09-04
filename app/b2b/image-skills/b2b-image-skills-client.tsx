@@ -17,7 +17,7 @@ import type { UIActionDef } from "@/lib/agent/ui-actions";
 import {
   reversePrompt, createImageSkill, generateWithSkill, useImageSkills,
 } from "@/hooks/use-b2b";
-import type { ImageSkill, ReversePromptResult } from "@/lib/types";
+import type { ImageSkill, ReversePromptResult } from "@/lib/shared/types";
 
 export function B2BImageSkillsClient({ initialSkills }: { initialSkills: ImageSkill[] }) {
   const [coverUrl, setCoverUrl] = useState("");

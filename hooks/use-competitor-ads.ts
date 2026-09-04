@@ -1,7 +1,7 @@
 "use client";
 
 import { useFetch, apiPost } from "./use-fetch";
-import type { KeywordItem, CompetitorEntry, AdPosition } from "@/lib/types";
+import type { KeywordItem, CompetitorEntry, AdPosition } from "@/lib/shared/types";
 
 export function useCompetitorKeywords(type?: string) {
   const qs = type ? `?type=${type}` : "";

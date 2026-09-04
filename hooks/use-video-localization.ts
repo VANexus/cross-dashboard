@@ -1,7 +1,7 @@
 "use client";
 
 import { useFetch, apiPost, apiDelete } from "./use-fetch";
-import type { LocalizeTask, LocalizeHealth, LocalizeBatchReport } from "@/lib/types";
+import type { LocalizeTask, LocalizeHealth, LocalizeBatchReport } from "@/lib/shared/types";
 
 export function useLocalizeHealth() {
   return useFetch<LocalizeHealth>("/api/workflows/video-localization/health");

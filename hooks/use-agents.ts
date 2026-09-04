@@ -1,7 +1,7 @@
 "use client";
 
 import { useFetch, apiGet } from "./use-fetch";
-import type { Agent, SubAgent } from "@/lib/types";
+import type { Agent, SubAgent } from "@/lib/shared/types";
 
 export function useAgents(filters?: { status?: string; type?: string }) {
   const params = new URLSearchParams();

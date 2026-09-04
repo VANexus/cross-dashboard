@@ -17,12 +17,17 @@ declare module '../../../src/kernel/vendor/cordis/context' {
   }
 }
 
+/** 渲染上下文：向 Agent 回传交互结果（如 question 组件把答案送回对话流）。 */
+export interface ComponentRenderCtx {
+  onInteract?: (answer: unknown) => void;
+}
+
 /** 白名单动态组件注册信息。render 假定 props 已通过 propsSchema 校验。 */
 export interface ComponentDef {
   id: string;
   description: string;
   propsSchema: z.ZodType;
-  render: (props: Record<string, unknown>) => ReactNode;
+  render: (props: Record<string, unknown>, ctx?: ComponentRenderCtx) => ReactNode;
 }
 
 export class ComponentKitService extends Service {

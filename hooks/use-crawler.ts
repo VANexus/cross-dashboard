@@ -1,7 +1,7 @@
 "use client";
 
 import { useFetch, apiPost } from "./use-fetch";
-import type { CrawlResult } from "@/lib/services/crawler.service";
+import type { CrawlResult } from "@/lib/shared/crawler";
 
 export interface StoreStatus {
   available: boolean;

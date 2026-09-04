@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Radio, Brain, GitBranch, Eye, Lightbulb, Zap } from "lucide-react";
-import type { AgentEvent } from "@/lib/types";
+import type { AgentEvent } from "@/lib/shared/types";
 
 interface AgentActivityFeedProps {
   events: AgentEvent[];

@@ -1,0 +1,22 @@
+# ArgoCD Application（放 argocd-apps 仓库 argocd/apps/flowmind.yaml）
+# ⚠ source.path 必须是目录（单文件不支持）；automated+selfHeal——手改集群=漂移反杀
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: flowmind
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: core-ui
+  source:
+    repoURL: https://gitlab.app.xrak.top/xrak/argocd-apps.git
+    targetRevision: main
+    path: apps/flowmind          # ← deploy/gitops/flowmind/ 五件套的落点
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: core-ui
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

@@ -1,7 +1,7 @@
 "use client";
 
 import { useFetch, apiPatch, apiPost } from "./use-fetch";
-import type { GeneratedImg, StoryboardFrame } from "@/lib/types";
+import type { GeneratedImg, StoryboardFrame } from "@/lib/shared/types";
 
 export function useImages(type?: string) {
   const qs = type ? `?type=${type}` : "";

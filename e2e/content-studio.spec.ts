@@ -6,7 +6,7 @@ test.describe("Content Studio", () => {
     await expect(
       page.locator("text=内容创作中心").first()
     ).toBeVisible({ timeout: 15000 });
-    // 4 步 stepper（洞察 → 创作 → 审计配图 → 发布）+ 热点雷达在洞察第一屏
+    // 4 步 stepper（洞察 → 创作 → 审计配图 → 发布）+ 热榜引擎在洞察第一屏
     await expect(
       page.locator("text=洞察趋势").first()
     ).toBeVisible({ timeout: 15000 });
@@ -14,7 +14,7 @@ test.describe("Content Studio", () => {
       page.locator("text=选题创作").first()
     ).toBeVisible({ timeout: 15000 });
     await expect(
-      page.locator("text=热点雷达").first()
+      page.locator("text=热榜引擎").first()
     ).toBeVisible({ timeout: 15000 });
   });
 
@@ -28,9 +28,9 @@ test.describe("Content Studio", () => {
 
   test("hot topics radar renders empty state without mock data", async ({ page }) => {
     await page.goto("/content-studio");
-    // 热点雷达区块可见；无 seed 演示词
+    // 热榜引擎区块可见；无 seed 演示词
     await expect(
-      page.locator("text=热点雷达").first()
+      page.locator("text=热榜引擎").first()
     ).toBeVisible({ timeout: 15000 });
     await expect(page.locator("text=通勤好物")).toHaveCount(0);
   });

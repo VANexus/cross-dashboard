@@ -1,11 +1,6 @@
 import { DashboardWorkflows } from "../dashboard-workflows";
-import { getDashboardDataShared } from "@/lib/services/dashboard.service";
-import { getDbAsync } from "@/lib/db";
-import type { WorkflowStatus } from "@/lib/types";
 
+/** Agent 动态工作流：只展示对话中 plan_workflow 规划的 SOP + run_workflow 真实运行记录（无预设）。 */
 export async function WorkflowsIsland() {
-  await getDbAsync();
-  const dashboard = await getDashboardDataShared();
-  const workflows: WorkflowStatus[] = dashboard.workflows ?? [];
-  return <DashboardWorkflows workflows={workflows} />;
+  return <DashboardWorkflows />;
 }

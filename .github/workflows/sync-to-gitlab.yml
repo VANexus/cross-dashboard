@@ -1,0 +1,18 @@
+name: sync-to-gitlab
+on:
+  push:
+    branches: [main]        # stable 分支；开发分支不触发
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: push to GitLab
+        run: |
+          git remote add gitlab "$GITLAB_URL/$GITLAB_PROJECT.git" || true
+          git push gitlab HEAD:main --force
+        env:
+          # GITLAB_URL 形如 https://root:<glpat-token>@gitlab.app.xrak.top（用户 PAT，纪律#1）
+          GITLAB_URL: ${{ secrets.GITLAB_URL }}
+          GITLAB_PROJECT: ${{ secrets.GITLAB_PROJECT }}   # core-ui/flowmind-ui

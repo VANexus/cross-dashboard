@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, notFound, badRequest } from "@/lib/api-response";
-import { parseBody, updateDraftSchema } from "@/lib/api-validation";
-import { ContentService } from "@/lib/services";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, notFound, badRequest } from "@/lib/server/api-response";
+import { parseBody, updateDraftSchema } from "@/lib/server/api-validation";
+import { ContentService } from "@/lib/server/services";
 
 const service = new ContentService();
 

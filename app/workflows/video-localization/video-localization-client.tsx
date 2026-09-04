@@ -18,7 +18,7 @@ import {
   cancelLocalizeTask,
   retryLocalizeTask,
 } from "@/hooks/use-video-localization";
-import type { LocalizeTask, LocalizeHealth, LocalizeBatchReport } from "@/lib/types";
+import type { LocalizeTask, LocalizeHealth, LocalizeBatchReport } from "@/lib/shared/types";
 import {
   Clapperboard,
   RefreshCw,

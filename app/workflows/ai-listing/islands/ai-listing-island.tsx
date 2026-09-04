@@ -1,7 +1,7 @@
 import { AiListingClient } from "../ai-listing-client";
-import { WorkflowService } from "@/lib/services";
-import { getDbAsync } from "@/lib/db";
-import { getRecentListingResults } from "@/lib/repositories/workflow.repository";
+import { WorkflowService } from "@/lib/server/services";
+import { getDbAsync } from "@/lib/server/db";
+import { getRecentListingResults } from "@/lib/server/repositories/workflow.repository";
 
 export async function AiListingIsland() {
   await getDbAsync();

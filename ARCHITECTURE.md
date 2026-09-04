@@ -11,6 +11,13 @@
 > - **`lib/rak/*` 为 0-import 死代码**，不参与运行时，仅作历史参考，勿据此新增代码，计划后续归档。
 > - 产品方向与 P0 落地清单见 `PRODUCT-PLAN.md`（楔子=TikTok Shop+阿里国际站铺货；终局 SaaS、当前自用；L0/L1/L2 人在环中）。
 
+> **⚠️ 现状纠偏（2026-09-03，优先级最高，取代上一块中与端点/数据层/部署相关的表述）**：架构升级为**集群原生化服务架构**（真源 `docs/architecture/2026-09-03-cluster-native-service-architecture.md`）：
+> - **拓扑（三次拍板 2026-09-03，权威 = `docs/architecture/2026-09-03-nextjs-fullstack-architecture.md`）**：系统 = 两个服务——**前端全栈 flowmind**（本仓，Next.js 16，**UI 角色/core-ui**，内部 = **BFF × 前端 Agent 内核 × MCP 客户端** 三支柱融合；一镜像三角色 `FLOWMIND_ROLE=web|worker|cron`；域名 `flowmind.xrak.top` 人 + `flowmind.api.xrak.top` 机器流量，同一服务双域名）＋ **后端 flowmind**（父目录 `rak-flowmind` → 集群 `flowmind-mcp`，core-api/仅内网，重技能 + 云密钥唯一持有者）。前端零密钥、只认 MCP 契约；浏览器边缘同源，无 CORS。
+> - **零配置底座（P0 已落地）**：`lib/cluster` 服务目录统一解析 MCP/PG/Redis/MinIO/LiteLLM/SearX/OTel 端点（env 覆盖 > 运行形态检测 > 内置默认）；设置页的 MCP 地址、LongCat/AllIn key、CDP 输入框**已退役**，凭据走 K8s Secret，不落库不进 UI。
+> - **数据层目标（P1）**：Supabase 云**全面退役、不留兼容层**——直连集群 PG（pg-main，postgres.js），`supabase/migrations` 转普通 DDL；上文中「数据库=Supabase」的表述自此仅为过渡期现状。
+> - **AI 层（P0 已接默认）**：模型/生图统一走集群 LiteLLM 网关（`LITELLM_MASTER_KEY`），`ai_config` 只留业务偏好键；provider 凭据 env 优先于 KV。
+> - 部署脚手架：根 `Dockerfile`（standalone）+ `.gitlab-ci.yml` + `deploy/gitops/flowmind-ui/` 五件套 + `deploy/README.md` 接入手册；集群纪律见 rak-infra skill。
+
 ## 1. 系统概览（上一代 RAK 视图，仅历史参考）
 
 ```

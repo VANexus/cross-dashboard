@@ -1,20 +1,21 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("B端运营工作台", () => {
-  test("侧边栏按 workspace registry 分组展示 B 端入口", async ({ page }) => {
+  test("侧边栏能力组件库收纳 B 端入口（AI-Native 精简导航）", async ({ page }) => {
     await page.goto("/dashboard");
-    // 新 IA：市场洞察 / 上架运营 空间分组（registry 派生）
-    await expect(page.locator("text=市场洞察").first()).toBeVisible({ timeout: 15000 });
-    await expect(page.locator("text=上架运营").first()).toBeVisible({ timeout: 15000 });
-    await expect(page.locator("a[href='/b2b/keyword-trends']").first()).toBeVisible();
+    // AI-Native 精简后：B 端原子能力收纳进「能力组件库」（默认折叠），由 Agent 组装
+    await expect(page.locator("text=能力组件库").first()).toBeVisible({ timeout: 15000 });
+    // 点击展开能力组件库
+    await page.locator("button:has-text('能力组件库')").first().click();
+    await expect(page.locator("a[href='/b2b/keyword-trends']").first()).toBeVisible({ timeout: 5000 });
     await expect(page.locator("a[href='/b2b/listing']").first()).toBeVisible();
     await expect(page.locator("a[href='/b2b/image-skills']").first()).toBeVisible();
-    await expect(page.locator("a[href='/b2b/channels']").first()).toBeVisible();
+    // 渠道账号已迁入设置页，能力库不再展示 /b2b/channels
+    await expect(page.locator("a[href='/b2b/channels']").first()).toHaveCount(0);
   });
 
-  test("渠道账号页加载并展示 TikHub 数据源说明与粘贴导入", async ({ page }) => {
-    await page.goto("/b2b/channels");
-    await expect(page.locator("text=B端运营工作台").first()).toBeVisible({ timeout: 15000 });
+  test("渠道账号页迁移到设置页并展示 TikHub 数据源说明与粘贴导入", async ({ page }) => {
+    await page.goto("/settings/channels");
     await expect(page.locator("text=数据源：TikHub API（免登录）").first()).toBeVisible({ timeout: 15000 });
     await expect(page.getByRole("button", { name: "粘贴导入" }).first()).toBeVisible();
     await expect(page.locator("text=暂无保存的账号会话").or(page.locator("text=账号保险库")).first()).toBeVisible({ timeout: 15000 });
@@ -24,9 +25,10 @@ test.describe("B端运营工作台", () => {
     await page.goto("/b2b/keyword-trends");
     await expect(page.locator("text=B端运营工作台").first()).toBeVisible({ timeout: 15000 });
     await expect(page.locator("text=行业关键词热力榜").first()).toBeVisible({ timeout: 15000 });
-    // 已有真实缓存数据（榜单行：等宽字体排名徽标）或空态引导（未配置时）均可
+    // 已有真实缓存数据（榜单行：等宽字体排名徽标）或空态引导（未配置时）均可；
+    // 两分支可能同时存在 → 外层 .first() 避免 strict violation
     await expect(
-      page.locator("text=暂无榜单数据").or(page.locator("span.font-mono").first())
+      page.locator("text=暂无榜单数据").or(page.locator("span.font-mono")).first()
     ).toBeVisible({ timeout: 15000 });
     // 绝不出现演示/种子词
     await expect(page.locator("text=skincare routine")).toHaveCount(0);
@@ -43,7 +45,7 @@ test.describe("B端运营工作台", () => {
     await expect(page.locator("text=skincare packaging")).toHaveCount(0);
   });
 
-  test("趋势页展示每日推送与定时更新卡片", async ({ page }) => {
+  test("趋势页展示每日任务卡片（飞书/企微推送前端已移除）", async ({ page }) => {
     await page.goto("/b2b/keyword-trends");
     await expect(
       page.locator("text=每日推送与定时更新").first()
@@ -51,10 +53,8 @@ test.describe("B端运营工作台", () => {
     await expect(
       page.getByRole("button", { name: "触发每日任务" })
     ).toBeVisible({ timeout: 5000 });
-    // 未配置 webhook 时给出引导
-    await expect(
-      page.locator("text=未配置 webhook").first()
-    ).toBeVisible({ timeout: 15000 });
+    // 飞书/企微推送配置前端已移除：不再出现 webhook 配置入口
+    await expect(page.locator("text=webhook").first()).toHaveCount(0);
   });
 
   test("长尾词生成为空行业时展示校验提示", async ({ page }) => {

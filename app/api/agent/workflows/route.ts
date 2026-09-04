@@ -8,8 +8,8 @@
  * 说明：SOP 只编排可自动执行的分析/草稿/生图工具；渠道上架等 L2 对外动作不进自动 SOP，仍须人确认。
  */
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, error, methodNotAllowed } from "@/lib/api-response";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, error, methodNotAllowed } from "@/lib/server/api-response";
 import { getKernel } from "@/src/kernel";
 import { workflowSpecSchema } from "@/src/kernel/plugins/spec-store";
 import { topoSortSpecSteps } from "@/src/kernel/plugins/mastra-engine";

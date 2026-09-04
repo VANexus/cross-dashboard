@@ -12,7 +12,7 @@ import Link from "next/link";
 import { Sparkles, Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDataChanged } from "@/hooks/use-data-changed";
-import type { Task, TaskStatus } from "@/lib/types";
+import type { Task, TaskStatus } from "@/lib/shared/types";
 
 const PAGE_SIZE = 8;
 
@@ -69,7 +69,7 @@ export function AiLivePanel() {
   const running = tasks.filter((t) => t.status === "running").length;
 
   return (
-    <div className="glass dash-panel dash-ai-live">
+    <div className="glass dash-panel dash-ai-live" data-animate="panel" suppressHydrationWarning>
       <div className="dash-ai-live-head">
         <span className="dash-ai-title">
           <Sparkles className="spark" />
@@ -81,7 +81,7 @@ export function AiLivePanel() {
         </span>
       </div>
 
-      <div className="dash-stream" style={{ maxHeight: 260 }}>
+      <div className="dash-stream">
         {loading && (
           <div className="ln">
             <span className="t">--:--:--</span>

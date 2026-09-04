@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, badRequest, notFound, methodNotAllowed } from "@/lib/api-response";
-import { parseBody, updateEvolutionSchema } from "@/lib/api-validation";
-import { EvolutionService } from "@/lib/services";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, badRequest, notFound, methodNotAllowed } from "@/lib/server/api-response";
+import { parseBody, updateEvolutionSchema } from "@/lib/server/api-validation";
+import { EvolutionService } from "@/lib/server/services";
 
 const service = new EvolutionService();
 

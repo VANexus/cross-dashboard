@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
-import { success, error, badRequest, methodNotAllowed } from "@/lib/api-response";
-import { parseBody, shopIntelSchema } from "@/lib/api-validation";
-import { IntelService } from "@/lib/services";
-import { ContentMCPError } from "@/lib/content/mcp-client";
+import { success, error, badRequest, methodNotAllowed } from "@/lib/server/api-response";
+import { parseBody, shopIntelSchema } from "@/lib/server/api-validation";
+import { IntelService } from "@/lib/server/services";
+import { ContentMCPError } from "@/lib/mcp/client";
 
 const service = new IntelService();
 

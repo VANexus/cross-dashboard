@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, error, methodNotAllowed } from "@/lib/api-response";
-import { B2BService } from "@/lib/services";
-import type { TrendPlatform } from "@/lib/types";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, error, methodNotAllowed } from "@/lib/server/api-response";
+import { B2BService } from "@/lib/server/services";
+import type { TrendPlatform } from "@/lib/shared/types";
 
 const service = new B2BService();
 

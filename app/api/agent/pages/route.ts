@@ -5,8 +5,8 @@
  * 读多写少的配置类端点 → CONFIG_CACHE_HEADERS（60s 强缓存 + 5min SWR）。
  */
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, methodNotAllowed, CONFIG_CACHE_HEADERS } from "@/lib/api-response";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, methodNotAllowed, CONFIG_CACHE_HEADERS } from "@/lib/server/api-response";
 import { getKernel } from "@/src/kernel";
 
 export const GET = withDb(async (_: NextRequest) => {

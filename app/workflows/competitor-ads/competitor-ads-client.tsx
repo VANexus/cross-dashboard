@@ -8,7 +8,7 @@ import { PageTransition } from "@/components/ui/page-transition";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import type { AdMaterial } from "@/lib/types";
+import type { AdMaterial } from "@/lib/shared/types";
 import {
   Eye, BarChart3, Target, Zap, Loader2, Search, Play, ExternalLink, AlertTriangle,
 } from "lucide-react";

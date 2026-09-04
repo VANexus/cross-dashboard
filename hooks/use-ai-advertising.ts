@@ -1,7 +1,7 @@
 "use client";
 
 import { useFetch, apiPatch, apiPost } from "./use-fetch";
-import type { AdKeyword } from "@/lib/types";
+import type { AdKeyword } from "@/lib/shared/types";
 
 export function useAdKeywords(filters?: { type?: string; tag?: string }) {
   const params = new URLSearchParams();

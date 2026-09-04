@@ -4,7 +4,7 @@
 // plan_step/card/telemetry/state)在此转发;25s 低频 state 心跳防代理超时。
 import { NextRequest } from 'next/server';
 import { encodeEvent, type AgentEvent, type AgentStateValue } from '@/lib/agent/contracts';
-import { subscribe, unsubscribe, WORKFLOW_TOPIC } from '@/lib/mastra/event-bus';
+import { subscribe, unsubscribe, WORKFLOW_TOPIC } from '@/lib/server/mastra/event-bus';
 
 // 注:仓库启用 cacheComponents,不可用 runtime/dynamic 段配置;Route Handler 默认即动态执行。
 

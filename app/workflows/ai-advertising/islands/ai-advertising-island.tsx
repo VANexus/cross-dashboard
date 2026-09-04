@@ -1,6 +1,6 @@
 import { AiAdvertisingClient } from "../ai-advertising-client";
-import { WorkflowService } from "@/lib/services";
-import { getDbAsync } from "@/lib/db";
+import { WorkflowService } from "@/lib/server/services";
+import { getDbAsync } from "@/lib/server/db";
 
 export async function AiAdvertisingIsland() {
   await getDbAsync();

@@ -9,8 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import {
   TrendingUp, Flame, RefreshCw, Loader2, AlertTriangle,
@@ -24,9 +22,9 @@ import { JourneyBar } from "@/components/journey/journey-bar";
 import type { UIActionDef } from "@/lib/agent/ui-actions";
 import {
   refreshKeywordTrends, generateLongtail, useKeywordTrends, useB2BSettings,
-  testPush, triggerDailyRefresh, saveB2BSettings,
+  triggerDailyRefresh,
 } from "@/hooks/use-b2b";
-import type { DailyRefreshResult, KeywordTrendsResult, LongtailKeyword, TrendPlatform, TrendRising } from "@/lib/types";
+import type { DailyRefreshResult, KeywordTrendsResult, LongtailKeyword, TrendPlatform, TrendRising } from "@/lib/shared/types";
 
 const Sparkline = dynamic(() => import("@/components/ui/sparkline").then((m) => ({ default: m.Sparkline })), { ssr: false });
 
@@ -112,25 +110,6 @@ export function B2BTrendsClient({ initialTrends }: { initialTrends: KeywordTrend
     }
     void run("longtail", async () => {
       setLongtail(await generateLongtail({ industry: industry.trim(), limit: 15 }));
-    });
-  };
-
-  const handleTogglePush = (key: "b2bPushFeishuEnabled" | "b2bPushWecomEnabled", checked: boolean) => {
-    void run(key, async () => {
-      await saveB2BSettings({ [key]: checked ? "true" : "false" });
-      await refetchSettings();
-      setPushMsg(`已${checked ? "开启" : "关闭"}${key === "b2bPushFeishuEnabled" ? "飞书" : "企业微信"}每日推送`);
-    });
-  };
-
-  const handleTestPush = (channel: "feishu" | "wecom") => {
-    void run(`test-${channel}`, async () => {
-      const r = await testPush(channel);
-      if (r.ok) {
-        setPushMsg(`${r.channel === "feishu" ? "飞书" : "企业微信"}测试卡片已送达（${r.latencyMs}ms）`);
-      } else {
-        setError(`${r.channel === "feishu" ? "飞书" : "企业微信"}推送失败：${r.error ?? "未知错误"}`);
-      }
     });
   };
 
@@ -321,49 +300,6 @@ export function B2BTrendsClient({ initialTrends }: { initialTrends: KeywordTrend
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-3">
-            {([
-              { key: "b2bPushFeishuEnabled" as const, channel: "feishu" as const, label: "飞书", webhook: settings?.feishuWebhookUrl },
-              { key: "b2bPushWecomEnabled" as const, channel: "wecom" as const, label: "企业微信", webhook: settings?.wecomWebhookUrl },
-            ]).map((row) => (
-              <div key={row.key} className="flex flex-wrap items-center gap-3">
-                <span className="text-sm font-medium">{row.label}</span>
-                {row.webhook ? (
-                  <Badge variant="secondary" className="text-caption">webhook 已配置</Badge>
-                ) : (
-                  <Badge variant="warning" className="text-caption">未配置 webhook</Badge>
-                )}
-                <div className="ml-auto flex items-center gap-3">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={busy !== null || !row.webhook}
-                    onClick={() => handleTestPush(row.channel)}
-                  >
-                    {busy === `test-${row.channel}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                    测试推送
-                  </Button>
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={settings?.[row.key] === "true"}
-                      onCheckedChange={(checked) => handleTogglePush(row.key, checked)}
-                      disabled={busy !== null || !row.webhook}
-                    />
-                    <span className="text-xs text-muted-foreground">每日推送</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-            {!settings?.feishuWebhookUrl && !settings?.wecomWebhookUrl && (
-              <p className="text-xs text-muted-foreground">
-                尚未配置任何群机器人 webhook，请先到
-                <Link href="/settings/b2b" className="mx-1 inline-flex items-center gap-0.5 text-primary hover:underline">
-                  设置 → B 端运营
-                  <ArrowUpRight className="h-3 w-3" />
-                </Link>
-                填写飞书 / 企业微信 webhook 地址。
-              </p>
-            )}
-            <Separator />
             <div className="flex flex-wrap items-center gap-3">
               <Button size="sm" onClick={handleDaily} disabled={busy !== null}>
                 {busy === "daily" ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarClock className="h-4 w-4" />}
@@ -382,6 +318,11 @@ export function B2BTrendsClient({ initialTrends }: { initialTrends: KeywordTrend
                 <Badge variant="outline" className="ml-auto text-caption">未配置 pg_cron 回调（仅手动）</Badge>
               )}
             </div>
+            {pushMsg && (
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <CheckCircle2 className="h-3.5 w-3.5 text-success" /> {pushMsg}
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

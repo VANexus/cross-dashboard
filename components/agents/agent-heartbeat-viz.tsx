@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { MoodState } from "@/lib/types";
+import type { MoodState } from "@/lib/shared/types";
 
 interface AgentHeartbeatVizProps {
   mood: MoodState;

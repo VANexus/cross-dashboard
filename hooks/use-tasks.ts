@@ -1,7 +1,7 @@
 "use client";
 
 import { useFetch, apiPost, apiPatch, apiDelete } from "./use-fetch";
-import type { Task, TaskStep } from "@/lib/types";
+import type { Task, TaskStep } from "@/lib/shared/types";
 
 interface TasksResponse {
   items: Task[];

@@ -1,9 +1,9 @@
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, badRequest, methodNotAllowed, notFound } from "@/lib/api-response";
-import { parseBody, b2bChannelUpdateSchema } from "@/lib/api-validation";
-import { deleteChannelAccount, updateChannelAccount } from "@/lib/repositories/channel-accounts.repository";
-import { encryptSecret } from "@/lib/vault";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, badRequest, methodNotAllowed, notFound } from "@/lib/server/api-response";
+import { parseBody, b2bChannelUpdateSchema } from "@/lib/server/api-validation";
+import { deleteChannelAccount, updateChannelAccount } from "@/lib/server/repositories/channel-accounts.repository";
+import { encryptSecret } from "@/lib/server/vault";
 
 /** 渠道账号更新（label / session 换绑 / status）与删除。 */
 export const PATCH = withDb(async (request: NextRequest, ctx: { params: Promise<{ id: string }> }) => {

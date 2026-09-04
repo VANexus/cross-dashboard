@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, methodNotAllowed, error } from "@/lib/api-response";
-import { WorkflowService } from "@/lib/services";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, methodNotAllowed, error } from "@/lib/server/api-response";
+import { WorkflowService } from "@/lib/server/services";
 
 const service = new WorkflowService();
 

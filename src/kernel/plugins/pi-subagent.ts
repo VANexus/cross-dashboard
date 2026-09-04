@@ -11,7 +11,7 @@
  */
 import { Type, type Static, type TSchema } from 'typebox'
 import { Context, Service } from '../vendor/cordis'
-import { AIConfigError } from '@/lib/ai'
+import { AIConfigError } from '@/lib/server/ai'
 import type { ToolsService } from './tool-registry'
 
 declare module '../vendor/cordis/context' {
@@ -118,7 +118,7 @@ export class PiSubagentService extends Service {
     const pi = await import('@earendil-works/pi-coding-agent')
 
     // ── 统一密钥架构 → pi 自定义 provider ──
-    const { getAIConfig } = await import('@/lib/ai')
+    const { getAIConfig } = await import('@/lib/server/ai')
     const config = await getAIConfig()
     if (!config.apiKey) throw new AIConfigError()
     const isAnthropic = config.provider === 'claude'
@@ -128,6 +128,11 @@ export class PiSubagentService extends Service {
     const api = isAnthropic ? 'anthropic-messages' : 'openai-completions'
 
     const modelRuntime = await pi.ModelRuntime.create({ modelsPath: null, refreshOnCreate: true })
+    // 深度子代理是重任务（多步推理+连续工具调用），必须用够强的模型。
+    // prod（bun run start）下 Qwen/Qwen3.5-4B 等轻量模型 generateText 常返回空 content，
+    // 导致子代理秒回"未产出文本"、事件流空白 → 命中黑名单时回退 DeepSeek-V3（实测稳定）。
+    const EMPTY_CONTENT_MODELS = ['Qwen/Qwen3.5-4B', 'Qwen/Qwen3-4B', 'Qwen/Qwen2.5-7B-Instruct']
+    const piModelId = EMPTY_CONTENT_MODELS.includes(config.model) ? 'deepseek-ai/DeepSeek-V3' : config.model
     modelRuntime.registerProvider('flowmind', {
       baseUrl,
       // LongCat 兼容层要求 Bearer（x-api-key 单独会被拒）——authHeader=true 额外注入
@@ -135,8 +140,8 @@ export class PiSubagentService extends Service {
       authHeader: true,
       models: [
         {
-          id: config.model,
-          name: config.model,
+          id: piModelId,
+          name: piModelId,
           api,
           baseUrl,
           reasoning: true,
@@ -144,13 +149,20 @@ export class PiSubagentService extends Service {
           cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
           contextWindow: 128_000,
           maxTokens: 16_384,
+          // 关键兼容项：pi 默认用 role:"developer" 发 system prompt，siliconflow 兼容层
+          // 只认 system/user/assistant/tool，400 会被 pi 静默吞成空返回（子代理"未产出文本"）。
+          // 显式 supportsDeveloperRole:false 强制走 system；maxTokensField 对齐 siliconflow 的 max_tokens。
+          compat: {
+            supportsDeveloperRole: false,
+            maxTokensField: 'max_tokens',
+          },
         },
       ],
     })
     // 凭证必须走运行时凭证库（内存 overlay 不落盘；registerProvider 的 apiKey 字段不参与请求鉴权）
     await modelRuntime.setRuntimeApiKey('flowmind', config.apiKey)
-    const model = modelRuntime.getModel('flowmind', config.model)
-    if (!model) throw new Error(`pi 子代理模型不可用：${config.model}（provider=flowmind）`)
+    const model = modelRuntime.getModel('flowmind', piModelId)
+    if (!model) throw new Error(`pi 子代理模型不可用：${piModelId}（provider=flowmind）`)
 
     // ── 桥接工具（TypeBox → ToolDefinition）──
     const customTools = BRIDGE_TOOLS.map((spec) =>

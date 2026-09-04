@@ -1,0 +1,38 @@
+# analysis 门（复用 go-kernel/core-api 已实证模板改 ns/名）：
+#   initialDelay 30s 必须有（首测早于 Pod ready 会误杀，坑#记录）
+#   query 末尾 `or vector(0)` 防空结果
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: flowmind-canary-gate
+  namespace: core-ui
+spec:
+  args:
+    - name: rollouts-pod-template-hash
+  metrics:
+    - name: canary-restarts
+      initialDelay: 30s
+      interval: 30s
+      count: 3
+      successCondition: len(result) == 0 || result[0] <= 1
+      failureLimit: 0
+      provider:
+        prometheus:
+          address: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
+          query: |
+            max(increase(kube_pod_container_status_restarts_total{
+              namespace="core-ui", pod=~"flowmind-{{args.rollouts-pod-template-hash}}.*"}[10m])
+            ) or vector(0)
+    - name: canary-ready
+      initialDelay: 30s
+      interval: 30s
+      count: 3
+      successCondition: result[0] >= 1
+      failureLimit: 0
+      provider:
+        prometheus:
+          address: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
+          query: |
+            count(kube_pod_status_ready{
+              namespace="core-ui", pod=~"flowmind-{{args.rollouts-pod-template-hash}}.*", condition="true"}
+            ) or vector(0)

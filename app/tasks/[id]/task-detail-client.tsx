@@ -22,14 +22,14 @@ import {
   RotateCw,
 } from "lucide-react";
 import Link from "next/link";
-import type { Task, Agent } from "@/lib/types";
+import type { Task, Agent } from "@/lib/shared/types";
 
 const AnimatedNumber = dynamic(
   () => import("@/components/ui/animated-number").then((m) => ({ default: m.AnimatedNumber })),
   { ssr: false }
 );
 
-const statusConfig: Record<import("@/lib/types").TaskStatus, { label: string; icon: React.ComponentType<{ className?: string }>; color: string; bg: string }> = {
+const statusConfig: Record<import("@/lib/shared/types").TaskStatus, { label: string; icon: React.ComponentType<{ className?: string }>; color: string; bg: string }> = {
   completed: { label: "已完成", icon: CheckCircle2, color: "text-success", bg: "bg-success/10" },
   running: { label: "运行中", icon: Loader2, color: "text-info", bg: "bg-info/10" },
   pending: { label: "等待中", icon: Clock, color: "text-muted-foreground", bg: "bg-muted" },

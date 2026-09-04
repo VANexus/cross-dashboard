@@ -95,7 +95,7 @@ function SchemaSection({ title, schema }: { title: string; schema: JSONSchema | 
       </button>
 
       {open && (
-        <div className="border-t border-border/50 bg-black/20 p-3">
+        <div className="border-t border-border/50 bg-surface-2 p-3">
           <pre className="max-h-64 overflow-auto text-caption leading-relaxed text-muted-foreground">
             <code>{JSON.stringify(schema, null, 2)}</code>
           </pre>

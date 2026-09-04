@@ -5,7 +5,7 @@ import type {
   WechatAccount, WechatAccountTestResult, WechatChannel, WechatPublishJob,
   WechatPublishStatus, WechatPublishStep, WechatPublishSubmitResult,
   WechatTypesetResult, WechatTypesetTheme,
-} from "@/lib/types";
+} from "@/lib/shared/types";
 
 // ── reads ──
 

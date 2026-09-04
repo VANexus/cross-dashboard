@@ -1,6 +1,6 @@
 import { VideoLocalizationClient } from "../video-localization-client";
-import { LocalizeService } from "@/lib/services";
-import { getDbAsync } from "@/lib/db";
+import { LocalizeService } from "@/lib/server/services";
+import { getDbAsync } from "@/lib/server/db";
 import { connection } from "next/server";
 
 export async function VideoLocalizationIsland() {

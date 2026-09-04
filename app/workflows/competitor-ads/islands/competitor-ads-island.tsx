@@ -1,6 +1,6 @@
 import { CompetitorAdsClient } from "../competitor-ads-client";
-import { getDbAsync } from "@/lib/db";
-import { getRecentCompetitorAnalyses } from "@/lib/repositories/workflow.repository";
+import { getDbAsync } from "@/lib/server/db";
+import { getRecentCompetitorAnalyses } from "@/lib/server/repositories/workflow.repository";
 
 export async function CompetitorAdsIsland() {
   await getDbAsync();

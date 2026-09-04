@@ -3,15 +3,10 @@
 // L1 ⌘K 计划面板:不是聊天窗,而是 RAK 执行计划的可视面。
 // 输入指令 → 执行 → 消费 /api/agent/plan 的 plan_step SSE,步骤逐个点亮。
 // GSAP 进出场;Esc/遮罩关闭;执行期间按钮进入 loading 态。
+// 样式 token: --palette-* (app/globals.css,固定深色,不随主题切换)
 import { useCallback, useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { usePresence } from '@/stores/agent-presence';
-
-const AI = 'oklch(0.8 0.12 200)';
-const FG = 'oklch(0.95 0.005 90)';
-const MUTED = 'oklch(0.68 0.012 260)';
-const BORDER = 'oklch(0.95 0.01 260 / 0.1)';
-const OK = 'oklch(0.75 0.15 155)';
 
 interface Step {
   id: string;
@@ -115,10 +110,10 @@ export function AgentPalette() {
     if (open) {
       gsap.set([el, veil], { display: 'block' });
       gsap.fromTo(veil, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.2 });
-      gsap.fromTo(el, { autoAlpha: 0, y: 12 }, { autoAlpha: 1, y: 0, duration: 0.24, ease: 'power3.out' });
+      gsap.fromTo(el, { autoAlpha: 0, scale: 0.96 }, { autoAlpha: 1, scale: 1, duration: 0.22, ease: 'power3.out' });
     } else {
       gsap.to(veil, { autoAlpha: 0, duration: 0.15 });
-      gsap.to(el, { autoAlpha: 0, y: 8, duration: 0.18, ease: 'power2.in' });
+      gsap.to(el, { autoAlpha: 0, scale: 0.98, duration: 0.18, ease: 'power2.in' });
     }
   }, [open]);
 
@@ -246,7 +241,7 @@ export function AgentPalette() {
         ref={veilRef}
         onClick={() => setOpen(false)}
         style={{ position: 'fixed', inset: 0, zIndex: 30, display: 'none',
-          background: 'oklch(0.1 0.01 260 / 0.55)', backdropFilter: 'blur(4px)' }}
+          background: 'var(--palette-veil)' }}
       />
       <div
         ref={ref}
@@ -255,20 +250,20 @@ export function AgentPalette() {
         aria-label="Agent 指令面板"
         style={{ position: 'fixed', zIndex: 31, left: '50%', top: '12vh', transform: 'translateX(-50%)',
           width: 'min(620px, calc(100vw - 32px))', visibility: 'hidden', opacity: 0,
-          background: 'oklch(0.2 0.012 260 / 0.92)', backdropFilter: 'blur(24px)',
-          border: `1px solid oklch(0.8 0.12 200 / 0.3)`, borderRadius: 16,
-          boxShadow: '0 30px 80px oklch(0 0 0 / 0.6)', overflow: 'hidden' }}
+          background: 'var(--palette-bg)',
+          border: '1px solid var(--palette-ai-soft)', borderRadius: 16,
+          boxShadow: 'var(--shadow-overlay)', overflow: 'hidden' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px' }}>
-          <span style={{ color: AI, fontFamily: 'ui-monospace, monospace', fontWeight: 700 }}>✦</span>
+          <span style={{ color: 'var(--palette-ai)', fontFamily: 'ui-monospace, monospace', fontWeight: 700 }}>✦</span>
           <input
             aria-label="向 Agent 下达指令"
             placeholder="向 Agent 下达指令,它将生成执行计划…"
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') execute(); }}
-            style={{ flex: 1, background: 'none', border: 0, outline: 0, color: FG,
-              font: 'inherit', fontSize: 14.5, caretColor: AI }}
+            style={{ flex: 1, background: 'none', border: 0, outline: 0, color: 'var(--palette-fg)',
+              font: 'inherit', fontSize: 14.5, caretColor: 'var(--palette-ai)' }}
           />
         </div>
 
@@ -279,9 +274,9 @@ export function AgentPalette() {
               key={w.id}
               onClick={() => runWorkflow(w.id)}
               disabled={runningWf !== null || running}
-              style={{ background: runningWf === w.id ? 'oklch(0.79 0.16 75 / 0.2)' : 'transparent',
-                border: `1px solid ${runningWf === w.id ? AI : 'oklch(0.8 0.12 200 / 0.35)'}`,
-                color: runningWf === w.id ? AI : FG,
+              style={{ background: runningWf === w.id ? 'var(--palette-wf-soft)' : 'transparent',
+                border: `1px solid ${runningWf === w.id ? 'var(--palette-ai)' : 'var(--palette-ai-faint)'}`,
+                color: runningWf === w.id ? 'var(--palette-ai)' : 'var(--palette-fg)',
                 borderRadius: 8, font: 'inherit', fontSize: 12, padding: '6px 12px',
                 cursor: runningWf !== null || running ? 'default' : 'pointer',
                 opacity: runningWf !== null && runningWf !== w.id ? 0.45 : 1 }}
@@ -289,25 +284,25 @@ export function AgentPalette() {
           ))}
         </div>
 
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, borderTop: `1px solid ${BORDER}`, maxHeight: 280, overflow: 'auto' }}>
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0, borderTop: '1px solid var(--palette-border)', maxHeight: 280, overflow: 'auto' }}>
           {(wfSteps ?? steps).map((s) => (
             <li key={s.id} style={{ display: 'flex', gap: 11, padding: '9px 16px', alignItems: 'flex-start' }}>
               <span aria-hidden style={{ flex: 'none', width: 18, height: 18, borderRadius: '50%', marginTop: 2,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 10, fontFamily: 'ui-monospace, monospace', fontWeight: 700,
-                border: `1.5px solid ${s.status === 'pending' ? MUTED : s.status === 'run' ? AI : OK}`,
-                background: s.status === 'done' ? OK : 'transparent',
-                color: 'oklch(0.16 0.01 260)' }}>
+                border: `1.5px solid ${s.status === 'pending' ? 'var(--palette-muted)' : s.status === 'run' ? 'var(--palette-ai)' : 'var(--palette-ok)'}`,
+                background: s.status === 'done' ? 'var(--palette-ok)' : 'transparent',
+                color: 'var(--palette-ok-ink)' }}>
                 {s.status === 'done' ? '✓' : ''}
               </span>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 12.5, fontWeight: 600, color: s.status === 'run' ? AI : FG }}>{s.title}</div>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: s.status === 'run' ? 'var(--palette-ai)' : 'var(--palette-fg)' }}>{s.title}</div>
                 <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 10.5,
-                  color: s.status === 'run' ? AI : MUTED }}>{s.tool}</div>
+                  color: s.status === 'run' ? 'var(--palette-ai)' : 'var(--palette-muted)' }}>{s.tool}</div>
               </div>
               {s.status === 'run' && (
                 <span role="status" aria-label="执行中" style={{ marginLeft: 'auto', flex: 'none', width: 8, height: 8,
-                  borderRadius: '50%', background: AI }} />
+                  borderRadius: '50%', background: 'var(--palette-ai)' }} />
               )}
             </li>
           ))}
@@ -315,21 +310,21 @@ export function AgentPalette() {
 
         {/* suspend 确认条:确认继续 → resume;终止 → 结束流程 */}
         {pendingConfirm && (
-          <div style={{ padding: '10px 16px', borderTop: `1px solid ${BORDER}`,
-            background: 'oklch(0.79 0.16 75 / 0.08)' }}>
-            <div style={{ fontSize: 12, color: FG, lineHeight: 1.5 }}>
-              <span style={{ color: 'oklch(0.79 0.16 75)', fontFamily: 'ui-monospace, monospace' }}>⏸ </span>
+          <div style={{ padding: '10px 16px', borderTop: '1px solid var(--palette-border)',
+            background: 'var(--palette-wf-faint)' }}>
+            <div style={{ fontSize: 12, color: 'var(--palette-fg)', lineHeight: 1.5 }}>
+              <span style={{ color: 'var(--palette-wf)', fontFamily: 'ui-monospace, monospace' }}>⏸ </span>
               {pendingConfirm.message}
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
               <button
                 onClick={() => confirmResume(true)}
-                style={{ background: 'oklch(0.79 0.16 75)', color: 'oklch(0.18 0.02 75)', border: 0,
+                style={{ background: 'var(--palette-wf)', color: 'var(--palette-wf-ink)', border: 0,
                   borderRadius: 8, font: 'inherit', fontSize: 12, fontWeight: 700, padding: '5px 14px', cursor: 'pointer' }}
               >确认继续</button>
               <button
                 onClick={() => confirmResume(false)}
-                style={{ background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED,
+                style={{ background: 'transparent', border: '1px solid var(--palette-border)', color: 'var(--palette-muted)',
                   borderRadius: 8, font: 'inherit', fontSize: 12, padding: '5px 14px', cursor: 'pointer' }}
               >终止</button>
             </div>
@@ -337,18 +332,18 @@ export function AgentPalette() {
         )}
 
         <footer style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px',
-          borderTop: `1px solid ${BORDER}`, background: 'oklch(0.95 0.01 260 / 0.03)' }}>
-          <span style={{ fontSize: 11, color: MUTED, fontFamily: 'ui-monospace, monospace' }}>ESC 关闭 · 步骤由服务端 SSE 推送</span>
+          borderTop: '1px solid var(--palette-border)', background: 'var(--palette-footer)' }}>
+          <span style={{ fontSize: 11, color: 'var(--palette-muted)', fontFamily: 'ui-monospace, monospace' }}>ESC 关闭 · 步骤由服务端 SSE 推送</span>
           <span style={{ flex: 1 }} />
           <button
             onClick={() => setOpen(false)}
-            style={{ background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED,
+            style={{ background: 'transparent', border: '1px solid var(--palette-border)', color: 'var(--palette-muted)',
               borderRadius: 8, font: 'inherit', fontSize: 12, padding: '6px 14px', cursor: 'pointer' }}
           >关闭</button>
           <button
             onClick={execute}
             disabled={running}
-            style={{ background: 'oklch(0.79 0.16 75)', color: 'oklch(0.18 0.02 75)', border: 0, borderRadius: 8,
+            style={{ background: 'var(--palette-wf)', color: 'var(--palette-wf-ink)', border: 0, borderRadius: 8,
               font: 'inherit', fontSize: 12, fontWeight: 700, padding: '6px 14px',
               cursor: running ? 'default' : 'pointer', opacity: running ? 0.55 : 1 }}
           >{running ? '执行中…' : '执行计划'}</button>

@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { useCrawlerStatus, useCrawlerResults, extractData } from "@/hooks/use-crawler";
 import type { StoreStatus } from "@/hooks/use-crawler";
-import type { CrawlResult } from "@/lib/services/crawler.service";
+import type { CrawlResult } from "@/lib/shared/crawler";
 
 interface CrawlerClientProps {
   initialStatus: StoreStatus;

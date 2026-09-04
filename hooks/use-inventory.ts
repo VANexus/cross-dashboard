@@ -1,7 +1,7 @@
 "use client";
 
 import { useFetch, apiPost } from "./use-fetch";
-import type { InventoryItem, RestockSuggestion } from "@/lib/types";
+import type { InventoryItem, RestockSuggestion } from "@/lib/shared/types";
 
 export function useInventory(filters?: {
   status?: string;

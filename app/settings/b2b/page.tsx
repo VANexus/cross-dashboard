@@ -9,10 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
-  Server, Save, Check, AlertTriangle, Key, Database,
-  Globe, ShoppingCart, Palette, Zap, Send, Eye, EyeOff, Loader2, RefreshCw,
+  Server, Save, Check, AlertTriangle, Database,
+  Globe, ShoppingCart, Eye, EyeOff, Loader2, RefreshCw, Boxes, Wifi,
 } from "lucide-react";
-import type { B2BHealthStatus, B2BSettings, B2BSettingsGroup, B2BTestResult } from "@/lib/types";
+import type { B2BHealthStatus, B2BSettings, B2BSettingsGroup, B2BTestResult } from "@/lib/shared/types";
 
 type GroupKey = B2BSettingsGroup;
 
@@ -28,36 +28,21 @@ interface GroupSpec {
     type?: "text" | "password" | "url";
     hint?: string;
   }>;
-  /** 渠道凭证组：无内嵌字段时仅展示测试/状态 */
 }
 
+/**
+ * 服务化改造（2026-09-03）：本页只保留「业务凭证/登录态」。
+ * 原「FlowMind MCP 地址」「LongCat Key」「AllIn Key」「浏览器 CDP 地址」输入框已退役——
+ * 基础设施端点由集群服务目录自动解析（docs/architecture/2026-09-03-cluster-native-service-architecture.md §3），
+ * 模型/生图凭据归 LiteLLM 网关与 flowmind-mcp Secret，不再进入浏览器与数据库。
+ */
 const GROUPS: GroupSpec[] = [
   {
-    key: "mcp",
-    title: "FlowMind MCP（Python 后端）",
-    desc: "关键词趋势 / AI Listing / 生图 Skill 全部经由该 MCP 调度",
-    icon: Server,
-    fields: [{
-      settingKey: "flowmindMcpUrl",
-      label: "MCP HTTP 地址",
-      placeholder: "http://127.0.0.1:8001/mcp",
-      type: "url",
-      hint: "默认 127.0.0.1:8001，flowmind-mcp-http 启动后点击「测试连通」即可",
-    }],
-  },
-  {
     key: "channel",
-    title: "渠道凭证（备用）",
-    desc: "主路径已切换 TikHub API（免登录，key 配在 flowmind .env）；以下字段仅供旧自建回退路径使用。多账号管理见「B端运营 → 渠道账号」",
+    title: "渠道登录态（TikHub 主路径免配置）",
+    desc: "会话 Cookie 仅用于解锁更多数据与旧自建回退路径。多账号保险库见「设置 → 渠道账号」",
     icon: Globe,
     fields: [
-      {
-        settingKey: "browserDebugUrl",
-        label: "浏览器 CDP 地址",
-        placeholder: "http://127.0.0.1:9222",
-        type: "url",
-        hint: "仅旧自建回退路径使用：浏览器需带调试端口启动",
-      },
       {
         settingKey: "tiktokSessionCookie",
         label: "TikTok 会话（可选）",
@@ -91,56 +76,36 @@ const GROUPS: GroupSpec[] = [
       },
     ],
   },
-  {
-    key: "longcat",
-    title: "LongCat LLM（长尾词 / Listing / 反推）",
-    desc: "长尾词生成、TOP5 推荐打分、Listing 标题详情编写、Prompt 反推",
-    icon: Zap,
-    fields: [{
-      settingKey: "longcatApiKey",
-      label: "LongCat API Key",
-      placeholder: "sk-xxxxxxxxxx",
-      type: "password",
-    }],
-  },
-  {
-    key: "allin",
-    title: "AllIn-API 生图（gpt-image-2）",
-    desc: "主图 / 详情 / 社媒图出图，含 Skill 固化时的反推与生成",
-    icon: Palette,
-    fields: [{
-      settingKey: "allinApiKey",
-      label: "AllIn API Key",
-      placeholder: "xxxxxxxxxx",
-      type: "password",
-    }],
-  },
-  {
-    key: "webhook",
-    title: "推送 Webhook（飞书 / 企微）",
-    desc: "每日 08:00 关键词趋势榜单推送；填一个即可启用",
-    icon: Send,
-    fields: [
-      { settingKey: "feishuWebhookUrl", label: "飞书机器人 Webhook", placeholder: "https://open.feishu.cn/open-apis/bot/v2/hook/xxxx", type: "url" },
-      { settingKey: "wecomWebhookUrl", label: "企业微信群机器人 Webhook", placeholder: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxxx", type: "url" },
-    ],
-  },
 ];
+
+interface CatalogService {
+  id: string;
+  name: string;
+  layer: string;
+  mode: "cluster" | "dev";
+  url: string | null;
+  browserUrl: string | null;
+  note?: string;
+}
+
+const LAYER_LABEL: Record<string, string> = {
+  app: "应用服务", data: "数据层", ai: "模型网关", search: "搜索", obs: "可观测",
+};
 
 export default function B2BSettingsPage() {
   const [settings, setSettings] = useState<B2BSettings | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showKey, setShowKey] = useState<Partial<Record<keyof B2BSettings, boolean>>>({
-    flowmindMcpUrl: true, tiktokSessionCookie: false, instagramSessionCookie: false,
+    tiktokSessionCookie: false, instagramSessionCookie: false,
     alibabaAppKey: false,
-    alibabaAppSecret: false, alibabaSession: false, longcatApiKey: false,
-    allinApiKey: false, feishuWebhookUrl: true, wecomWebhookUrl: true,
+    alibabaAppSecret: false, alibabaSession: false,
   });
   const [testing, setTesting] = useState<Partial<Record<GroupKey, boolean>>>({});
   const [testResults, setTestResults] = useState<Partial<Record<GroupKey, B2BTestResult>>>({});
   const [health, setHealth] = useState<B2BHealthStatus | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
+  const [catalog, setCatalog] = useState<{ mode: string; services: CatalogService[] } | null>(null);
 
   const refreshHealth = useCallback(() => {
     setHealthLoading(true);
@@ -150,6 +115,9 @@ export default function B2BSettingsPage() {
   }, []);
 
   useEffect(() => {
+    fetch("/api/cluster/services").then((r) => r.json()).then((d) => {
+      if (d.success) setCatalog(d.data);
+    }).catch(() => {});
     fetch("/api/settings/b2b").then((r) => r.json()).then((d) => {
       if (d.success) setSettings(d.data);
     }).catch(() => {}).finally(() => refreshHealth());
@@ -206,16 +174,15 @@ export default function B2BSettingsPage() {
     return <Badge variant="destructive" title={best.error}>不可达 · 点击「测试连通」查看</Badge>;
   };
 
-  const supabaseHealth = useMemo(() => {
-    if (!health) return { ok: false, rowsInImageSkills: undefined, error: undefined, latencyMs: 0 };
-    return health.supabase;
-  }, [health]);
+  const databaseHealth = useMemo(() => health?.database ?? null, [health]);
+  const mcpHealth = testResults.mcp ?? health?.groups.mcp ?? null;
+  const catalogMode = catalog?.mode === "cluster" ? "集群内" : catalog?.mode === "dev" ? "开发机" : "检测中";
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="B 端运营配置"
-        description="渠道凭证 + 阿里 TOP / LongCat / AllIn / Webhook 密钥，保存后三功能页面将清除缓存并重试。"
+        description="仅业务凭证与登录态——基础设施端点与密钥已服务化（集群服务自动发现 · 零配置）。"
         actions={<Button
           variant="outline"
           size="sm"
@@ -227,43 +194,85 @@ export default function B2BSettingsPage() {
         </Button>}
       />
 
-      {/* Supabase 健康卡片 */}
+      {/* 集群服务：自动连接（零配置） */}
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <Database className="h-5 w-5 text-primary" />
-            <CardTitle className="text-sm">Supabase 数据库连接</CardTitle>
-          </div>
-          <CardDescription>
-            云数据库（PostgreSQL）承载配置 / 关键词缓存 / 商品缓存 / Listing 草稿 / 生图 Skill
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-medium">连接状态</div>
-              <p className="text-xs text-muted-foreground">
-                {supabaseHealth.ok
-                  ? `连接正常 · ${supabaseHealth.latencyMs}ms · image-skills 表 ${supabaseHealth.rowsInImageSkills} 行`
-                  : supabaseHealth.error ? `异常：${supabaseHealth.error}` : "尚未检测，点击右上角「刷新健康检查」"}
-              </p>
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-2">
+              <Boxes className="h-5 w-5 text-primary" />
+              <div>
+                <CardTitle className="text-sm">集群服务 · 自动连接（{catalogMode}模式）</CardTitle>
+                <CardDescription>
+                  端点由服务目录解析（lib/cluster），无需也无法在此填写地址或密钥；凭据由集群 Secret 注入。
+                </CardDescription>
+              </div>
             </div>
-            {supabaseHealth.ok
-              ? <Badge className="bg-success hover:bg-success text-white">连接正常</Badge>
-              : <Badge variant="destructive">连接异常</Badge>}
+            {mcpHealth && (mcpHealth.ok
+              ? <Badge className="bg-success hover:bg-success text-white">FlowMind MCP 已连通 {mcpHealth.latencyMs ? `· ${mcpHealth.latencyMs}ms` : ""}</Badge>
+              : <Badge variant="destructive" title={mcpHealth.error}>FlowMind MCP 不可达</Badge>)}
           </div>
-          <div className="grid gap-3 sm:grid-cols-3 text-xs text-muted-foreground">
-            <div className="flex items-center gap-2"><Key className="h-3.5 w-3.5" /> <span>AI KV: ai_config</span></div>
-            <div className="flex items-center gap-2"><Globe className="h-3.5 w-3.5" /> <span>关键词: b2b_keyword_trends</span></div>
-            <div className="flex items-center gap-2"><Palette className="h-3.5 w-3.5" /> <span>Skill: wf_image_skills</span></div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {(catalog?.services ?? []).map((s) => (
+              <div key={s.id} className="flex items-center justify-between rounded-lg border px-3 py-2 text-xs">
+                <div>
+                  <div className="font-medium flex items-center gap-2">
+                    <Wifi className={`h-3 w-3 ${s.layer === "app" ? "text-success" : "text-muted-foreground"}`} />
+                    {s.name}
+                    <Badge variant="outline" className="text-tiny px-1 py-0">{LAYER_LABEL[s.layer] ?? s.layer}</Badge>
+                  </div>
+                  <div className="text-muted-foreground mt-0.5 font-mono">
+                    {s.url ?? s.browserUrl ?? (s.layer === "app" ? "同源反代 · 内网直达" : "内网专属")}
+                  </div>
+                </div>
+                {s.id === "flowmind.mcp" && (
+                  mcpHealth?.ok
+                    ? <Badge className="bg-success/90 text-tiny">自动</Badge>
+                    : <Badge variant="secondary" className="text-tiny">启动后自动</Badge>
+                )}
+              </div>
+            ))}
+            {!catalog && (
+              <div className="text-xs text-muted-foreground">正在读取集群服务目录…（/api/cluster/services）</div>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      {/* 密钥分组卡片 */}
+      {/* 数据面健康 */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Database className="h-5 w-5 text-primary" />
+            <CardTitle className="text-sm">数据面连接</CardTitle>
+          </div>
+          <CardDescription>
+            当前：Supabase 云（P1 迁移完成后切换为集群 PG「pg-main」直连，见架构文档 §4）
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-medium">连接状态</div>
+              <p className="text-xs text-muted-foreground">
+                {databaseHealth
+                  ? (databaseHealth.ok
+                    ? `连接正常 · ${databaseHealth.latencyMs}ms · image-skills 表 ${databaseHealth.rowsInImageSkills} 行`
+                    : `异常：${databaseHealth.error ?? "尚未检测"}`)
+                  : "尚未检测，点击右上角「刷新健康检查」"}
+              </p>
+            </div>
+            {databaseHealth?.ok
+              ? <Badge className="bg-success hover:bg-success text-white">连接正常</Badge>
+              : <Badge variant="destructive">连接异常</Badge>}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 业务凭证分组卡片 */}
       {settings && GROUPS.map((group) => {
         const Icon = group.icon;
-        const spec = GROUPS.find((g) => g.key === group.key)!;
         return (
           <Card key={group.key}>
             <CardHeader className="pb-3">
@@ -271,14 +280,14 @@ export default function B2BSettingsPage() {
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <Icon className="h-5 w-5 text-primary" />
-                    <CardTitle className="text-sm">{spec.title}</CardTitle>
+                    <CardTitle className="text-sm">{group.title}</CardTitle>
                   </div>
-                  <CardDescription>{spec.desc}</CardDescription>
+                  <CardDescription>{group.desc}</CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
                   {healthGroupBadge(group.key)}
                   <Button size="sm" variant="outline" onClick={() => handleTest(group.key)} disabled={!!testing[group.key]}>
-                    {testing[group.key] ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Zap className="h-4 w-4 mr-1" />}
+                    {testing[group.key] ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Server className="h-4 w-4 mr-1" />}
                     测试连通
                   </Button>
                 </div>
@@ -288,7 +297,7 @@ export default function B2BSettingsPage() {
                   <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                   <div>
                     <div className="font-medium">连通失败：{testResults[group.key]!.error}</div>
-                    <div className="mt-1 opacity-80">请检查下方输入或参考文档获取正确的 Key。</div>
+                    <div className="mt-1 opacity-80">请检查下方输入或参考文档获取正确的凭据。</div>
                   </div>
                 </div>
               )}

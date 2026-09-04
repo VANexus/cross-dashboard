@@ -21,7 +21,7 @@ import {
   Globe,
   Server,
 } from "lucide-react";
-import type { RiskEvent } from "@/lib/types";
+import type { RiskEvent } from "@/lib/shared/types";
 
 const AnimatedNumber = dynamic(
   () => import("@/components/ui/animated-number").then((m) => ({ default: m.AnimatedNumber })),
@@ -33,7 +33,7 @@ const Sparkline = dynamic(
   { ssr: false }
 );
 
-const levelConfig: Record<import("@/lib/types").RiskLevel, { label: string; color: string; bg: string; dot: "danger" | "warning" | "info" | "success" }> = {
+const levelConfig: Record<import("@/lib/shared/types").RiskLevel, { label: string; color: string; bg: string; dot: "danger" | "warning" | "info" | "success" }> = {
   level1: { label: "P1", color: "text-destructive", bg: "bg-destructive/10", dot: "danger" },
   level2: { label: "P2", color: "text-warning", bg: "bg-warning/10", dot: "warning" },
   level3: { label: "P3", color: "text-info", bg: "bg-info/10", dot: "info" },

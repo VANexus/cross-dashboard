@@ -1,7 +1,7 @@
 "use client";
 
 import { useFetch, apiPost, apiPatch } from "./use-fetch";
-import type { RiskEvent, HealthDimension, RiskIndicator } from "@/lib/types";
+import type { RiskEvent, HealthDimension, RiskIndicator } from "@/lib/shared/types";
 
 interface RiskEventsResponse {
   items: RiskEvent[];

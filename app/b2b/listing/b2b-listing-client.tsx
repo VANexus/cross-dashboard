@@ -23,7 +23,7 @@ import {
 } from "@/hooks/use-b2b";
 import type {
   AlibabaProductsEnvelope, B2BListingDraft, B2BPreference, ListingRecommendation,
-} from "@/lib/types";
+} from "@/lib/shared/types";
 
 const PREFERENCES: { id: B2BPreference; label: string; hint: string }[] = [
   { id: "social", label: "发社媒", hint: "偏 TikTok / Instagram 种草词" },

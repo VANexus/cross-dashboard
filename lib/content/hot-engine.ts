@@ -7,7 +7,7 @@
  *   score = rankScore + multiBoardBonus + freshnessBonus + categoryMatch
  * 参数为暂定初始值，接入真实数据后可校准；无可靠热度不产假分。
  */
-import type { ContentPlatform } from "@/lib/types";
+import type { ContentPlatform } from "@/lib/shared/types";
 
 export type HotBoardType = "general" | "vertical" | "topic" | "inspiration";
 

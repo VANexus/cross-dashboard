@@ -1,12 +1,12 @@
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, badRequest, notFound, methodNotAllowed } from "@/lib/api-response";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, badRequest, notFound, methodNotAllowed } from "@/lib/server/api-response";
 import {
   getSession,
   updateSession,
   deleteSession,
   type StoredMessage,
-} from "@/lib/orchestrator/session-store";
+} from "@/lib/server/orchestrator/session-store";
 
 export const GET = withDb(async (_request: NextRequest,
   { params }: { params: Promise<{ id: string }> }) => {

@@ -221,11 +221,11 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {[
-            { label: "Ⅰ级告警通知", description: "立即推送飞书 + 短信", defaultChecked: true },
-            { label: "Ⅱ级告警通知", description: "飞书消息推送", defaultChecked: true },
+            { label: "Ⅰ级告警通知", description: "立即推送告警", defaultChecked: true },
+            { label: "Ⅱ级告警通知", description: "告警消息推送", defaultChecked: true },
             { label: "Ⅲ级预警通知", description: "每日汇总推送", defaultChecked: true },
-            { label: "任务完成通知", description: "飞书消息推送", defaultChecked: false },
-            { label: "Agent异常通知", description: "立即推送飞书", defaultChecked: true },
+            { label: "任务完成通知", description: "任务完成消息推送", defaultChecked: false },
+            { label: "Agent异常通知", description: "立即推送异常告警", defaultChecked: true },
           ].map((item) => (
             <div key={item.label} className="flex items-center justify-between">
               <div>

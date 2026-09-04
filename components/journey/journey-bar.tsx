@@ -31,14 +31,17 @@ export function JourneyBar() {
 function JourneyBarInner() {
   const router = useRouter();
   const params = useSearchParams();
-  const run = useJourneyRun();
+  const runJourneyId = useJourneyRun((s) => s.journeyId);
+  const markStepDone = useJourneyRun((s) => s.markStepDone);
+  const advanceRun = useJourneyRun((s) => s.advance);
+  const resetRun = useJourneyRun((s) => s.reset);
 
   const journeyId = params.get("journey");
   const stepNum = Number(params.get("step") ?? "0");
   const journey = journeyId ? getJourneyById(journeyId) : undefined;
 
   if (!journey || !journey.enabled || stepNum < 1 || stepNum > journey.steps.length) return null;
-  if (run.journeyId !== journey.id) return null;
+  if (runJourneyId !== journey.id) return null;
 
   const idx = stepNum - 1;
   const current = journey.steps[idx];
@@ -54,15 +57,15 @@ function JourneyBarInner() {
   }));
 
   const advance = () => {
-    run.markStepDone(current.id);
+    markStepDone(current.id);
     if (next) {
-      run.advance(journey.steps.length);
+      advanceRun(journey.steps.length);
       router.push(next.href);
       toast.success(`第 ${idx + 1} 步「${current.label}」完成`, {
         description: `前往下一步：${next.label}`,
       });
     } else {
-      run.advance(journey.steps.length);
+      advanceRun(journey.steps.length);
       toast.success(`旅程「${journey.label}」全部完成`, {
         description: "可在流程编排中心发起新旅程",
       });
@@ -70,7 +73,7 @@ function JourneyBarInner() {
   };
 
   const exit = () => {
-    run.reset();
+    resetRun();
     router.push("/journeys");
     toast("已退出旅程");
   };

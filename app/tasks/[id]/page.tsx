@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { TaskDetailClient } from "./task-detail-client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { TaskService, AgentService } from "@/lib/services";
-import { getDbAsync } from "@/lib/db";
+import { TaskService, AgentService } from "@/lib/server/services";
+import { getDbAsync } from "@/lib/server/db";
 
 function TaskDetailSkeleton() {
   return (
@@ -62,15 +62,34 @@ async function TaskDetailData({ id }: { id: string }) {
   return <TaskDetailClient task={task} agent={agent ?? undefined} />;
 }
 
-export default async function TaskDetailPage({
+export default function TaskDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
+  // cache-components：async page 顶层 await params 属 uncached，若落在 AppShell
+  // (Suspense 之外)会整页阻塞报 blocking-route。故 page 保持同步，把 await params
+  // + DB 读取放进 <Suspense> 内的 async loader 完成。
   return (
     <Suspense fallback={<TaskDetailSkeleton />}>
-      <TaskDetailData id={id} />
+      <TaskDetailLoader params={params} />
     </Suspense>
   );
+}
+
+// cache-components 要求动态路由提供至少一个真实样本供 build-time validation。
+export async function generateStaticParams(): Promise<Array<{ id: string }>> {
+  return [
+    { id: "task-sample-0001" },
+    { id: "task-sample-0002" },
+  ];
+}
+
+async function TaskDetailLoader({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  // 构建校验期不连库，返回骨架；运行时才走完整数据岛读取
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return <TaskDetailSkeleton />;
+  }
+  return <TaskDetailData id={id} />;
 }

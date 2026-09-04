@@ -6,7 +6,7 @@
  * spec（steps DAG，工具白名单）编译为一次性 mastra workflow 并执行。
  */
 import { Context, Service } from '../vendor/cordis'
-import { activeRuns, mastra, WORKFLOW_IDS, type WorkflowId } from '@/lib/mastra'
+import { activeRuns, mastra, WORKFLOW_IDS, type WorkflowId } from '@/lib/server/mastra'
 import { createStep, createWorkflow } from '@mastra/core/workflows'
 import { z } from 'zod'
 import type { WorkflowSpec, WorkflowSpecStep } from './spec-store'

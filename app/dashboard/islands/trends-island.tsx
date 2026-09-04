@@ -1,6 +1,6 @@
 import { DashboardTrends } from "../dashboard-trends";
-import { getDashboardDataShared } from "@/lib/services/dashboard.service";
-import { getDbAsync } from "@/lib/db";
+import { getDashboardDataShared } from "@/lib/server/services/dashboard.service";
+import { getDbAsync } from "@/lib/server/db";
 
 export async function TrendsIsland() {
   await getDbAsync();

@@ -1,0 +1,30 @@
+# =============================================================================
+# flowmind-api — Bun + Hono 后端（core-api ns · 金丝雀）【P2 模板，暂缓启用】
+#
+# 前后端分离落地（docs/architecture/2026-09-03 §5）后启用：
+#   server/index.ts（Hono）承接 app/api 逐域迁移的 111 组路由 + 内核 + 调度。
+#   镜像：harbor.app.xrak.top/core-api/flowmind-api:{SHA8,latest}
+#
+# 端点/凭据注入（K8s Secret → env）：
+#   RAK_RUNTIME=cluster（默认自动检测）· FLOWMIND_MCP_URL(可空=目录默认)
+#   PGUSER/PGPASSWORD · REDIS_PASSWORD · LITELLM_MASTER_KEY · S3_ACCESS_KEY/S3_SECRET_KEY
+# =============================================================================
+FROM oven/bun:1-alpine AS deps
+WORKDIR /app
+RUN apk add --no-cache git
+COPY package.json bun.lock* ./
+RUN bun install --frozen-lockfile --production=false
+
+FROM oven/bun:1-alpine AS build
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+# P2: bun run --compile server/index.ts → /bin/flowmind-api（或直接用 bun 运行 TS）
+RUN echo "P2 拆分后替换为真实构建：bun build server/index.ts --target=bun --outdir dist"
+
+FROM oven/bun:1-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production PORT=8080
+COPY --from=build /app ./
+EXPOSE 8080
+CMD ["bun", "run", "server/index.ts"]

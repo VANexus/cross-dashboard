@@ -1,5 +1,5 @@
-import { getDbAsync } from "@/lib/db";
-import { ContentService } from "@/lib/services";
+import { getDbAsync } from "@/lib/server/db";
+import { ContentService } from "@/lib/server/services";
 import { ContentStudioClient } from "../content-studio-client";
 import { connection } from "next/server";
 

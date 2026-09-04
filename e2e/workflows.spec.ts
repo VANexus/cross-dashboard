@@ -56,7 +56,7 @@ test.describe("Workflow Pages", () => {
   test("competitor-ads should show analysis data", async ({ page }) => {
     await page.goto("/workflows/competitor-ads");
     await expect(
-      page.locator("text=竞品广告分析").first()
+      page.locator("text=竞品广告创意库").first()
     ).toBeVisible({ timeout: 15000 });
   });
 });

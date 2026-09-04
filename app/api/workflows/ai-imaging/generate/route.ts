@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, badRequest, error, methodNotAllowed } from "@/lib/api-response";
-import { parseBody, generateImageSchema } from "@/lib/api-validation";
-import { WorkflowService } from "@/lib/services";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, badRequest, error, methodNotAllowed } from "@/lib/server/api-response";
+import { parseBody, generateImageSchema } from "@/lib/server/api-validation";
+import { WorkflowService } from "@/lib/server/services";
 
 const service = new WorkflowService();
 

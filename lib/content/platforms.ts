@@ -2,7 +2,7 @@
  * FlowMind — 内容平台元数据（xhs / wechat / douyin）
  * 与 rak-flowmind `_content_common.PLATFORMS` 对齐（展示层镜像）。
  */
-import type { ContentPlatform, ContentPlatformMeta } from "@/lib/types";
+import type { ContentPlatform, ContentPlatformMeta } from "@/lib/shared/types";
 
 export const PLATFORMS: ContentPlatformMeta[] = [
   { id: "xhs", label: "小红书", color: "#ff2442", hint: "图文笔记 · 3:4", imageAspect: "3:4" },

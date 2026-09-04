@@ -42,7 +42,7 @@ test.describe("Video Localization Workflow", () => {
     await expect(
       page.locator("text=批量提交").first()
     ).toBeVisible({ timeout: 15000 });
-    await page.locator("textarea").fill("https://cdn.example.com/videos/test-zh.mp4");
+    await page.locator("textarea").first().fill("https://cdn.example.com/videos/test-zh.mp4");
     await page.getByRole("button", { name: "提交批量任务" }).click();
     // VL 不可达时展示结构化错误提示（而非崩溃）；可达时展示提交成功
     await expect(

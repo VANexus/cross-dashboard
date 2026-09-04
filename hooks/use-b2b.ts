@@ -5,7 +5,7 @@ import type {
   AlibabaProductsEnvelope, B2BListingDraft, B2BPreference, B2BSettings,
   DailyRefreshResult, ImageSkill, KeywordTrendsResult, ListingPublishResult, ListingRecommendation,
   LongtailKeyword, PushTestResult, ReversePromptResult, TrendPlatform,
-} from "@/lib/types";
+} from "@/lib/shared/types";
 
 // ── 只读 ──
 

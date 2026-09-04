@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, error, badRequest, notFound } from "@/lib/api-response";
-import { parseBody, wechatJobUpdateSchema } from "@/lib/api-validation";
-import { WechatService } from "@/lib/services";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, error, badRequest, notFound } from "@/lib/server/api-response";
+import { parseBody, wechatJobUpdateSchema } from "@/lib/server/api-validation";
+import { WechatService } from "@/lib/server/services";
 
 const service = new WechatService();
 

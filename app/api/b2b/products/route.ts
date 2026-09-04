@@ -1,9 +1,9 @@
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, error, badRequest, methodNotAllowed } from "@/lib/api-response";
-import { parseBody, b2bProductsSchema } from "@/lib/api-validation";
-import { B2BService, ContentMCPError } from "@/lib/services";
-import { getProducts, getProductsFetchedAt } from "@/lib/repositories/b2b.repository";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, error, badRequest, methodNotAllowed } from "@/lib/server/api-response";
+import { parseBody, b2bProductsSchema } from "@/lib/server/api-validation";
+import { B2BService, ContentMCPError } from "@/lib/server/services";
+import { getProducts, getProductsFetchedAt } from "@/lib/server/repositories/b2b.repository";
 import { shouldBackgroundRefresh } from "@/lib/utils/refresh-gate";
 
 const service = new B2BService();

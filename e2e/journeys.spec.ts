@@ -17,7 +17,7 @@ async function ready(page: import("@playwright/test").Page, path = "/journeys"):
 test.describe("流程编排中心", () => {
   test("编排中心渲染 registry 驱动的旅程卡片", async ({ page }) => {
     await ready(page);
-    await expect(page.getByRole("heading", { name: "流程编排中心" })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("heading", { name: "流程编排中心" }).first()).toBeVisible({ timeout: 10000 });
     // J1/J2 由 journey registry 派生
     await expect(page.getByText("内容发布旅程").first()).toBeVisible();
     await expect(page.getByText("TikTok·国际站铺货旅程").first()).toBeVisible();
@@ -81,13 +81,13 @@ test.describe("旅程执行 + Agent 动作", () => {
 });
 
 test.describe("M2 内容工坊 · 4 步 stepper 与旅程条", () => {
-  test("content-studio 渲染 4 步 stepper 且洞察步热点雷达在第一屏", async ({ page }) => {
+  test("content-studio 渲染 4 步 stepper 且洞察步热榜引擎在第一屏", async ({ page }) => {
     await page.goto("/content-studio");
-    await expect(page.getByRole("heading", { name: "内容创作中心" })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("heading", { name: "内容创作中心" }).first()).toBeVisible({ timeout: 15000 });
     for (const label of ["洞察趋势", "选题创作", "审计配图", "发布"]) {
       await expect(page.getByText(label).first()).toBeVisible({ timeout: 10000 });
     }
-    await expect(page.getByText("热点雷达").first()).toBeVisible();
+    await expect(page.getByText("热榜引擎").first()).toBeVisible();
     // 默认落在第 1 步：平台/主题输入可见
     await expect(page.getByPlaceholder(/输入产品 \/ 主题/).first()).toBeVisible();
   });
@@ -143,6 +143,8 @@ test.describe("M3 上架运营 · J2 全步走通", () => {
 
     // 第 1 步：关键词趋势（直达步页面，旅程条出现）
     await page.goto("/b2b/keyword-trends?journey=listing-launch&step=1");
+    // 整页导航会重置 window，等待测试钩子在新页面重新挂载
+    await page.waitForFunction(() => Boolean((window as unknown as Record<string, unknown>).__agentUI), null, { timeout: 15000 });
     await expect(jbar).toBeVisible({ timeout: 15000 });
 
     // 推进到第 2 步：Listing 生成

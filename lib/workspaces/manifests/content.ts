@@ -1,5 +1,5 @@
 // lib/workspaces/manifests/content.ts — 内容工坊空间
-import { PenLine, Send } from "lucide-react";
+import { PenLine, Send, LayoutGrid } from "lucide-react";
 import type { WorkspaceManifest } from "../types";
 
 export const contentWorkspace: WorkspaceManifest = {
@@ -13,5 +13,6 @@ export const contentWorkspace: WorkspaceManifest = {
   entries: [
     { label: "内容创作中心", href: "/content-studio", icon: PenLine },
     { label: "公众号端到端发布", href: "/content-studio/wechat", icon: Send },
+    { label: "统一成果库", href: "/creations", icon: LayoutGrid },
   ],
 };

@@ -1,7 +1,7 @@
 "use client";
 
 import { useFetch } from "./use-fetch";
-import type { JournalEntry } from "@/lib/types";
+import type { JournalEntry } from "@/lib/shared/types";
 
 export function useAgentJournal(agentId: string | null, limit = 50) {
   return useFetch<JournalEntry[]>(

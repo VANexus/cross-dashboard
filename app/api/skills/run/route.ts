@@ -8,7 +8,7 @@
  * 后端不可达/执行失败时返回结构化错误 —— 绝不返回演示数据。
  */
 import type { NextRequest } from "next/server";
-import { success, badRequest, methodNotAllowed } from "@/lib/api-response";
+import { success, badRequest, methodNotAllowed } from "@/lib/server/api-response";
 import { getFlowmindUrl } from "@/lib/skills/types";
 
 const RUN_TIMEOUT_MS = Number(process.env.FLOWMIND_SKILL_RUN_TIMEOUT ?? 120000);

@@ -1,6 +1,6 @@
 import { InventoryClient } from "../inventory-client";
-import { WorkflowService } from "@/lib/services";
-import { getDbAsync } from "@/lib/db";
+import { WorkflowService } from "@/lib/server/services";
+import { getDbAsync } from "@/lib/server/db";
 
 export async function InventoryIsland() {
   await getDbAsync();

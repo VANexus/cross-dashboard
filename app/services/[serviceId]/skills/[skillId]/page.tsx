@@ -42,9 +42,23 @@ function SkillViewSkeleton() {
   );
 }
 
-export default async function ServiceSkillPage({
+export default function ServiceSkillPage({
   params,
 }: ServiceSkillPageProps) {
+  // cache-components：async page 顶层 await params 属 uncached，须落在 Suspense 内
+  return (
+    <Suspense fallback={<SkillViewSkeleton />}>
+      <ServiceSkillLoader params={params} />
+    </Suspense>
+  );
+}
+
+// cache-components 要求动态路由提供至少一个真实样本供 build-time validation。
+export async function generateStaticParams(): Promise<Array<{ serviceId: string; skillId: string }>> {
+  return [{ serviceId: "service-sample", skillId: "skill-sample" }];
+}
+
+async function ServiceSkillLoader({ params }: ServiceSkillPageProps) {
   const { serviceId, skillId } = await params;
 
   // 基础路由守卫：id 格式校验
@@ -52,9 +66,5 @@ export default async function ServiceSkillPage({
     notFound();
   }
 
-  return (
-    <Suspense fallback={<SkillViewSkeleton />}>
-      <ServiceSkillView serviceId={serviceId} skillId={skillId} />
-    </Suspense>
-  );
+  return <ServiceSkillView serviceId={serviceId} skillId={skillId} />;
 }

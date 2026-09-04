@@ -1,7 +1,7 @@
 "use client";
 
 import { useFetch, apiPost } from "./use-fetch";
-import type { DataSource, ProductKeyword, PainPoint } from "@/lib/types";
+import type { DataSource, ProductKeyword, PainPoint } from "@/lib/shared/types";
 
 export function useDataSources() {
   return useFetch<DataSource[]>("/api/workflows/product-research/data-sources");

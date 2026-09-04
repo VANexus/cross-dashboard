@@ -34,7 +34,10 @@ function StepStrip({ steps }: { steps: { id: string; label: string }[] }) {
 }
 
 export function JourneysClient() {
-  const run = useJourneyRun();
+  const runJourneyId = useJourneyRun((s) => s.journeyId);
+  const runCurrentStep = useJourneyRun((s) => s.currentStep);
+  const completedSteps = useJourneyRun((s) => s.completedSteps);
+  const startRun = useJourneyRun((s) => s.start);
   const gridRef = useRef<HTMLDivElement>(null);
 
   useAgentPage({
@@ -44,12 +47,12 @@ export function JourneysClient() {
       return (
         `已登记旅程 ${allJourneys.length} 条（可用 ${enabled.length} 条），` +
         `空间 ${sortedWorkspaces.length} 个。` +
-        (run.journeyId
-          ? `进行中：${run.journeyId}（第 ${run.currentStep} 步）`
+        (runJourneyId
+          ? `进行中：${runJourneyId}（第 ${runCurrentStep} 步）`
           : "当前无进行中旅程。可用动作 startJourney 发起。")
       );
     },
-    state: () => ({ journeyId: run.journeyId, currentStep: run.currentStep }),
+    state: () => ({ journeyId: runJourneyId, currentStep: runCurrentStep }),
   });
 
   // GSAP 入场 stagger（Linear 式克制：位移 10px + 透明度）
@@ -67,7 +70,7 @@ export function JourneysClient() {
   const skeletons = allJourneys.filter((j) => !j.enabled);
 
   const handleStart = (id: string) => {
-    run.start(id);
+    startRun(id);
     toast.success("旅程已发起", { description: "第一步已就绪，点击卡片前往执行" });
   };
 
@@ -92,8 +95,8 @@ export function JourneysClient() {
           <div ref={gridRef} className="mt-4 grid gap-5 md:grid-cols-2">
             {enabled.map((j) => {
               const Icon = j.icon;
-              const isRunning = run.journeyId === j.id;
-              const doneCount = isRunning ? run.completedSteps.length : 0;
+              const isRunning = runJourneyId === j.id;
+              const doneCount = isRunning ? completedSteps.length : 0;
               return (
                 <Card
                   key={j.id}
@@ -107,7 +110,7 @@ export function JourneysClient() {
                         <Icon className="h-4.5 w-4.5 text-primary" />
                       </div>
                       {isRunning ? (
-                        <Badge>进行中 · 第 {run.currentStep}/{j.steps.length} 步</Badge>
+                        <Badge>进行中 · 第 {runCurrentStep}/{j.steps.length} 步</Badge>
                       ) : (
                         <Badge variant="secondary">{j.steps.length} 步</Badge>
                       )}

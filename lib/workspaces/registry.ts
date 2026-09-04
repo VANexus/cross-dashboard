@@ -28,7 +28,7 @@ export const groupMeta: { key: WorkspaceGroup; label: string }[] = [
   { key: "insight", label: "市场洞察" },
   { key: "content", label: "内容工坊" },
   { key: "listing", label: "上架运营" },
-  { key: "growth", label: "增长工作流" },
+  { key: "growth", label: "能力工作台" },
   { key: "monitor", label: "运行监控" },
   { key: "system", label: "系统" },
 ];

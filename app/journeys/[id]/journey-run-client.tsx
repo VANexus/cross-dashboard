@@ -59,11 +59,15 @@ const nodeTypes = { journey: JourneyNode };
 export function JourneyRunClient({ journeyId }: { journeyId: string }) {
   const router = useRouter();
   const journey = getJourneyById(journeyId);
-  const run = useJourneyRun();
+  const runJourneyId = useJourneyRun((s) => s.journeyId);
+  const runCurrentStep = useJourneyRun((s) => s.currentStep);
+  const startRun = useJourneyRun((s) => s.start);
+  const markStepDone = useJourneyRun((s) => s.markStepDone);
+  const advanceRun = useJourneyRun((s) => s.advance);
   const detailRef = useRef<HTMLDivElement>(null);
 
-  const isMine = run.journeyId === journeyId;
-  const currentIdx = isMine ? Math.max(0, run.currentStep - 1) : 0;
+  const isMine = runJourneyId === journeyId;
+  const currentIdx = isMine ? Math.max(0, runCurrentStep - 1) : 0;
 
   useAgentPage({
     route: `/journeys/${journeyId}`,
@@ -71,11 +75,11 @@ export function JourneyRunClient({ journeyId }: { journeyId: string }) {
     snapshot: () => {
       if (!journey) return "旅程不存在";
       const steps = journey.steps
-        .map((s, i) => `${i + 1}.${s.label}${isMine && i < run.currentStep - 1 ? "（已完成）" : isMine && i === currentIdx ? "（当前）" : ""}`)
+        .map((s, i) => `${i + 1}.${s.label}${isMine && i < runCurrentStep - 1 ? "（已完成）" : isMine && i === currentIdx ? "（当前）" : ""}`)
         .join(" → ");
-      return `旅程「${journey.label}」共 ${journey.steps.length} 步：${steps}。${isMine ? `当前第 ${run.currentStep} 步。` : "尚未发起，可用 startJourney 发起。"}`;
+      return `旅程「${journey.label}」共 ${journey.steps.length} 步：${steps}。${isMine ? `当前第 ${runCurrentStep} 步。` : "尚未发起，可用 startJourney 发起。"}`;
     },
-    state: () => ({ journeyId, currentStep: isMine ? run.currentStep : 0 }),
+    state: () => ({ journeyId, currentStep: isMine ? runCurrentStep : 0 }),
   });
 
   const { nodes, edges } = useMemo(() => {
@@ -88,7 +92,7 @@ export function JourneyRunClient({ journeyId }: { journeyId: string }) {
         label: s.label,
         index: i + 1,
         active: isMine && i === currentIdx,
-        done: isMine && i < run.currentStep - 1,
+        done: isMine && i < runCurrentStep - 1,
       } satisfies JourneyNodeData,
       draggable: false,
     }));
@@ -99,7 +103,7 @@ export function JourneyRunClient({ journeyId }: { journeyId: string }) {
       animated: isMine && i === currentIdx - 1,
     }));
     return { nodes, edges };
-  }, [journey, isMine, currentIdx, run.currentStep]);
+  }, [journey, isMine, currentIdx, runCurrentStep]);
 
   if (!journey) {
     return (
@@ -125,19 +129,19 @@ export function JourneyRunClient({ journeyId }: { journeyId: string }) {
   const nextStep = journey.steps[currentIdx + 1];
 
   const handleStart = () => {
-    run.start(journeyId);
+    startRun(journeyId);
     toast.success(`已发起「${journey.label}」`, { description: "从第 1 步开始执行" });
   };
 
   const handleAdvance = () => {
     if (!isMine) return;
-    run.markStepDone(currentStep.id);
+    markStepDone(currentStep.id);
     if (nextStep) {
-      run.advance(journey.steps.length);
+      advanceRun(journey.steps.length);
       router.push(nextStep.href);
       toast.success(`第 ${currentIdx + 1} 步完成`, { description: `前往下一步：${nextStep.label}` });
     } else {
-      run.advance(journey.steps.length);
+      advanceRun(journey.steps.length);
       toast.success("旅程全部步骤已执行完毕", { description: "可在编排中心发起新旅程" });
     }
   };
@@ -174,7 +178,7 @@ export function JourneyRunClient({ journeyId }: { journeyId: string }) {
             {!journey.enabled ? (
               <Badge variant="secondary">骨架旅程 · 未开放执行</Badge>
             ) : isMine ? (
-              <Badge>进行中 · 第 {run.currentStep}/{journey.steps.length} 步</Badge>
+              <Badge>进行中 · 第 {runCurrentStep}/{journey.steps.length} 步</Badge>
             ) : (
               <Button size="sm" onClick={handleStart} data-agent-action={`journey-start-${journeyId}`}>
                 <CirclePlay className="h-3.5 w-3.5" />

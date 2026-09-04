@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
-import { withDb } from "@/lib/api-helpers";
-import { success, error, badRequest, methodNotAllowed } from "@/lib/api-response";
-import { parseBody, contentImageSchema } from "@/lib/api-validation";
-import { ContentService, ContentMCPError } from "@/lib/services";
+import { withDb } from "@/lib/server/api-helpers";
+import { success, error, badRequest, methodNotAllowed } from "@/lib/server/api-response";
+import { parseBody, contentImageSchema } from "@/lib/server/api-validation";
+import { ContentService, ContentMCPError } from "@/lib/server/services";
 
 const service = new ContentService();
 

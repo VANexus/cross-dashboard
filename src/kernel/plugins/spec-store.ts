@@ -1,14 +1,15 @@
 /**
  * spec-store 插件 —— provide: `specs` service
  *
- * AI 动态生成产物的 spec 持久化（Supabase JSONB）：
+ * AI 动态生成产物的 spec 持久化（集群 PG · JSONB）：
  * - wf_workflow_specs：动态工作流 spec（M4 plan_workflow 落库 → run_workflow 再次运行）
  * - wf_page_specs：动态页面 spec（M5 generate_page 落库 → /p/[slug] 渲染）
  * schema 全部 zod 定义于此（chat 工具入参 / 落库前校验 / 渲染前校验共用）。
  */
 import { z } from 'zod'
+import type { Prisma } from '@prisma/client'
 import { Context, Service } from '../vendor/cordis'
-import { getSupabase } from '@/lib/db'
+import { prisma, isoRow, isoRows } from '@/lib/server/db'
 
 declare module '../vendor/cordis/context' {
   interface Context {
@@ -59,65 +60,82 @@ export class SpecStoreService extends Service {
   // ── workflow specs ─────────────────────────────────────────────
 
   async saveWorkflowSpec(id: string, title: string, goal: string, spec: WorkflowSpec): Promise<void> {
-    const { error } = await getSupabase().from('wf_workflow_specs').upsert({
-      id,
-      title,
-      goal,
-      spec,
-      updated_at: new Date().toISOString(),
-    })
-    if (error) throw new Error(`工作流 spec 落库失败：${error.message}`)
+    try {
+      const now = new Date().toISOString()
+      await prisma.wf_workflow_specs.upsert({
+        where: { id },
+        create: { id, title, goal, spec: spec as unknown as Prisma.InputJsonValue, updated_at: now },
+        update: { title, goal, spec: spec as unknown as Prisma.InputJsonValue, updated_at: now },
+      })
+    } catch (e) {
+      throw new Error(`工作流 spec 落库失败：${(e as Error).message}`)
+    }
   }
 
   async getWorkflowSpec(id: string): Promise<(WorkflowSpecRow & { updated_at: string }) | null> {
-    const { data, error } = await getSupabase()
-      .from('wf_workflow_specs')
-      .select('id, title, goal, spec, updated_at')
-      .eq('id', id)
-      .maybeSingle<WorkflowSpecRow>()
-    if (error) throw new Error(`工作流 spec 读取失败：${error.message}`)
-    return data ?? null
+    try {
+      const row = await prisma.wf_workflow_specs.findUnique({
+        where: { id },
+        select: { id: true, title: true, goal: true, spec: true, updated_at: true },
+      })
+      return row ? (isoRow(row) as unknown as WorkflowSpecRow & { updated_at: string }) : null
+    } catch (e) {
+      throw new Error(`工作流 spec 读取失败：${(e as Error).message}`)
+    }
   }
 
   async listWorkflowSpecs(limit = 20): Promise<Array<Pick<WorkflowSpecRow, 'id' | 'title' | 'goal' | 'updated_at'>>> {
-    const { data, error } = await getSupabase()
-      .from('wf_workflow_specs')
-      .select('id, title, goal, updated_at')
-      .order('updated_at', { ascending: false })
-      .limit(limit)
-    if (error) throw new Error(`工作流 spec 列表失败：${error.message}`)
-    return data ?? []
+    try {
+      const rows = await prisma.wf_workflow_specs.findMany({
+        orderBy: { updated_at: 'desc' },
+        take: limit,
+        select: { id: true, title: true, goal: true, updated_at: true },
+      })
+      return isoRows(rows) as unknown as Array<Pick<WorkflowSpecRow, 'id' | 'title' | 'goal' | 'updated_at'>>
+    } catch (e) {
+      throw new Error(`工作流 spec 列表失败：${(e as Error).message}`)
+    }
   }
 
   // ── page specs（M5 渲染用）────────────────────────────────────
 
   async savePageSpec(id: string, title: string, spec: PageSpec): Promise<void> {
-    const { error } = await getSupabase().from('wf_page_specs').upsert({
-      id,
-      title,
-      spec,
-      updated_at: new Date().toISOString(),
-    })
-    if (error) throw new Error(`页面 spec 落库失败：${error.message}`)
+    try {
+      const now = new Date().toISOString()
+      await prisma.wf_page_specs.upsert({
+        where: { id },
+        create: { id, title, spec: spec as unknown as Prisma.InputJsonValue, updated_at: now },
+        update: { title, spec: spec as unknown as Prisma.InputJsonValue, updated_at: now },
+      })
+    } catch (e) {
+      throw new Error(`页面 spec 落库失败：${(e as Error).message}`)
+    }
   }
 
   async getPageSpec(id: string): Promise<{ id: string; title: string; spec: PageSpec; updated_at: string } | null> {
-    const { data, error } = await getSupabase()
-      .from('wf_page_specs')
-      .select('id, title, spec, updated_at')
-      .eq('id', id)
-      .maybeSingle<{ id: string; title: string; spec: PageSpec; updated_at: string }>()
-    if (error) throw new Error(`页面 spec 读取失败：${error.message}`)
-    return data ?? null
+    try {
+      const row = await prisma.wf_page_specs.findUnique({
+        where: { id },
+        select: { id: true, title: true, spec: true, updated_at: true },
+      })
+      return row
+        ? (isoRow(row) as unknown as { id: string; title: string; spec: PageSpec; updated_at: string })
+        : null
+    } catch (e) {
+      throw new Error(`页面 spec 读取失败：${(e as Error).message}`)
+    }
   }
 
   async listPageSpecs(limit = 100): Promise<Array<{ id: string; title: string; updated_at: string }>> {
-    const { data, error } = await getSupabase()
-      .from('wf_page_specs')
-      .select('id, title, updated_at')
-      .order('updated_at', { ascending: false })
-      .limit(limit)
-    if (error) throw new Error(`页面 spec 列表失败：${error.message}`)
-    return data ?? []
+    try {
+      const rows = await prisma.wf_page_specs.findMany({
+        orderBy: { updated_at: 'desc' },
+        take: limit,
+        select: { id: true, title: true, updated_at: true },
+      })
+      return isoRows(rows) as unknown as Array<{ id: string; title: string; updated_at: string }>
+    } catch (e) {
+      throw new Error(`页面 spec 列表失败：${(e as Error).message}`)
+    }
   }
 }

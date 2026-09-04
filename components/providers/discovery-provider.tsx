@@ -27,7 +27,7 @@ import {
   type IntentMatch,
   type SkillExecutionResult,
   type ServiceManifest,
-} from "@/lib/discovery";
+} from "@/lib/mcp";
 
 interface DiscoveryContextValue {
   /** 是否已初始化 */
