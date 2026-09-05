@@ -4,7 +4,9 @@
 
 ## 这是什么
 
-cross-dashboard 是 **FlowMind** 的前端与后端一体化项目，基于 Next.js 16 App Router 构建。系统通过 RAK 协议引擎协调多个自主智能体（Agent），实现跨境电商核心业务流程的自动化编排。
+cross-dashboard 是 **FlowMind** 的**前端全栈**项目（Next.js 16 App Router），= **BFF × 前端 Agent 内核 × MCP 客户端**三支柱融合。系统通过 Web Agent 对话编排 + 生成式 UI + 记忆/旅程/技能系统，自动化跨境电商业（选品→Listing→生图→发布→监控）全链路。重技能与云密钥下沉后端 `rak-flowmind`（工件 `flowmind-mcp`）。
+
+**决策记录看 `ADR.md`**（含速查表，改架构前先读）；视觉/动效/状态管理细则看 `DESIGN.md`（唯一裁决）；路线图看 `TODO.md`；权威架构文档在 `docs/architecture/`。
 
 ## 关键规则
 
@@ -14,10 +16,11 @@ FlowMind 已切换为「集群原生化服务架构」（三次拍板：权威�
 
 1. **端点解析唯一入口 = `lib/cluster`**（服务目录）。业务代码禁止再写 `process.env.X ?? "http://…"` 的散装默认值；新增外部依赖 = 目录加一行（cluster svc DNS / dev mesh / env 逃生门三级解析）。
 2. **UI 不允许出现基础设施配置输入框**（MCP 地址、模型/生图 key、DB 连接串等一律零填写，状态只读展示走 `/api/cluster/services`）。设置页只放「业务凭证/登录态」。
-3. **凭据不落库**：api_key/base_url 等属集群 Secret → env 链路，禁止写入 `ai_config`；前端包内禁止出现任何密钥（`NEXT_PUBLIC_*` 白名单只剩端点提示）。
+3. **凭据不落库**：api_key/base_url 等属集群 Secret → env 链路，禁止写入 `ai_config`；前端包内禁止出现任何密钥（`NEXT_PUBLIC_*` 白名单只剩端点提示）。业务凭证（如微信 appSecret）经 `lib/server/vault.ts` 加密落库且绝不上送浏览器。
 4. **浏览器只访问同源 `flowmind.xrak.top`**（边缘同源反代；`/api/*` 由本 Next.js 全栈服务自己承载，**没有也不许引入独立后端服务**；`flowmind.api.xrak.top` 只是同一服务的机器流量域；`/backend-mcp` → 内网 flowmind-mcp）；跨域方案被否，勿引入 CORS 配置。
-5. **全栈分层方向（F1 已落地）**：UI 层（components/hooks/stores/lib/kernel/lib/ui）**禁止 import** `lib/server/**`（eslint `no-restricted-imports` 强制）；服务端能力（lib/server：services/db/ai/kernel 编排等）只经 RSC props、`/api/*`、Server Actions 到达 UI；跨边界类型放 `lib/shared`；MCP 协议层在 `lib/mcp`（支柱三）。
-6. 部署/接入/GitOps 操作按 `deploy/README.md` + rak-infra skill 执行，**一切 manifest 走 git（argocd-apps），手改集群会被 selfHeal 反杀**。
+5. **全栈分层方向（F1 已落地）**：UI 层（components/hooks/stores/lib/kernel/lib/ui）**禁止 import** `lib/server/**`（eslint `no-restricted-imports` 强制）；服务端能力（lib/server：services/db/ai/mastra 等）只经 RSC props、`/api/*`、Server Actions 到达 UI；跨边界类型放 `lib/shared`；MCP 协议层在 `lib/mcp`（支柱三）。
+6. **数据诚实**：上游能力不足时必须如实标注 degraded/warning/cache（SkillResult 信封），**绝不编造数据**；refresh 走 `lib/utils/refresh-gate.ts` 闸门（防付费 API 被反复打）。
+7. 部署/接入/GitOps 操作按 `deploy/README.md` + rak-infra skill 执行，**一切 manifest 走 git（argocd-apps），手改集群会被 selfHeal 反杀**。
 
 ### ⚠️ 这不是你熟悉的 Next.js
 
@@ -36,30 +39,47 @@ bun run test:e2e     # E2E 测试
 
 ### 无单元测试
 
-本项目**没有单元测试**，只有 Playwright E2E 测试（`e2e/` 目录）。测试配置在 `playwright.config.ts` 中，仅使用 Chromium 浏览器。
+本项目**没有单元测试**，只有 Playwright E2E 测试（`e2e/` 目录）。测试配置在 `playwright.config.ts` 中，仅使用 Chromium 浏览器。**`bun run lint` + `bun run build` + 对应 e2e 是唯一自动化门禁。**
 
 ### Tailwind CSS v4
 
-**没有 `tailwind.config.*` 文件**。主题在 `globals.css` 中通过 `@theme inline` 块配置，使用 CSS 变量映射。
-
-自定义工作流颜色：`text-wf-product`、`bg-wf-imaging` 等（`--wf-product`、`--wf-imaging`、`--wf-ad`、`--wf-listing`、`--wf-inventory`、`--wf-competitor`）。
+**没有 `tailwind.config.*` 文件**。主题在 `globals.css` 中通过 `@theme inline` 块配置，使用 CSS 变量映射。自定义工作流颜色：`text-wf-product`、`bg-wf-imaging` 等。Token 唯一真源 `globals.css`（新增颜色必须同时给 `:root` 与 `.dark`）。
 
 ## 架构概览
 
 ```
-API Routes (app/api/)  ←→  Services (lib/services/)  ←→  Repositories (lib/repositories/)  ←→  SQLite (lib/db/)
-                                                       ↕
-                                                  RAK Engine (lib/rak/)
-                                                       ↕
-                                                  AI Providers (lib/ai/)
+浏览器（边缘同源 · flowmind.xrak.top）
+   │
+┌──▼────────────────────────────────────────────────────────────┐
+│  前端全栈（本仓 Next.js 16 · core-ui）                          │
+│                                                               │
+│  支柱一 BFF          支柱二 前端Agent内核     支柱三 MCP客户端   │
+│  app/api + RSC      src/kernel(cordis) +    lib/mcp +         │
+│  + Actions + SWR    lib/kernel(ui-actions/  lib/content       │
+│  「为UI供数」          page-context)          「调后端技能」      │
+│                      「页面内智能」                            │
+│  数据：集群 PG / Redis / Mongo / Milvus（lib/server/db）        │
+└──────────────┬───────────────────────────────────────────────┘
+               │ MCP Streamable HTTP（/mcp）· 契约冻结
+┌──────────────▼───────────────────────────────────────────────┐
+│  flowmind-mcp（rak-flowmind · core-api 仅内网）                │
+│  重技能 + 云密钥唯一持有者 + 上游供应商对接                      │
+└──────────────────────────────────────────────────────────────┘
 ```
+
+- **一镜像三角色**：`FLOWMIND_ROLE=web|worker|cron`（`instrumentation.ts` 按角色装配 OTel；Agent 自主周期已退役，见 ADR-014）。
+- **三层动态生成**：M3 对话内组件 → M4 动态工作流（落 `wf_workflow_specs`，"保存为团队 SOP"）→ M5 动态页面（`app/p/[slug]`）。
+
+### 导航/空间/旅程（注册表驱动）
+
+- **workspaces 注册表** `lib/workspaces/registry.ts`：侧边栏、命令面板、编排中心全部由它派生。新增空间 = `lib/workspaces/manifests/` 加文件 + 注册表登记一行，框架代码零改动。
+- **journeys 注册表** `lib/journeys/registry.ts`：旅程 manifest 驱动（步骤带 workspaceId/href/agentHint/handleSelector），新增旅程同理。
+- 现有 7 空间：command-deck（工作台）/ insight（市场洞察）/ content-workshop（内容工坊）/ listing-ops（上架运营）/ growth（能力工作台）/ monitor（运行监控）/ system（系统）。
 
 ### 数据流（双路径）
 
-1. **客户端**：React 组件 → hooks (`hooks/use-*.ts`) → `fetch('/api/...')` → API Route → Service → Repository → SQLite
-2. **服务端 (SSR)**：Island 组件 (`islands/*-island.tsx`) → Service → Repository → SQLite → props → Client 组件
-
-两条路径共享同一个 SQLite 数据库（sql.js，存储在 `./data/flowmind.db`）。
+1. **客户端**：组件 → hooks (`hooks/use-*.ts`，基于 `useFetch<T>`) → `fetch('/api/...')` → API Route → Service → Repository → PG
+2. **服务端 (SSR)**：Server Component → service → Repository → PG → props → Client 组件（island 模式，不过 HTTP、无 envelope）
 
 ### 页面结构模式
 
@@ -67,7 +87,7 @@ API Routes (app/api/)  ←→  Services (lib/services/)  ←→  Repositories (l
 
 ```
 app/<section>/
-  page.tsx              ← Server Component，导入 island
+  page.tsx              ← Server Component（RSC，导入 island 或自取数）
   <section>-client.tsx  ← "use client" 组件，包含所有 UI 逻辑
   islands/
     <section>-island.tsx ← Server Component，通过 service 获取数据，传递 props
@@ -75,110 +95,96 @@ app/<section>/
   error.tsx             ← 错误边界
 ```
 
-### API 路由模式
-
-所有 API 路由使用 `withDb()` 包装器确保数据库初始化：
+### API 路由模式（BFF 薄壳纪律）
 
 ```typescript
-import { withDb } from "@/lib/api-helpers";
-export const GET = withDb(async (request: NextRequest) => {
-  // ... 业务逻辑
-  return success(data);
-});
+import { withDb } from "@/lib/server/api-helpers";
+import { success } from "@/lib/server/api-response";
+export const GET = withDb(async (request: NextRequest) => { … return success(data); });
 ```
 
-请求体验证使用 `parseBody()`（Zod schema），响应使用 `success()` / `error()` / `notFound()` 等标准格式。
+- 请求体验证用 `parseBody()`（Zod，`lib/server/api-validation.ts`），响应用 `success()/error()/notFound()`。
+- handler 不写业务：只做 参数解析 → 调 service → 格式化。BFF service 只干三件事：**聚合**、**缓存**、**自有数据读写**。
 
 ## 关键目录
 
 | 目录 | 说明 |
 |------|------|
-| `lib/db/` | 数据库层（sql.js WASM + CompatDatabase 封装） |
-| `lib/repositories/` | 数据访问层，每个实体一个 Repository |
-| `lib/services/` | 业务逻辑层，纯类，按需实例化 |
-| `lib/rak/` | RAK 协议引擎（Coordinator / Mesh / Conflict / Consensus） |
-| `lib/ai/` | AI Provider 适配器（mock / Claude / OpenAI） |
-| `lib/agent-runtime/` | Agent 自主运行时（生命周期、情绪状态机、决策、日志） |
-| `lib/ziniao/` | 紫鸟浏览器桥接客户端 |
-| `lib/crawlers/` | 爬虫实现 |
-| `lib/types.ts` | 所有共享 TypeScript 接口 |
-| `lib/api-response.ts` | 标准化 API 响应辅助函数 |
-| `lib/api-validation.ts` | Zod 验证 schema |
-| `lib/api-helpers.ts` | `withDb()` 包装器 |
-| `hooks/` | 客户端 hooks，基于 `useFetch<T>` |
-| `components/ui/` | 24 个 Radix UI 基础组件 |
-| `components/agents/` | Agent 专用组件（人格卡、日志时间线、情绪、心跳、记忆、目标、活动流） |
-| `e2e/` | Playwright E2E 测试 |
+| `lib/server/` | 服务端全部能力（UI 禁止 import 这里） |
+| `lib/server/services/` | 业务服务层（b2b/content/wechat/intel/localize/risk/memory/evolution/task/workflow/dashboard…） |
+| `lib/server/repositories/` | 数据访问层，每个实体一个 Repository（base：`parseJsonField` / `paginatedQuery`） |
+| `lib/server/db/` | 数据层：PG（primary）/ Redis / Mongo / Milvus（向量 RAG）/ embeddings / b2b-kb；迁移在 `migrations/`（0001→0005 + types） |
+| `lib/server/mastra/` | Mastra 长流程工作流（listing-pipeline、b2b-daily-trends）+ run-registry（Redis 快照断点续跑） |
+| `lib/server/agent-runtime/` | Agent 生命周期引擎（wake→context→think→journal→decide→mood→emit）、brain/real-brain/reflex、personas/模板 |
+| `lib/server/agent/` | 对话侧服务端能力（chat-context/chat-compact/memory-augment/genui-prompt/capabilities/context-stats） |
+| `lib/server/ai/` | AI Provider（LiteLLM 网关）+ prompts.ts + prompts-b2b/（B2B 提示词与生图种子） |
+| `lib/server/rak/` | RAK 引擎（**死代码**，0-import，仅历史参考，勿据此新增） |
+| `lib/kernel/` | 前端内核插件：ui-actions（L0/L1/L2 风险分级）、page-context（页面快照）、component-kit（动态组件） |
+| `lib/agent/` | Agent 客户端侧：agent-bus（UI 被 Agent 编排入口）、genui、page-context、surface-morph |
+| `lib/mcp/` | MCP 客户端 + 服务发现层（MCP/A2A/REST 适配器、service-registry、intent-router，ADR-008 契约） |
+| `lib/cluster/` | ⚠️ 唯一基础设置端点解析入口（零配置服务目录，ADR-007） |
+| `lib/workspaces/` + `lib/journeys/` | 空间与旅程 manifest 注册表（导航/编排中心/旅程唯一来源） |
+| `lib/shared/` | 前后端边界共享类型（跨 `lib/server` 与 UI 的类型放这里） |
+| `src/kernel/` | Cordis 4.0 后端微内核（model-adapter / tool-registry / mastra-engine / pi-subagent / spec-store） |
+| `components/ui/` | 基础组件库（原子件，零业务，shadcn 规范见 DESIGN.md） |
+| `components/agent/` | Agent 交互三件套：agent-dock（底部灵动岛）、agent-drawer（dock/sidebar/stage 三面一体）、agent-orb；`generated/` 动态 UI 渲染器 |
+| `stores/` | zustand 全局 store（agent-presence、journey-run） |
+| `hooks/` | 客户端数据获取 hooks，全部基于 `useFetch<T>`（SWR 内核） |
+| `e2e/` | Playwright E2E 测试（16 个 spec） |
 
-## 六大工作流子系统
+## 业务子系统
 
-| 工作流 | 路由前缀 | API 子路由 |
-|--------|----------|-----------|
+### 六大工作流（`/workflows/*`）+ 视频本地化
+
+| 工作流 | 路由前缀 | 说明 |
+|--------|----------|------|
 | 选品工作流 | `/workflows/product-research` | execute, keywords, data-sources, pain-points |
 | AI 作图 | `/workflows/ai-imaging` | images, generate, storyboard |
 | AI 广告 | `/workflows/ai-advertising` | keywords, analyze, optimize, export |
 | AI 上架 | `/workflows/ai-listing` | generate, bullets, categories, infringement, publish |
 | 库销比 | `/workflows/inventory` | restock-suggestions, restock-order, generate-suggestions |
 | 竞品广告分析 | `/workflows/competitor-ads` | competitors, keywords, positions, analyze |
+| 视频本地化 | `/workflows/video-localization` | tasks/batch/health（localize.service + lib/server/vl） |
 
-## Agent 生命系统
+### B2B 运营（主线，ADR-018）
 
-Agent 具有自主运行时（`lib/agent-runtime/`），包含：
+`/b2b/*`（intel 情报 / keyword-trends 关键词趋势 / listing / image-skills）+ `/content-studio/wechat`（公众号端到端）：关键词趋势（TikHub 多平台 + 快照聚合飙升榜）、长尾词、阿里国际站选品/推荐（RAG）、Listing 五层生成与 TOP 协议直连发布（L2 确认）、生图 Skill 体系、每日简报推送（飞书/企微）、渠道账号管理。入口在 `settings/channels`、`settings/b2b`。
 
-- **情绪状态机**：6 种情绪（focused / alert / tired / stressed / curious / satisfied），基于能量值和活动自动转换
-- **决策循环**：wake → context → think → journal → decide → mood → emit
-- **日志系统**：4 种日志类型（thought / decision / observation / reflection）
-- **人格配置**：系统提示词、沟通风格、专业领域
-- **目标管理**：带优先级和进度的多目标追踪
+## Agent 系统
 
-## 数据库
+- **运行编排**：Web Agent 对话编排（`app/api/agent/chat` SSE 统一入口）+ AgentDrawer 三面一体（dock/sidebar/stage，`stores/agent-presence.ts` 为唯一真源，EDS 见 ADR-013）。
+- **自主周期默认关闭**（ADR-014）：`cycleConfig.enabled=false`，LLM 调用只发生在用户需要时。
+- **情绪/日志/人格**：6 情绪状态机、4 类日志（thought/decision/observation/reflection）、personas 模板，见 `lib/server/agent-runtime/`。
+- **长任务**：Mastra workflow + Redis 快照断点续跑（ADR-015），挂起态跨实例可恢复。
 
-- **引擎**：sql.js（纯 JS SQLite WASM），兼容 Bun 和 Node.js
-- **文件**：`./data/flowmind.db`（通过 `RAK_DB_PATH` 环境变量配置）
-- **初始化**：首次运行自动建表并填充种子数据
-- **封装**：`CompatDatabase` 提供 bun:sqlite 兼容 API
-- **迁移**：轻量级迁移在 `lib/db/index.ts` 中（ALTER TABLE + CREATE TABLE IF NOT EXISTS）
+## 数据库（见迁移 `lib/server/db/migrations/`）
+
+- **PG**（集群主库，`postgres` 驱动）：UI 态/业务域全部实体 + `wf_*` 工作流表（含 `wf_b2b_listings`、`wf_workflow_specs`、`wf_page_specs`、`wf_workflow_runs`）。
+- **Redis**：会话 TTL、跨副本事件、Run 快照（`fm:wf:run:*`，30min TTL）、租约锁。
+- **Mongo**：演进记录等文档型数据（`mongo-stores.ts`）。
+- **Milvus**：RAG 向量检索（embeddings + b2b-kb 知识库）。
+- **Supabase 云正在退役**（ADR-005）：`supabase/migrations/*` 转普通 DDL，新代码一律走 `lib/server/db`。
+
+约定：Repository 写 JSON 字段必须 `JSON.stringify()`，读用 `parseJsonField()`（base.ts）；列表端点统一 `paginatedQuery()` 返回 `{ items, pagination }`。
 
 ## AI 配置
 
-AI Provider 通过适配器模式接入，支持三种模式：
-
-| Provider | 说明 |
-|----------|------|
-| `mock` | 模拟数据，不调用真实 API（默认，开发/演示用） |
-| `claude` | Claude API |
-| `openai` | OpenAI 兼容 API |
-
-配置存储在 `ai_config` 表中，启动时从环境变量同步。设置页面（`/settings`）提供可视化配置界面。
+- **模型/生图统一走集群 LiteLLM 网关**（ADR-011）；`ai_config` 只留业务偏好键；provider 凭据 env 优先于 KV。
+- **不对齐历史 mock/claude/openai 适配器**：当前 `lib/server/ai/` 走 AI SDK（`sdk-provider.ts`），接 `ai.litellm` 目录。
+- 内核推理**零密钥、零上游直连**：推理借 LiteLLM，干活借 MCP。
 
 ## 紫鸟浏览器桥接
 
-爬虫中心通过 `lib/ziniao/client.ts` 连接本地紫鸟防关联浏览器，支持：
-
-- 店铺列表 / 打开 / 关闭
-- 页面访问 / 内容提取 / 元素操作
-- 截图 / 脚本执行 / 自动化流程
-
-桥接默认地址：`http://127.0.0.1:9481`，API Key 通过 `ZCLAW_API_KEY` 环境变量或 `~/.zclaw/config.json` 配置。
+爬虫中心通过 `lib/server/ziniao/client.ts` 连接本地紫鸟防关联浏览器（默认 `http://127.0.0.1:9481`，API Key 通过 `ZCLAW_API_KEY` 或 `~/.zclaw/config.json`）。支持店铺管理、页面访问/提取/操作、截图、自动化流程。抓取实现 `lib/server/crawlers/`（amazon 等）。
 
 ## Git 约定
 
-- 提交信息格式：`<type>: <描述>`（feat/fix/docs/refactor）
+- 提交信息格式：`<type>: <描述>`（feat/fix/docs/refactor/chore）
 - 按逻辑单元频繁提交，不要积累大量变更
-- 分支命名：`feat/<描述>`
+- 分支命名：`feat/<描述>`；线性历史，按 topic 分支合入 main
 
 ## E2E 测试
 
-Playwright 测试在 `e2e/` 目录下，每个页面一个 spec 文件：
-
-- `agents.spec.ts` — Agent 页面
-- `dashboard.spec.ts` — 仪表盘
-- `evolution.spec.ts` — 自进化
-- `memory.spec.ts` — 记忆系统
-- `navigation.spec.ts` — 导航（侧边栏跳转）
-- `risk.spec.ts` — 风控中心
-- `rsc-features.spec.ts` — RSC/Suspense 行为
-- `tasks.spec.ts` — 任务中心
-- `workflows.spec.ts` — 工作流页面
+Playwright 测试在 `e2e/` 目录（当前 16 个 spec）：agents、dashboard、evolution、memory、navigation、risk、tasks、workflows、rsc-features、b2b、content-studio、journeys、agent-actions、listing-launch-p0、team-sop-m4、video-localization。
 
 运行方式：`bun run test:e2e`（全部）或 `bun run test:e2e -- e2e/agents.spec.ts`（单个文件）。
