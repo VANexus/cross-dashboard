@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import {
   Package, Sparkles, Loader2, XCircle, RefreshCw, UploadCloud,
   CheckCircle2, AlertTriangle, Flame, ListChecks, ArrowUpRight,
+Layers,
 } from "lucide-react";
 import { B2BNav } from "../b2b-nav";
 import { DataFreshness } from "@/components/data-freshness";
@@ -56,6 +57,7 @@ function ListingInner({ initialProducts, initialListings }: {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [publishResult, setPublishResult] = useState<Record<string, { warnings?: string[]; error?: string; posted: boolean }>>({});
+  const [pipelineNotice, setPipelineNotice] = useState<string | null>(null);
 
   const { data: liveProducts, refetch: refetchProducts } = useB2BProducts();
   const { data: liveListings, refetch: refetchListings } = useListings();
@@ -94,6 +96,32 @@ function ListingInner({ initialProducts, initialListings }: {
         trendKeywords: trends?.keywords ?? [],
         longtailKeywords: [],
       }));
+    });
+  };
+
+  /** 批量铺货流水线：趋势→选品→批量草稿+主图（草稿态，不对外发布）。 */
+  const handlePipeline = () => {
+    setPipelineNotice(null);
+    void run("pipeline", async () => {
+      const res = await fetch("/api/b2b/listing/pipeline", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ preference, limit: 4 }),
+      });
+      const json = (await res.json().catch(() => null)) as
+        | { success?: boolean; data?: { ok?: boolean; aiSelection?: boolean; created?: Array<{ summary?: string; error?: string }>; error?: string }; error?: string }
+        | null;
+      void refetchListings();
+      const data = json?.data;
+      if (data?.ok) {
+        const okN = (data.created ?? []).filter((c) => !c.error).length;
+        const first = (data.created ?? []).find((c) => c.summary);
+        setPipelineNotice(
+          `批量铺货完成：新生成 ${okN} 条草稿${first ? `（如 ${first.summary}）` : ""}；发布需在列表逐条 L2 确认。${data.aiSelection === false ? "（模型网关响应慢，已按趋势相关度降级匹配，草稿生成可能受影响）" : ""}`,
+        );
+      } else {
+        setPipelineNotice(data?.error ?? json?.error ?? "批量铺货失败，请稍后重试");
+      }
     });
   };
 
@@ -267,6 +295,10 @@ function ListingInner({ initialProducts, initialListings }: {
               {busy === "sync" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
               同步商品池
             </Button>
+            <Button size="sm" variant="secondary" onClick={handlePipeline} disabled={busy !== null}>
+              {busy === "pipeline" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Layers className="h-4 w-4" />}
+              批量铺货流水线
+            </Button>
             {keyword.trim() && (
               <Badge variant="secondary" className="gap-1">
                 <Flame className="h-3 w-3" /> {keyword.trim()}
@@ -294,6 +326,13 @@ function ListingInner({ initialProducts, initialListings }: {
           </div>
         </CardContent>
       </Card>
+
+      {pipelineNotice && (
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-primary/25 bg-primary/5 px-3.5 py-2.5 text-sm text-foreground">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+          <span>{pipelineNotice}</span>
+        </div>
+      )}
 
       {/* 推荐商品 TOP5 */}
       <Card className="mb-4">

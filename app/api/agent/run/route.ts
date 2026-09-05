@@ -16,6 +16,12 @@ import type { WorkflowStreamEvent } from '@mastra/core/workflows';
 import { getKernel } from '@/src/kernel';
 import type { WorkflowId } from '@/lib/server/mastra';
 import { publish, WORKFLOW_TOPIC } from '@/lib/server/mastra/event-bus';
+import {
+  saveRunSnapshot,
+  getRunSnapshot,
+  deleteRunSnapshot,
+} from '@/lib/server/mastra/run-registry';
+import { resumeListingPipeline, type ListingContinuationContext } from '@/lib/server/mastra/workflows/listing-pipeline';
 import { encodeEvent, type AgentEvent } from '@/lib/agent/contracts';
 
 // 长流程(趋势 MCP 拉取/生图)放宽执行时限
@@ -30,6 +36,19 @@ const CARD_STEPS: Record<string, string> = {
   summarize: 'trends-summary',
   'listing-generate': 'listing',
   'imaging-generate': 'images',
+};
+
+// D2：可跨实例恢复的 workflow → suspend 之后的续执行（复用同批工具函数）。
+type Continuation = (
+  ctx: Record<string, unknown>,
+  confirmed: boolean,
+) => Promise<{ status: 'ok' | 'cancelled'; output?: unknown }>;
+
+const CONTINUATIONS: Record<string, Continuation> = {
+  'listing-pipeline': async (ctx, confirmed) => {
+    const r = await resumeListingPipeline(ctx as ListingContinuationContext, confirmed);
+    return r.status === 'ok' ? { status: 'ok', output: r.output } : { status: 'cancelled' };
+  },
 };
 
 type LooseRecord = Record<string, unknown>;
@@ -108,9 +127,8 @@ export async function POST(req: NextRequest) {
   if (resume && (!resume.runId || typeof resume.confirmed !== 'boolean')) {
     return Response.json({ error: 'resume 需要 { runId, stepId, confirmed }' }, { status: 400 });
   }
-  if (resume?.runId && !engine.activeRuns.has(resume.runId)) {
-    return Response.json({ error: '运行不存在或已结束(进程重启后挂起运行不可恢复)' }, { status: 404 });
-  }
+  // D2：不再要求 resume 的 runId 必须在本进程 activeRuns —— 找不到时走
+  // Redis 快照冷恢复（见 coldResume），跨 pod/重启后仍可恢复挂起运行。
 
   const encoder = new TextEncoder();
   const input = (body.input ?? {}) as LooseRecord;
@@ -167,6 +185,9 @@ export async function POST(req: NextRequest) {
           emit({ type: 'state', state: 'busy', activity: 0.72 });
 
           let sawSuspend = false;
+          // suspend 前的业务上下文（逐步累积，供跨实例快照）
+          let keptContext: LooseRecord | undefined;
+
           const onEvent = (event: WorkflowStreamEvent) => {
             try {
               switch (event.type) {
@@ -181,6 +202,8 @@ export async function POST(req: NextRequest) {
                   if (status === 'suspended') break; // 由 workflow-step-suspended 处理
                   const out = asRecord(output);
                   if (status === 'success') {
+                    // D2：累积产物上下文（listing-pipeline 每步输出都展开完整 ctx）
+                    keptContext = out ?? keptContext;
                     const tool = describeStep(id, out);
                     emit({ type: 'plan_step', id, status: 'done', tool });
                     emit({ type: 'telemetry', agent: '工作流', text: tool });
@@ -199,6 +222,17 @@ export async function POST(req: NextRequest) {
                   sawSuspend = true;
                   const { id, suspendPayload } = event.payload;
                   const sp = asRecord(suspendPayload);
+                  // D2：把挂起点业务上下文落 Redis 快照（跨 pod/重启后仍可恢复）
+                  if (currentRunId) {
+                    void saveRunSnapshot({
+                      workflowId,
+                      runId: currentRunId,
+                      stepId: id,
+                      context: keptContext ?? (input as LooseRecord),
+                      suspendPayload: sp,
+                      updatedAt: Date.now(),
+                    });
+                  }
                   emit({
                     type: 'plan_step',
                     id,
@@ -211,6 +245,7 @@ export async function POST(req: NextRequest) {
                 }
                 case 'workflow-finish': {
                   const st = event.payload.workflowStatus;
+                  if (currentRunId) void deleteRunSnapshot(currentRunId);
                   if (st === 'success') {
                     emit({ type: 'telemetry', agent: '工作流', text: '工作流执行完成 ✓' });
                   } else if (st === 'failed') {
@@ -226,16 +261,63 @@ export async function POST(req: NextRequest) {
             }
           };
 
+          // D2 冷恢复：本进程没有该 Run（跨 pod/重启）→ 用 Redis 快照续跑 suspend 之后的链路
+          const coldResume = async (runId: string): Promise<boolean> => {
+            const snap = await getRunSnapshot(runId);
+            if (!snap) {
+              emit({ type: 'telemetry', agent: '工作流', text: '运行不存在或已结束（快照已过期）——请重新发起' });
+              return false;
+            }
+            currentRunId = snap.runId;
+            const cont = CONTINUATIONS[snap.workflowId];
+            if (!cont) {
+              emit({ type: 'telemetry', agent: '工作流', text: `${snap.workflowId} 不支持跨实例恢复——请重新发起` });
+              return false;
+            }
+            emit({
+              type: 'plan_step',
+              id: snap.stepId,
+              status: 'confirm',
+              runId: snap.runId,
+              message: '跨实例恢复：已取回挂起快照，继续执行',
+            });
+            try {
+              const r = await cont(snap.context ?? {}, resume!.confirmed as boolean);
+              if (r.status === 'ok' && r.output) {
+                const out = r.output as LooseRecord;
+                const images = asArray(out?.images);
+                emit({ type: 'plan_step', id: snap.stepId, status: 'done', tool: `已确认 · 产品图 ${images.length} 张` });
+                emit({ type: 'telemetry', agent: '工作流', text: `跨实例恢复完成 · 产品图 ${images.length} 张` });
+                if (images.length > 0) emit({ type: 'card', cardType: 'images', data: { images } });
+              } else {
+                emit({ type: 'telemetry', agent: '工作流', text: '用户终止了 Listing 流水线' });
+              }
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : String(err);
+              emit({ type: 'telemetry', agent: '系统', text: `跨实例恢复异常 · ${msg.slice(0, 80)}` });
+            } finally {
+              await deleteRunSnapshot(snap.runId);
+            }
+            return true;
+          };
+
           let resultStatus = '';
           if (resume?.runId) {
-            const run = engine.activeRuns.get(resume.runId)!;
-            currentRunId = run.runId;
-            unsub = run.watch(onEvent);
-            const result = await run.resume({
-              resumeData: { confirmed: resume.confirmed as boolean },
-              step: resume.stepId,
-            });
-            resultStatus = result.status;
+            const run = engine.activeRuns.get(resume.runId);
+            if (run) {
+              // 热路径：本进程持有 Run，mastra 原生 resume（事件走 watch）
+              currentRunId = run.runId;
+              unsub = run.watch(onEvent);
+              const result = await run.resume({
+                resumeData: { confirmed: resume.confirmed as boolean },
+                step: resume.stepId,
+              });
+              resultStatus = result.status;
+            } else {
+              // 冷路径：跨 pod/进程重启 → 快照 continuation（不入 watch）
+              const done = await coldResume(resume.runId);
+              if (!done) return; // 不可恢复，流内已提示，走 finally 收尾
+            }
           } else {
             const run = await engine.mastra.getWorkflow(workflowId).createRun();
             engine.activeRuns.set(run.runId, run);
@@ -261,6 +343,8 @@ export async function POST(req: NextRequest) {
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           emit({ type: 'telemetry', agent: '系统', text: `工作流执行异常 · ${msg.slice(0, 80)}` });
+          // 用户终止/执行出错：一并清理挂起快照（避免 30min TTL 内误恢复）
+          if (currentRunId) void deleteRunSnapshot(currentRunId);
         } finally {
           if (!closed) {
             emit({ type: 'state', state: 'idle', activity: 0.12 });

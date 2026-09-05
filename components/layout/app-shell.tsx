@@ -55,8 +55,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   transition 限定 margin-left：不干扰 GSAP 对 margin-right 的逐帧挤压动画 */}
               <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col transition-[margin-left] duration-300", collapsed ? "ml-(--sidebar-width-collapsed)" : "ml-(--sidebar-width)")}>
                 <TopBar />
-                <main id="app-main" className="min-h-0 min-w-0 flex-1 overflow-hidden">
-          <div className="page-container">{children}</div>
+                <main id="app-main" className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <div className="page-container flex min-h-0 flex-1 flex-col overflow-auto">{children}</div>
         </main>
               </div>
             </div>

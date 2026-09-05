@@ -9,6 +9,10 @@
  *   - web：保持只读装配（内核按请求驱动）。
  *
  * 角色由 FLOWMIND_ROLE 决定（默认 web）；同一镜像，不同 Deployment/CronJob。
+ *
+ * 2026-09-05（D2·可观测）：OTel 已接入 —— OTLP 端点取集群目录 obs.otel
+ * （env OTEL_EXPORTER_OTLP_ENDPOINT 已是该目录的 envKey，集群内自动注入，开发机无值则跳过）。
+ * 老 Agent 自嗨循环已退役（见 lib/server/db/index.ts），无需 worker 角色启动。
  */
 
 export type FlowmindRole = "web" | "worker" | "cron";
@@ -26,7 +30,16 @@ export async function register() {
   const role = flowmindRole();
   console.log(`[instrumentation] flowmind role=${role}`);
 
-  // F4：setupOtel() —— 目录 obs.otel（集群内自动，开发机静默跳过）
-  // F2：if (role === "worker") startAgentRuntimeLoops();
-  // F3：if (role === "worker") startJobConsumers();
+  // F4：OTel —— 仅在 OTLP 端点可解析时初始化（开发机无端点静默跳过，不影响启动）
+  if (process.env.OTEL_EXPORTER_OTLP_ENDPOINT?.trim()) {
+    try {
+      const { registerOTel } = await import("@vercel/otel");
+      registerOTel({ serviceName: "flowmind" });
+      console.log("[instrumentation] OTel registered:", process.env.OTEL_EXPORTER_OTLP_ENDPOINT);
+    } catch (e) {
+      console.warn("[instrumentation] OTel init failed (跳过):", (e as Error).message);
+    }
+  }
+
+  // F2：if (role === "worker") startJobConsumers();
 }

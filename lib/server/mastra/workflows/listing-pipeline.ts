@@ -122,3 +122,44 @@ export const listingPipelineWorkflow = createWorkflow({
   .then(humanConfirmStep)
   .then(imagingGenerateStep)
   .commit();
+
+// ── 冷恢复 continuation（D2·多副本恢复）──────────────────────────
+// mastra 的 suspended Run 无法跨实例序列化；多副本/进程重启后 resume 请求
+// 落到没有该 Run 内存引用的实例时，由 run-registry 从 Redis 快照取回
+// 「suspend 点的业务上下文」，直接在此执行 suspend 之后的步骤（复用同一批
+// 工具函数，副作用语义与热路径一致），完成后由 /api/agent/run 手动派发事件。
+
+export interface ListingContinuationContext {
+  keyword?: string;
+  category?: string | null;
+  language?: string | null;
+  listing?: {
+    id?: string;
+    title: string;
+    bullets: string[];
+    description?: string;
+    searchTerms?: string[];
+    seoScore?: number;
+    estimatedCtr?: string;
+  } | null;
+}
+
+export type ListingContinuationResult =
+  | { status: 'ok'; output: { listing: NonNullable<ListingContinuationContext['listing']>; images: Array<{ url: string; revisedPrompt?: string | null; model?: string | null }> } }
+  | { status: 'cancelled' };
+
+/** 冷恢复执行 suspend 之后的链路（imaging-generate）。 */
+export async function resumeListingPipeline(
+  ctx: ListingContinuationContext,
+  confirmed: boolean,
+): Promise<ListingContinuationResult> {
+  if (!confirmed) return { status: 'cancelled' };
+  const listing = ctx.listing;
+  if (!listing) throw new Error('Listing 草稿缺失，无法恢复流水线（快照可能已过期，请重新发起）');
+  const images = await runImagingGenerate({
+    prompt: listing.title,
+    type: 'main',
+    count: 4,
+  });
+  return { status: 'ok', output: { listing, images } };
+}

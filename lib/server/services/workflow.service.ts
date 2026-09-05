@@ -174,8 +174,35 @@ export class WorkflowService {
     return await repo.getAdPositions();
   }
 
-  exportAdData(): { url: string; format: string } {
-    return { url: "/exports/ad-data.csv", format: "csv" };
+  /** 广告关键词数据导出（真实 CSV）：聚合 wf_ad_keywords 生成文件到 data/exports，返回可下载 URL。 */
+  async exportAdData(format: "csv" | "xlsx" = "csv"): Promise<{ url: string; format: string; rows: number; note?: string }> {
+    const keywords = await this.getAdKeywords({});
+    if (format === "xlsx") {
+      // 当前只实现 CSV；xlsx 请求降级返回 CSV 并注明
+      format = "csv";
+    }
+    const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const header = "keyword,impressions,clicks,spend,sales,acos,conversion,cpc,tag,type";
+    const lines = keywords.map((k) =>
+      [k.keyword, k.impressions, k.clicks, k.spend, k.sales, k.acos, k.conversion, k.cpc, k.tag, k.type]
+        .map(esc)
+        .join(","),
+    );
+    const csv = [header, ...lines].join("\n");
+
+    const fs = await import("node:fs/promises");
+    const path = await import("node:path");
+    const dir = path.join(process.cwd(), "data", "exports");
+    await fs.mkdir(dir, { recursive: true });
+    const fileName = `ad-data-${Date.now()}.csv`;
+    await fs.writeFile(path.join(dir, fileName), `\uFEFF${csv}`, "utf8");
+
+    return {
+      url: `/api/workflows/ai-advertising/export/download?file=${encodeURIComponent(fileName)}`,
+      format,
+      rows: keywords.length,
+      note: format === "csv" ? undefined : "xlsx 暂不支持，已按 CSV 导出",
+    };
   }
 
   async getRecentAdAnalyses(limit?: number) {
@@ -289,18 +316,8 @@ export class WorkflowService {
     }
   }
 
-  publishListing(_data: {
-    title: string;
-    bulletPoints: { title: string; desc: string }[];
-    description: string;
-    categoryId: string;
-    images: string[];
-  }): { success: boolean; listingId: string } {
-    return {
-      success: true,
-      listingId: `lst-${Date.now()}`,
-    };
-  }
+  // （旧 Amazon「AI 上架 publishListing」桩已于 2026-09-05 移除——真实发布链路
+  //   在 B2B 域 B2BService.publishListing：TOP alibaba.icbu.product.add，见 /b2b/listing）
 
   // ========== 库存 ==========
 

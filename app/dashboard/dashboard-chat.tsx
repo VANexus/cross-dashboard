@@ -5,7 +5,7 @@
 // - 内核挂载：本组件独立挂载 client kernel（注册全局动作/白名单组件/测试缝），
 //   并订阅 Agent 命令总线（dock 快捷项 → 中心对话）——dashboard 不依赖三面一体面板。
 // 仅仪表盘页使用此「对话即画布」形态；其他页面维持三面一体设计。
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { Check, Loader2, SendHorizontal, ShieldAlert, ShieldCheck, Sparkles, X } from 'lucide-react';
 import { useChat } from '@ai-sdk/react';
@@ -37,6 +37,7 @@ import {
 } from '@/lib/agent/chat-contract';
 import { componentDefs, GeneratedComponent } from '@/components/agent/generated';
 import { JsonRenderMessageView } from '@/components/agent/generated/json-render-view';
+import { ActionProvider, StateProvider, VisibilityProvider } from '@json-render/react';
 import { installGenUIActionRunner } from '@/lib/agent/genui/registry';
 import { MarkdownMessage } from '@/components/agent/markdown-message';
 import { Button } from '@/components/ui/button';
@@ -304,6 +305,38 @@ export function DashboardChat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 会话条事件：新建（清空回空态）/ 切换到历史会话（按 id 拉取恢复）
+  useEffect(() => {
+    const onNew = () => {
+      convLoadedRef.current = true;
+      chat.setMessages([]);
+      setInput("");
+      setPendingL2([]);
+    };
+    const onLoad = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (!id) return;
+      convLoadedRef.current = true;
+      void fetch(`/api/agent/conversations/${id}`)
+        .then((r) => r.json())
+        .then((j: { success?: boolean; data?: { messages: Array<{ id: string; role: string; content: string }> } }) => {
+          if (j?.success && j.data) {
+            chat.setMessages((j.data.messages ?? []).map(dbMessageToUI));
+            setInput("");
+            setPendingL2([]);
+          }
+        })
+        .catch(() => {});
+    };
+    window.addEventListener("fm:conv-new", onNew as EventListener);
+    window.addEventListener("fm:conv-load", onLoad as EventListener);
+    return () => {
+      window.removeEventListener("fm:conv-new", onNew as EventListener);
+      window.removeEventListener("fm:conv-load", onLoad as EventListener);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chat]);
+
   // 内核挂载：注册全局动作 + 白名单组件 + 测试缝（dashboard 不依赖三面一体面板）。
   // 只有本组件（对话核心）在 dashboard 页负责挂载内核，drawer 在 /dashboard 已禁用。
   useEffect(() => {
@@ -359,6 +392,28 @@ export function DashboardChat() {
     setInput('');
   }
 
+  // genUI 会话级 Provider 包装（State/Action/Visibility 提升到整棵对话树外层，
+  // 确保 json-render 组件（含回调/交互路径）始终在 Provider 树下，杜绝 useStateStore 缺 Provider）。
+  const genuiHandlers = useMemo(
+    () => ({
+      runUiAction: async (params?: Record<string, unknown>) => {
+        const id = params?.id as string | undefined;
+        if (!id) return;
+        const runner = (globalThis as unknown as {
+          __genuiRunAction?: (id: string, params: Record<string, unknown>) => void;
+        }).__genuiRunAction;
+        runner?.(id, (params?.params as Record<string, unknown>) ?? {});
+      },
+      answerQuestion: async (params?: Record<string, unknown>) => {
+        const text = typeof params === 'string' ? params : JSON.stringify(params ?? {});
+        if (text) send(text);
+      },
+    }),
+    // send 为函数声明（hoisted），handler 只需创建一次
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
   // busy 后补发排队命令
   useEffect(() => {
     if (busy || streamBusyRef.current) return;
@@ -394,37 +449,41 @@ export function DashboardChat() {
 
   const empty = messages.length === 0 && !chat.error;
 
+  // ── 输入框「空态居中 → 有对话 GSAP FLIP 吸底」──────────────────
+  // 空态：输入框与欢迎块一同垂直居中（ChatGPT 首页式）；首条消息发出后，
+  // GSAP 把输入框从中央平滑过渡到 sticky 底部，代入感不突变。
+  const inputWrapRef = useRef<HTMLDivElement>(null);
+  const inputCenterTopRef = useRef(0);
+  const wasEmptyRef = useRef(true);
+  useLayoutEffect(() => {
+    const el = inputWrapRef.current;
+    if (!el) return;
+    const top = el.getBoundingClientRect().top;
+    if (wasEmptyRef.current && !empty && inputCenterTopRef.current !== 0) {
+      const dy = inputCenterTopRef.current - top;
+      if (Math.abs(dy) > 8) {
+        // 与 agent-drawer 的 aside 宽度过渡统一：expo.out 缓动（快 → 慢）
+        gsap.fromTo(
+          el,
+          { y: dy, opacity: 0.25 },
+          { y: 0, opacity: 1, duration: 0.55, ease: 'expo.out', clearProps: 'transform,opacity' },
+        );
+      }
+    }
+    if (empty) inputCenterTopRef.current = top;
+    wasEmptyRef.current = empty;
+  }, [empty]);
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      {/* ── 消息流（ChatGPT 式：沉浸式居中列，正常文档流，随页面滚动）── */}
-      <div className="relative min-h-0 flex-1">
-        <div ref={messagesListRef} className="mx-auto w-full max-w-3xl px-4 py-6" aria-live="polite">
-          {empty ? (
-            /* 空态：居中欢迎（对话核心的仪式感） */
-            <div className="flex min-h-[360px] flex-col items-center justify-center text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-primary/30 bg-primary/8">
-                <Sparkles className="h-6 w-6 text-primary" />
-              </div>
-              <h2 className="mt-4 text-lg font-bold text-foreground">对话即仪表盘</h2>
-              <p className="mt-1.5 max-w-md text-caption leading-relaxed text-muted-foreground">
-                在正中间和 Agent 对话——它生成的图表、表格、指标会以图钉形式钉在画布右上角，
-                仪表盘随对话实时生长。
-              </p>
-              <div className="mt-5 flex max-w-lg flex-wrap items-center justify-center gap-2">
-                {WELCOME_CHIPS.map((c) => (
-                  <button
-                    key={c.label}
-                    type="button"
-                    onClick={() => send(c.prompt)}
-                    className="rounded-full border border-border bg-card px-3.5 py-1.5 text-caption text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    {c.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            messages.map((m, idx) => (
+    <StateProvider initialState={{}}>
+      {/* VisibilityProvider 内部使用 useStateStore，必须包在 StateProvider 内层 */}
+      <VisibilityProvider>
+        <ActionProvider handlers={genuiHandlers}>
+          <div className={cn('flex min-h-0 min-w-0 flex-1 flex-col', empty && 'justify-center')}>
+      {/* ── 消息流（ChatGPT 式：消息区自适应滚动（无滚动条），输入框恒底）── */}
+      <div className={cn(empty ? 'hidden' : 'no-scrollbar relative min-h-0 flex-1 overflow-y-auto')}>
+        <div ref={messagesListRef} className="mx-auto w-full max-w-5xl px-4 py-6" aria-live="polite">
+          {messages.map((m, idx) => (
               <div key={m.id} data-msg-idx={idx} className="mt-5">
                 {m.parts.map((part, i) => {
                   if (part.type === 'text') {
@@ -567,7 +626,7 @@ export function DashboardChat() {
                   return null;
                 })}
               </div>
-            ))
+            )
           )}
 
           {/* L2 人在环中确认卡 */}
@@ -600,10 +659,37 @@ export function DashboardChat() {
         </div>
       </div>
 
-      {/* ── 输入区（液态玻璃）── sticky bottom 吸底，随页面滚动始终可见；
-          液态玻璃让下方滚动内容透出，沉浸式 */}
-      <div className="sticky bottom-0 z-20 shrink-0 px-4 pb-4 pt-3">
-        <div className="glass-liquid mx-auto flex w-full max-w-3xl items-center gap-2 rounded-2xl px-3 py-2 focus-within:border-primary/40">
+      {/* 空态：欢迎块，输入框同组随外层 justify-center 垂直居中 */}
+      {empty && (
+        <div className="mx-auto w-full max-w-5xl px-4 pt-2 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-primary/30 bg-primary/8">
+            <Sparkles className="h-6 w-6 text-primary" />
+          </div>
+          <h2 className="mt-4 text-lg font-bold text-foreground">对话即仪表盘</h2>
+          <p className="mx-auto mt-1.5 max-w-md text-caption leading-relaxed text-muted-foreground">
+            在正中间和 Agent 对话——它生成的图表、表格、指标会以图钉形式钉在画布右上角，仪表盘随对话实时生长。
+          </p>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+            {WELCOME_CHIPS.map((c) => (
+              <button
+                key={c.label}
+                type="button"
+                onClick={() => send(c.prompt)}
+                className="rounded-full border border-border bg-card px-3.5 py-1.5 text-caption text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── 输入区（液态玻璃）── 空态随欢迎组居中；有对话恒贴底部（消息区内部滚动）──── */}
+      <div
+        ref={inputWrapRef}
+        className={cn(empty ? 'w-full shrink-0 pb-6 pt-6' : 'shrink-0 px-4 pb-2 pt-3')}
+      >
+        <div className="glass-liquid mx-auto flex w-full max-w-5xl items-center gap-2 rounded-2xl px-3 py-2 focus-within:border-primary/40">
           <input
             aria-label="与 Agent 对话"
             placeholder={busy ? '生成中…' : '和 Agent 对话'}
@@ -626,6 +712,9 @@ export function DashboardChat() {
           </Button>
         </div>
       </div>
-    </div>
+          </div>
+        </ActionProvider>
+      </VisibilityProvider>
+    </StateProvider>
   );
 }

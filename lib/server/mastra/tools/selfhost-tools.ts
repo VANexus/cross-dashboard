@@ -18,6 +18,13 @@ import { generateText } from 'ai';
 import { z } from 'zod';
 import { getAISDKModel, AIConfigError } from '@/lib/server/ai';
 import { prisma } from '@/lib/server/db';
+import { B2BService } from '@/lib/server/services';
+import {
+  generateImages as selfhostGenerateImages,
+  recommendProducts as selfhostRecommendProducts,
+  topProductsForTrends as selfhostTopProductsForTrends,
+} from '@/lib/server/services/b2b.selfhost';
+import type { AlibabaProduct, B2BListingDraft } from '@/lib/shared/types';
 
 // ── LLM 辅助 ─────────────────────────────────────────────────
 
@@ -270,6 +277,154 @@ export const B2bDailyDigestTool = createTool({
   },
 });
 
+// ── 7. b2b_listing_intel：B2B 铺货只读视野（P0-1/P0-3） ────────
+
+let _b2b: B2BService | null = null;
+function getB2BService(): B2BService {
+  if (!_b2b) _b2b = new B2BService();
+  return _b2b;
+}
+
+export const b2bListingIntelTool = createTool({
+  id: 'b2b_listing_intel',
+  description:
+    '只读查看 B2B 铺货全局状态：在售商品池数量、Listing 草稿按状态统计（草稿/上传中/已上传/失败）、最近草稿清单（id/状态/线上货号）。用于汇报铺货进度、判断下一步（生成草稿或发布）。只读不改任何数据。',
+  inputSchema: z.object({
+    limit: z.number().int().min(1).max(20).optional().describe('最近草稿列出条数，默认 8'),
+  }),
+  execute: async ({ limit }) => {
+    const svc = getB2BService();
+    const [drafts, products] = await Promise.all([
+      svc.getListings().catch(() => [] as B2BListingDraft[]),
+      svc.getProducts().catch(() => [] as AlibabaProduct[]),
+    ]);
+    const draftCounts: Record<string, number> = { draft: 0, uploading: 0, uploaded: 0, failed: 0 };
+    for (const d of drafts) {
+      const s = d.uploadStatus ?? 'draft';
+      draftCounts[s] = (draftCounts[s] ?? 0) + 1;
+    }
+    const recent = drafts.slice(-(limit ?? 8)).map((d) => ({
+      id: d.id,
+      title: (d.title ?? '').slice(0, 26),
+      productId: d.productId ?? '',
+      status: d.uploadStatus ?? 'draft',
+      uploadedProductId: d.uploadedProductId ?? '',
+    }));
+    return { productsCount: products.length, draftsTotal: drafts.length, draftCounts, recent };
+  },
+});
+
+// ── 8. launch_listing_pipeline：批量铺货流水线（P0-2，草稿态）──
+
+export const launchListingPipelineTool = createTool({
+  id: 'launch_listing_pipeline',
+  description:
+    '批量铺货流水线（只落到草稿库，绝不对外发布）：用趋势词（缺省取最近 TikTok 热榜）在商品池中检索相关商品 → AI 推荐 → 为推荐商品逐条生成 Listing 草稿并生成主图，全部落库。返回草稿清单，后续可用 L2 页面动作逐条确认发布。适合"把这些趋势都做成上架草稿"。商品池为空（未授权国际站）时返回可操作提示。',
+  inputSchema: z.object({
+    trendKeywords: z.array(z.string()).max(8).optional().describe('趋势关键词（缺省用最近 TikTok 热榜词）'),
+    preference: z.enum(['social', 'alibaba', 'mix']).optional().describe('推荐偏好（默认 alibaba）'),
+    limit: z.number().int().min(1).max(6).optional().describe('最多生成草稿数（默认 3；耗时随条数线性增长）'),
+  }),
+  execute: async (input) => runListingPipeline(input),
+});
+
+export interface RunListingPipelineInput {
+  trendKeywords?: string[];
+  preference?: 'social' | 'alibaba' | 'mix';
+  limit?: number;
+}
+
+/** 批量铺货流水线执行体（工具 execute 与 HTTP 端点共用）。 */
+export async function runListingPipeline(input: RunListingPipelineInput): Promise<{
+  ok: boolean;
+  trends: string[];
+  preference: string;
+  created: Array<{ id?: string; title?: string; productId: string; summary?: string; error?: string }>;
+  error?: string;
+  /** true = LLM 推荐；false = 模型网关不可用时按趋势相关度降级匹配。 */
+  aiSelection: boolean;
+}> {
+  const { trendKeywords, preference, limit } = input;
+  const svc = getB2BService();
+  const pref = preference ?? 'alibaba';
+  const limitN = Math.max(1, Math.min(6, limit ?? 3));
+
+    // 1) 商品池（本地秒回，未同步则为空）
+    const products = await svc.getProducts().catch(() => [] as AlibabaProduct[]);
+    // 2) 趋势词：显式提供 > 最近 TikTok 热榜前 5
+    let trends = trendKeywords?.slice(0, 8) ?? [];
+    if (!trends.length) {
+      const t = await svc.fetchKeywordTrends({ platform: 'tiktok' }).catch(() => null);
+      trends = (t?.keywords ?? []).slice(0, 5).map((k) => k.word);
+    }
+    if (!products.length) {
+      return {
+        ok: false,
+        trends,
+        preference: pref,
+        aiSelection: false,
+        created: [],
+        error: '商品池为空：请先在「一键上架」页同步阿里国际站商品（需 ALIBABA 授权）后再跑流水线',
+      };
+    }
+
+    // 3) RAG 相关商品（趋势词对商品池语义检索）→ AI 推荐 Top-N
+    const trendWords = trends.map((w, i) => ({ word: w, heat: 0, delta: null, rank: i + 1, industry: "", source: "" }));
+    const relevant = await selfhostTopProductsForTrends(products, trendWords).catch(() => products.slice(0, 12));
+    // 推荐失败时默认降级为「趋势相关度匹配」（aiSelection:false 如实标注）；
+    // 设 B2B_PIPELINE_STRICT_AI=1 可改为严格失败（不降级、直接报错）。
+    const STRICT_AI = process.env.B2B_PIPELINE_STRICT_AI === "1";
+    let aiSelection = true;
+    let recs: Array<{ productId: string; subject: string }>;
+    try {
+      recs = await selfhostRecommendProducts({
+        preference: pref,
+        products: relevant,
+        trendKeywords: trendWords,
+        longtailKeywords: [],
+      });
+    } catch {
+      if (STRICT_AI) {
+        throw new Error('B2B_PIPELINE_STRICT_AI=1：模型网关不可用，按要求不做降级，流水线终止');
+      }
+      // 模型网关不可用/超时 → 降级：按 RAG 相关度排序直接匹配（不阻塞流水线，如实标注）
+      aiSelection = false;
+      recs = relevant.map((p, i) => ({
+        productId: p.productId,
+        subject: p.subject,
+        score: relevant.length - i,
+        reasons: ["模型网关响应超时，按趋势相关度降级匹配"],
+      }));
+    }
+    const targets = recs.slice(0, limitN);
+
+    // 4) 逐条：生成草稿（5 层+校验落库）→ 生成主图 → 回写 image_url（单条失败记录并继续）
+    const created: Array<{ id?: string; title?: string; productId: string; summary?: string; error?: string }> = [];
+    for (const r of targets) {
+      try {
+        const draft = await svc.generateListing({ productId: r.productId, subject: r.subject, preference: pref });
+        try {
+          const imgs = await selfhostGenerateImages({
+            prompt: `${draft.title} 产品主图，干净电商白底，细节真实`,
+            aspectRatio: '1:1',
+            numVariants: 1,
+          });
+          const imageUrl = imgs?.images?.[0]?.url ?? '';
+          if (imageUrl && draft.id) {
+            await prisma.wf_b2b_listings.update({ where: { id: draft.id }, data: { image_url: imageUrl } }).catch(() => {});
+          }
+        } catch {
+          /* 生图失败不阻断草稿入库 */
+        }
+        created.push({ id: draft.id, title: draft.title, productId: r.productId, summary: `${draft.title?.slice(0, 24) ?? ''}（草稿 ${draft.id}）` });
+      } catch (e) {
+        created.push({ productId: r.productId, error: e instanceof Error ? e.message.slice(0, 120) : String(e) });
+      }
+    }
+
+    return { ok: true, trends, preference: pref, aiSelection, created };
+}
+
 /** 自举能力包注册表：合并进 kernel tool-registry 的 mastra 工具集。 */
 export const selfhostTools = {
   content_copywrite: contentCopywriteTool,
@@ -278,4 +433,6 @@ export const selfhostTools = {
   image_prompt_reverse: imagePromptReverseTool,
   inventory_risk: inventoryRiskTool,
   b2b_daily_digest: B2bDailyDigestTool,
+  b2b_listing_intel: b2bListingIntelTool,
+  launch_listing_pipeline: launchListingPipelineTool,
 };

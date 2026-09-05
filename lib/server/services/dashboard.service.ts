@@ -240,16 +240,108 @@ export class DashboardService {
       g.__dashExec = (g.__dashExec ?? 0) + 1;
       console.error(`[dash-bench] getDashboardData exec #${g.__dashExec} ts=${Date.now()}`);
     }
-    const [stats, systemMetrics, businessMetrics, alerts, workflows, trends] = await Promise.all([
+    const [stats, systemMetrics, businessMetrics, alerts, workflows, trends, overview] = await Promise.all([
       this.getStats(),
       this.getSystemMetrics(),
       this.getBusinessMetrics(),
       this.getAlerts(),
       this.getWorkflowStatuses(),
       this.getTrends(),
+      this.getOverview(),
     ]);
-    return { stats, systemMetrics, businessMetrics, alerts, workflows, trends };
+    return { stats, systemMetrics, businessMetrics, alerts, workflows, trends, overview };
   }
+
+  /**
+   * Supabase 式「系统真相总览」：基础设施健康 + 用量计数 + 铺货管道漏斗。
+   * 全部真实数据：MCP 断路器状态、Redis/PG ping、ALIBABA 凭证、各业务表 count。
+   * 探活尽量轻量（resolve 版本，避免 dashboard 首屏变慢）。
+   */
+  async getOverview(): Promise<DashboardOverview> {
+    const mcp = getMCPCircuitStatus();
+
+    const [redisPing, pgPing, counts, listingRows] = await Promise.all([
+      (async () => {
+        try {
+          const { getRedis } = await import("../db/redis");
+          const pong = await getRedis().ping().catch(() => null);
+          return pong === "PONG";
+        } catch {
+          return false;
+        }
+      })(),
+      (async () => {
+        try {
+          await prisma.$queryRaw`SELECT 1`;
+          return true;
+        } catch {
+          return false;
+        }
+      })(),
+      Promise.all([
+        prisma.wf_generated_images.count(),
+        prisma.wf_keyword_trends.count(),
+        prisma.memory_entries.count(),
+        prisma.wf_workflow_specs.count(),
+        prisma.wf_workflow_runs.count(),
+        (async () => {
+          try {
+            const { db } = await import("../db/pg");
+            const rows = await db<Array<{ c: number }>>`SELECT count(*)::int AS c FROM conversation_messages`;
+            return rows[0]?.c ?? 0;
+          } catch {
+            return 0;
+          }
+        })(),
+      ]).catch(() => [0, 0, 0, 0, 0, 0] as number[]),
+      prisma.wf_b2b_listings.findMany({ select: { upload_status: true } }).catch(() => [] as Array<{ upload_status: string }>),
+    ]);
+
+    const funnel: Record<string, number> = { draft: 0, uploading: 0, uploaded: 0, failed: 0 };
+    for (const l of listingRows) {
+      const s = l.upload_status ?? "draft";
+      funnel[s] = (funnel[s] ?? 0) + 1;
+    }
+
+    const alibabaConfigured = Boolean(process.env.ALIBABA_APP_KEY?.trim() && process.env.ALIBABA_APP_SECRET?.trim());
+    const llmConfigured = Boolean((process.env.LITELLM_MASTER_KEY || process.env.AI_LLM_API_KEY || process.env.AI_API_KEY)?.trim());
+
+    const [images, trends, memories, specs, runs, messages] = counts;
+    const flowmindMcp: DashboardOverview["health"]["flowmindMcp"] =
+      mcp.state === "OPEN" ? "OPEN" : mcp.state === "HALF_OPEN" ? "HALF_OPEN" : "ok";
+
+    return {
+      health: {
+        postgres: pgPing ? "ok" : "down",
+        redis: redisPing ? "ok" : "down",
+        flowmindMcp,
+        alibaba: alibabaConfigured ? "configured" : "missing",
+        llm: llmConfigured ? "configured" : "missing",
+      },
+      usage: { images, trends, memories, specs, runs, messages },
+      fulfillment: funnel,
+    };
+  }
+}
+
+/** 系统真相总览（Supabase 式：健康 + 用量 + 管道）。 */
+export interface DashboardOverview {
+  health: {
+    postgres: "ok" | "down";
+    redis: "ok" | "down";
+    flowmindMcp: "ok" | "OPEN" | "HALF_OPEN";
+    alibaba: "configured" | "missing";
+    llm: "configured" | "missing";
+  };
+  usage: {
+    images: number;
+    trends: number;
+    memories: number;
+    specs: number;
+    runs: number;
+    messages: number;
+  };
+  fulfillment: Record<string, number>;
 }
 
 /**

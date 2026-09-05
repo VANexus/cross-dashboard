@@ -109,11 +109,13 @@ export async function replaceTrendSnapshots(
       },
     });
   }
-  // 清理超期快照（migration 00010 提供函数；失败静默，非关键路径）
+  // 清理超期快照：纯 SQL 删除 100 天前快照（避免依赖集群 PG 自定义函数缺失导致的环境报错）
   try {
-    await prisma.$executeRaw`SELECT trim_trend_snapshots(100)`;
+    await prisma.wf_trend_snapshots.deleteMany({
+      where: { snapshot_date: { lt: new Date(Date.now() - 100 * 86_400_000) } },
+    });
   } catch {
-    // 函数尚未应用或执行失败均不阻塞快照写入
+    // 清理失败不阻塞快照写入（非关键路径）
   }
 }
 

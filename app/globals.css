@@ -423,6 +423,15 @@ body {
 }
 .page-container::-webkit-scrollbar { display: none; } /* Chromium */
 
+/* 任意容器隐藏滚动条但仍可滚动（如对话消息区） */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* ── 液态玻璃（Liquid Glass）：纯高斯模糊 + 饱和度 + 高透明低实底，无手动白光 ── */
 .glass-liquid {
   background: color-mix(in oklab, var(--card) 28%, transparent);

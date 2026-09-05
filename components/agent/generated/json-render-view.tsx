@@ -3,7 +3,7 @@
 // 两个对话入口（agent-drawer / dashboard-chat）复用。
 // 注意：text 文本 part 已由调用方各自的 MarkdownMessage 分支渲染，本组件只负责 spec（不重复渲染文本）。
 import { useMemo } from 'react';
-import { useJsonRenderMessage, Renderer, StateProvider, ActionProvider } from '@json-render/react';
+import { useJsonRenderMessage, Renderer, StateProvider, ActionProvider, VisibilityProvider } from '@json-render/react';
 import type { DataPart } from '@json-render/react';
 import { registry } from '@/lib/agent/genui/registry';
 
@@ -42,10 +42,13 @@ export function JsonRenderMessageView({ parts, streaming = false, onInteract }: 
 
   return (
     <div className="mt-1 min-w-0">
+      {/* VisibilityProvider 内部也使用 useStateStore，必须在 StateProvider 内层 */}
       <StateProvider initialState={{}}>
-        <ActionProvider handlers={actionHandlers}>
-          <Renderer spec={spec} registry={registry} loading={streaming} />
-        </ActionProvider>
+        <VisibilityProvider>
+          <ActionProvider handlers={actionHandlers}>
+            <Renderer spec={spec} registry={registry} loading={streaming} />
+          </ActionProvider>
+        </VisibilityProvider>
       </StateProvider>
     </div>
   );

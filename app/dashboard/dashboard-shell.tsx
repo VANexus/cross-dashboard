@@ -91,7 +91,8 @@ export function DashboardShell({ children }: DashboardShellProps) {
   });
 
   return (
-    <div className="flex flex-col gap-3">
+    // -my-7：抵消 .page-container 的 28px 垂直 padding（沉浸对话页贴边，其他页不受影响）
+    <div className="-my-7 flex h-full min-h-0 flex-col gap-3">
       <DashboardEntryAnim />
       {children}
     </div>

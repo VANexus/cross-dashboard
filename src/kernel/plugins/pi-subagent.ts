@@ -87,6 +87,8 @@ export interface PiEventSummary {
 
 export interface SpawnOptions {
   onEvent?: (ev: PiEventSummary) => void
+  /** 外部取消信号：abort 时中断当前 pi 会话（session.abort()），供客户端断开/用户取消使用。 */
+  signal?: AbortSignal
 }
 
 export class PiSubagentService extends Service {
@@ -192,6 +194,14 @@ export class PiSubagentService extends Service {
     })
 
     let finalText = ''
+    // D1 长任务可取消：外部 signal abort → session.abort() 中断当前推理/工具循环
+    const abortSession = () => {
+      void session.abort().catch(() => { /* 会话已结束无需处理 */ })
+    }
+    if (opts.signal) {
+      if (opts.signal.aborted) abortSession()
+      else opts.signal.addEventListener('abort', abortSession, { once: true })
+    }
     const unsubscribe = session.subscribe((ev) => {
       if (ev.type === 'message_update') {
         const evt = ev.assistantMessageEvent as { type?: string; delta?: string } | undefined

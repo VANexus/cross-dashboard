@@ -51,15 +51,11 @@ async function init(): Promise<void> {
   await ensureWorkflowStatuses();
   await ensureSeedAgents();
 
-  // Agent 运行时：web 角色保持现状启动（F2 迁 instrumentation 按角色装配）。
-  // ⚠️ 构建期（next build 的静态预渲染阶段）绝不启动常驻 Agent 循环——否则预渲染会真的拉起
-  // 15 个 setInterval → 调 LLM fetch()，预渲染一结束 fetch 被拒，报 HANGING_PROMISE_REJECTION
-  // 并污染 build 产物。仅在生产运行时（next start / 集群 pod）启动。
-  if (process.env.NEXT_PHASE !== "phase-production-build") {
-    import("../agent-runtime/runtime")
-      .then(({ agentRuntime }) => agentRuntime.start())
-      .catch((e) => console.warn("[db] agentRuntime start failed", e.message));
-  }
+  // Agent 自嗨循环已退役（2026-09-05 架构去双轨）：不再随进程自动启动任何周期循环。
+  // 老自主 Runtime（setInterval）仅保留「按需激活」能力，经 /api/agents/[id]/start 或
+  // create_agent/create_team 显式触发；对话主线走 /api/agent/chat 统一编排。
+  // （原实现：非 build 阶段 agentRuntime.start() 拉起全部种子的 think+decide LLM 循环，
+  //   每周期 2 次模型调用 + 全表读 PG，纯白耗无业务产出。）
 }
 
 // ── Agent 种子（personas → 真库，幂等）──────────────────────────

@@ -24,6 +24,9 @@ const SpecCtx = z.object({
 })
 type SpecCtxValue = z.infer<typeof SpecCtx>
 
+/** suspended Run 的超时回收窗口（30 分钟未确认视为放弃）。 */
+const SUSPENDED_RUN_TTL_MS = 30 * 60 * 1000
+
 export interface SpecRunStepResult {
   id: string
   tool: string
@@ -163,7 +166,15 @@ export class MastraEngineService extends Service {
       const failed = stepResults.some((r) => !r.ok)
       return { status: failed ? 'failed' : 'success', steps: stepResults }
     } finally {
-      if (!suspended) activeRuns.delete(run.runId)
+      if (!suspended) {
+        activeRuns.delete(run.runId)
+      } else {
+        // suspended 等待用户确认：进程内保留可 resume，但设 TTL 防泄漏
+        // （超时未确认视为放弃，资源回收；多副本部署下 resumed 请求会被路由到
+        //   持有该 Run 的 pod —— 【已知单实例限制】suspended Run 不可跨 pod 恢复）
+        const t = setTimeout(() => activeRuns.delete(run.runId), SUSPENDED_RUN_TTL_MS)
+        t.unref?.()
+      }
     }
   }
 }

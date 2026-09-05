@@ -79,15 +79,18 @@ function getAdapter(endpoint: ServiceEndpoint): ProtocolAdapter {
 function loadPresetEndpoints(): ServiceEndpoint[] {
   const endpoints: ServiceEndpoint[] = [];
 
-  // 主后端（MCP）— 默认 rak-flowmind
-  const mcpUrl = process.env.NEXT_PUBLIC_FLOWMIND_URL ?? "http://127.0.0.1:8001/mcp";
-  endpoints.push({
-    id: "flowmind-primary",
-    name: "FlowMind 主服务",
-    protocol: "mcp",
-    url: mcpUrl,
-    enabled: true,
-  });
+  // 主后端（MCP）— 浏览器端零写死：必须显式配置（NEXT_PUBLIC_FLOWMIND_URL）；
+  // 未配置则跳过该端点（不再 fallback 到内置 127.0.0.1:8001，避免无谓的连接错误日志）
+  const mcpUrl = process.env.NEXT_PUBLIC_FLOWMIND_URL?.trim();
+  if (mcpUrl) {
+    endpoints.push({
+      id: "flowmind-primary",
+      name: "FlowMind 主服务",
+      protocol: "mcp",
+      url: mcpUrl,
+      enabled: true,
+    });
+  }
 
   // A2A 边缘（可选）
   const a2aUrl = process.env.NEXT_PUBLIC_A2A_URL;

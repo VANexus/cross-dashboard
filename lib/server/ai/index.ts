@@ -2,15 +2,14 @@
  * FlowMind RAK — AI Provider Factory
  * Manages provider lifecycle and reads config from ai_config database table.
  * Supports frontend-configurable provider switching without env vars.
- * 配置优先级：ai_config 表（前端「设置」页）> AI_LLM_* env（工作区根 .env，次级兜底为旧 AI_* 变量）> 内置默认。
- * 无 mock：未配置 key 时抛 AIConfigError（结构化配置引导），绝不返回假内容。
+ * 配置优先级：ai_config 表（前端「设置」页）> AI_LLM_* env（工作区根 .env，次级兜底为旧 AI_* 变量）。
+ * 无默认厂商/模型/网关：apiKey/baseUrl/model 一律由用户显式配置，缺配置抛 AIConfigError（结构化引导），绝不返回假内容。
  */
 import { prisma } from "../db";
 import type { LanguageModel } from "ai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
 import type { AIProvider, AIProviderName } from "./provider";
-import { litellmConfig } from "@/lib/cluster";
 import { SdkAIProvider } from "./sdk-provider";
 
 export type { AIProvider, AIProviderName } from "./provider";
@@ -20,7 +19,7 @@ export type { GenerateParams, GenerateResult, AnalyzeParams } from "./provider";
 export class AIConfigError extends Error {
   constructor(
     message =
-      "模型网关未就绪：集群内由 LiteLLM 网关统一接入（Secret 注入 LITELLM_MASTER_KEY）；开发机在工作区 .env 配置 AI_LLM_BASE_URL / AI_LLM_API_KEY 后重试",
+      "模型未配置：请在 .env 填写你自己的 provider（AI_LLM_BASE_URL / AI_LLM_API_KEY / AI_LLM_MODEL / AI_LLM_PROTOCOL），或在设置页 ai_config 配置；代码不内置任何默认模型与网关",
   ) {
     super(message);
     this.name = "AIConfigError";
@@ -36,42 +35,52 @@ interface AIConfig {
   temperature: number;
 }
 
+// 配置纪律（2026-09-05）：默认值只保「协议判定」与「数字参数」，不臆造厂商/模型/网关。
+// - provider：openai = OpenAI 兼容协议判定（SiliconFlow / LiteLLM 等兼容网关都走它），非厂商承诺；
+// - model / apiKey / baseUrl：一律留空 = 未配置 → 用户未填时抛 AIConfigError 引导配置，
+//   绝不回落到代码内置的模型或集群默认网关（litellm 不作为兜底）。
 const DEFAULT_CONFIG: AIConfig = {
   provider: "openai",
-  model: "mimo-v2.5-pro",
+  model: "",
   apiKey: "",
-  // baseUrl 不硬编码外部云端点（全自托管）：留空 ⇒ 走集群服务目录（ai.litellm）
   baseUrl: "",
   maxTokens: 4096,
   temperature: 0.7,
 };
-
-/** 集群目录解析 LiteLLM 网关（失败视为不可用，回落 KV/默认）。 */
-function gateway(): { baseUrl: string; apiKey: string } {
-  try {
-    return litellmConfig();
-  } catch {
-    return { baseUrl: "", apiKey: "" };
-  }
-}
 
 async function readConfig(): Promise<AIConfig> {
   let rows: Array<{ key: string; value: string }> = [];
   try {
     rows = await prisma.ai_config.findMany({ select: { key: true, value: true } });
   } catch {
-    // 旧 supabase 路径未检查 error（DB 不可读时按空配置回落 env/默认），保持该容忍语义
+    // 历史注释：旧 supabase 路径未检查 error（DB 不可读时按空配置回落 env/默认）——保持该容忍语义
   }
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-  const gw = gateway();
 
-  // 服务化优先级（2026-09-03）：apiKey/baseUrl 属基础设施凭据 → env/集群 Secret 优先，
-  // ai_config 仅作开发期 KV 覆盖；model/temperature 属业务偏好 → 仍是 KV 优先。
+  // 配置纪律（2026-09-05）：apiKey/baseUrl 只认「用户显式配置」＝ env 或 ai_config KV，
+  // 不再回落集群 litellm 网关兜底（集群内由 Secret 注入 env，开发机由用户 .env 填写）。
   const envApiKey =
     process.env.LITELLM_MASTER_KEY?.trim() ||
     process.env.AI_LLM_API_KEY?.trim() ||
     process.env.AI_API_KEY?.trim();
   const envBaseUrl = process.env.AI_LLM_BASE_URL?.trim() || process.env.AI_BASE_URL?.trim();
+
+// 模型归一化（纯 env 驱动，无内置名单）：AI_LLM_BLOCKED_MODELS=JSON 黑名单 + AI_LLM_MODEL_FALLBACK 回退目标；未配置则不干预。
+function resolveModel(raw: string): string {
+  const blockedRaw = process.env.AI_LLM_BLOCKED_MODELS?.trim();
+  const fallback = process.env.AI_LLM_MODEL_FALLBACK?.trim();
+  if (!blockedRaw || !fallback) return raw;
+  try {
+    const parsed = JSON.parse(blockedRaw) as unknown;
+    if (!Array.isArray(parsed) || !parsed.map(String).includes(raw)) return raw;
+  } catch {
+    return raw;
+  }
+  return fallback;
+}
+
+const rawModel = map.model ?? process.env.AI_LLM_MODEL ?? process.env.AI_MODEL ?? DEFAULT_CONFIG.model;
+const model = resolveModel(rawModel);
 
   return {
     provider:
@@ -79,9 +88,9 @@ async function readConfig(): Promise<AIConfig> {
       (process.env.AI_LLM_PROTOCOL as AIProviderName) ??
       (process.env.AI_PROVIDER as AIProviderName) ??
       DEFAULT_CONFIG.provider,
-    model: map.model ?? process.env.AI_LLM_MODEL ?? process.env.AI_MODEL ?? DEFAULT_CONFIG.model,
-    apiKey: envApiKey || map.api_key || gw.apiKey || DEFAULT_CONFIG.apiKey,
-    baseUrl: envBaseUrl || map.base_url || gw.baseUrl || DEFAULT_CONFIG.baseUrl,
+    model,
+    apiKey: envApiKey || map.api_key || DEFAULT_CONFIG.apiKey,
+    baseUrl: envBaseUrl || map.base_url || DEFAULT_CONFIG.baseUrl,
     maxTokens: Number(map.max_tokens ?? process.env.AI_MAX_TOKENS ?? DEFAULT_CONFIG.maxTokens),
     temperature: Number(map.temperature ?? process.env.AI_TEMPERATURE ?? DEFAULT_CONFIG.temperature),
   };
@@ -90,6 +99,9 @@ async function readConfig(): Promise<AIConfig> {
 function createProvider(config: AIConfig): AIProvider {
   if (!config.apiKey) {
     throw new AIConfigError();
+  }
+  if (!config.model) {
+    throw new AIConfigError("模型未配置：请在 .env 填写 AI_LLM_MODEL（或在设置页 ai_config 配置 model）");
   }
   // 规范统一：全栈 LLM 只走 AI SDK 单一出口（SdkAIProvider），不再有手写 fetch 适配器。
   // modelFactory = getAISDKModel（同一个 LanguageModel 缓存），保证与对话流/内容生成同源。
@@ -173,6 +185,9 @@ function toSdkBaseURL(baseUrl: string): string | undefined {
 function createAISDKModel(config: AIConfig): LanguageModel {
   if (!config.apiKey) {
     throw new AIConfigError();
+  }
+  if (!config.model) {
+    throw new AIConfigError("模型未配置：请在 .env 填写 AI_LLM_MODEL（或在设置页 ai_config 配置 model）");
   }
   if (config.provider === "claude") {
     // LongCat 兼容层：其 Anthropic 网关在 message_start 里回 "usage":{}（缺

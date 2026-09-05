@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/layout/app-shell";
 import { SwrProvider } from "@/components/providers/swr-provider";
+import { GenUIProvider } from "@/components/providers/genui-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,7 +33,10 @@ export default function RootLayout({
     >
       <body className="h-screen overflow-hidden bg-background font-sans antialiased">
         <SwrProvider>
-          <AppShell>{children}</AppShell>
+          {/* genUI Provider 全局提层：SSR 与所有页面/抽屉/对话流共享 json-render context */}
+          <GenUIProvider>
+            <AppShell>{children}</AppShell>
+          </GenUIProvider>
         </SwrProvider>
       </body>
     </html>

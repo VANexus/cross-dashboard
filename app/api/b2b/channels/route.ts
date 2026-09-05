@@ -27,7 +27,7 @@ export const GET = withDb(async (request: NextRequest) => {
     // 表未建（迁移未执行）等场景：返回空列表而非 500，前端展示空态引导
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes("channel_accounts")) {
-      console.warn("[channels] 保险库表未创建：请在 Supabase 执行 supabase/migrations/00008_channel_accounts.sql");
+      console.warn("[channels] 保险库表未创建：请先执行 bun run scripts/db-migrate.ts（迁移源 lib/server/db/migrations）");
       return success([]);
     }
     throw err;

@@ -106,19 +106,6 @@ export const generateListingSchema = z.object({
   language: z.enum(["en", "ja", "de", "fr"]).default("en"),
 });
 
-export const publishListingSchema = z.object({
-  title: z.string().min(1),
-  bulletPoints: z.array(
-    z.object({
-      title: z.string(),
-      desc: z.string(),
-    })
-  ),
-  description: z.string(),
-  categoryId: z.string(),
-  images: z.array(z.string().url()),
-});
-
 export const executeResearchSchema = z.object({
   sources: z.array(z.string()).min(1),
   keywords: z.array(z.string()).optional(),

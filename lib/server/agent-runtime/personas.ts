@@ -18,7 +18,7 @@ export function getDefaultConfig(agentType: AgentType, agentId: string): AgentCo
         { id: `${agentId}-g3`, text: "实时检测异常支付", progress: 0.6, priority: "medium" },
       ],
       mood: { state: "alert", energy: 0.9, lastUpdated: new Date().toISOString() },
-      cycleConfig: { intervalMs: 45000, enabled: true },
+      cycleConfig: { intervalMs: 45000, enabled: false },
     },
     dispatch: {
       persona: {
@@ -32,7 +32,7 @@ export function getDefaultConfig(agentType: AgentType, agentId: string): AgentCo
         { id: `${agentId}-g3`, text: "实现跨Agent协作闭环", progress: 0.4, priority: "medium" },
       ],
       mood: { state: "focused", energy: 0.85, lastUpdated: new Date().toISOString() },
-      cycleConfig: { intervalMs: 45000, enabled: true },
+      cycleConfig: { intervalMs: 45000, enabled: false },
     },
     operations: {
       persona: {
@@ -46,7 +46,7 @@ export function getDefaultConfig(agentType: AgentType, agentId: string): AgentCo
         { id: `${agentId}-g3`, text: "完成Q2选品计划", progress: 0.3, priority: "medium" },
       ],
       mood: { state: "curious", energy: 0.8, lastUpdated: new Date().toISOString() },
-      cycleConfig: { intervalMs: 45000, enabled: true },
+      cycleConfig: { intervalMs: 45000, enabled: false },
     },
     risk_control: {
       persona: {
@@ -60,7 +60,7 @@ export function getDefaultConfig(agentType: AgentType, agentId: string): AgentCo
         { id: `${agentId}-g3`, text: "建立风险预警模型", progress: 0.5, priority: "medium" },
       ],
       mood: { state: "alert", energy: 0.9, lastUpdated: new Date().toISOString() },
-      cycleConfig: { intervalMs: 45000, enabled: true },
+      cycleConfig: { intervalMs: 45000, enabled: false },
     },
     legal: {
       persona: {
@@ -74,7 +74,7 @@ export function getDefaultConfig(agentType: AgentType, agentId: string): AgentCo
         { id: `${agentId}-g3`, text: "建立品牌保护体系", progress: 0.35, priority: "medium" },
       ],
       mood: { state: "focused", energy: 0.75, lastUpdated: new Date().toISOString() },
-      cycleConfig: { intervalMs: 45000, enabled: true },
+      cycleConfig: { intervalMs: 45000, enabled: false },
     },
     marketing: {
       persona: {
@@ -88,7 +88,7 @@ export function getDefaultConfig(agentType: AgentType, agentId: string): AgentCo
         { id: `${agentId}-g3`, text: "完成Q2广告策略优化", progress: 0.6, priority: "medium" },
       ],
       mood: { state: "curious", energy: 0.85, lastUpdated: new Date().toISOString() },
-      cycleConfig: { intervalMs: 45000, enabled: true },
+      cycleConfig: { intervalMs: 45000, enabled: false },
     },
   };
 

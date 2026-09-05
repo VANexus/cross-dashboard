@@ -14,6 +14,39 @@ import type { MemoryEntry } from "@/lib/shared/types";
 
 const memoryService = new MemoryService();
 
+// ── C2：召回增强缓存（20 分钟 TTL，进程内）──────────────────────────
+// 每轮对话都要做一次 Milvus 检索 + 能力清单查询（embedding + PG 读），
+// 高频问答下是无意义的重复成本。以 (agentId, query) 为键做时间窗口缓存，
+// 记忆/进化的沉淀在 20 分钟内收敛到下一轮可见，代价可接受。
+const AUGMENT_CACHE_TTL_MS = 20 * 60 * 1000;
+const augmentCache = new Map<
+  string,
+  { block: string; memories: MemoryEntry[]; capabilities: MemoryEntry[]; at: number }
+>();
+
+// ── C1：工具 outcome 记忆写闸门 ─────────────────────────────────────
+// 1) 价值过滤：空/占位/无信息量的输出不沉淀（避免脏记忆灌库）；
+// 2) 进程内去重：同 tool + 同摘要片段，24h 窗口内只写一次
+//    （工具重复执行（如多次跑同一趋势查询）不应重复产生几乎相同的记忆条目）。
+const OUTCOME_DEDUP_WINDOW_MS = 24 * 60 * 60 * 1000;
+const OUTCOME_MIN_LEN = 12;
+const outcomeCache = new Map<string, number>();
+
+function isBoringOutcome(summary: string): boolean {
+  const s = summary.trim();
+  if (!s || s.length < OUTCOME_MIN_LEN) return true;
+  if (/^(\[object Object\]|undefined|null|\{\}|\[\])$/i.test(s)) return true;
+  return false;
+}
+
+function pruneOutcomeCache(): void {
+  const now = Date.now();
+  if (outcomeCache.size <= 2000) return;
+  for (const [k, t] of outcomeCache) {
+    if (now - t > OUTCOME_DEDUP_WINDOW_MS) outcomeCache.delete(k);
+  }
+}
+
 export interface AgentIdentity {
   agentId: string;
   name: string;
@@ -62,6 +95,13 @@ export async function buildMemoryAugment(opts: {
   const recallQuery =
     [identity?.goals?.[0], identity?.expertise?.[0], opts.query].filter(Boolean).join("；") || "运营经验";
 
+  // C2：命中 TTL 窗口内缓存的增强块，直接复用（跳过 Milvus 检索 + 能力清单读库）
+  const cacheKey = `${identity?.agentId ?? "global"}|${recallQuery}`.slice(0, 140);
+  const cached = augmentCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < AUGMENT_CACHE_TTL_MS) {
+    return { block: cached.block, memories: cached.memories, capabilities: cached.capabilities };
+  }
+
   let memories: MemoryEntry[] = [];
   let capabilities: MemoryEntry[] = [];
   try {
@@ -101,8 +141,11 @@ export async function buildMemoryAugment(opts: {
     }
   }
 
-  if (lines.length === 0) return { block: "", memories, capabilities };
-  return { block: "\n" + lines.join("\n") + "\n", memories, capabilities };
+  let block = "";
+  if (lines.length > 0) block = "\n" + lines.join("\n") + "\n";
+
+  augmentCache.set(cacheKey, { block, memories, capabilities, at: Date.now() });
+  return { block, memories, capabilities };
 }
 
 /** 业务工具执行成功后沉淀 outcome 记忆（fire-and-forget，三库写回，失败不阻断主链路）。 */
@@ -113,6 +156,16 @@ export async function recordToolOutcome(opts: {
   summary: string;
 }): Promise<void> {
   try {
+    // C1 门槛①：价值过滤 —— 空/占位/无信息量输出不沉淀
+    if (isBoringOutcome(opts.summary)) return;
+    // C1 门槛②：幂等去重 —— 同工具同摘要片段 24h 内只写一次
+    const dedupKey = `${opts.toolName}|${opts.summary.slice(0, 100)}`;
+    const now = Date.now();
+    const lastAt = outcomeCache.get(dedupKey);
+    if (lastAt && now - lastAt < OUTCOME_DEDUP_WINDOW_MS) return;
+    outcomeCache.set(dedupKey, now);
+    pruneOutcomeCache();
+
     await memoryService.create({
       zone: "agent",
       title: opts.title ?? `工具执行 · ${opts.toolName}`,
