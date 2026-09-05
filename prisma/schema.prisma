@@ -595,6 +595,26 @@ model wf_pain_points {
   examples String @default("[]")
 }
 
+model wf_image_projects {
+  id         String @id
+  title      String @default("")
+  root_id    String
+  parent_id  String?
+  branch_tag String @default("")
+  depth      Int    @default(0)
+  status     String @default("draft")
+  prompt     String @default("")
+  negative   String @default("")
+  params     String @default("{}")
+  image_url  String @default("")
+  thumbnail  String @default("")
+  created_at String @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+  updated_at String @default(dbgenerated("to_char(now(), 'YYYY-MM-DD HH24:MI:SS'::text)"))
+
+  @@index([root_id, created_at(sort: Desc)], map: "idx_wf_image_projects_root")
+  @@index([parent_id], map: "idx_wf_image_projects_parent")
+}
+
 model wf_product_keywords {
   id            Int    @id @default(autoincrement())
   keyword       String
