@@ -16,7 +16,7 @@
   - 封面反推：URL 输入 → **上传图片（MinIO 复用 upload 路由，20MB）为主 + 粘贴链接为辅 + 即时预览**
   - 情报中心：头部「洞察→行动」衔接条，关键词一键带往 一键上架/关键词趋势/内容工坊
 - **U3 内容统一主线（进行中）**：小红书/公众号/情报中心贯通为「灵感→选题→AI 草稿→手工修→排版→发布→成果库」；`content_typeset` 已迁**自托管引擎**（lib/server/wechat-typeset.ts，确定性内联样式转换，默认零 MCP 依赖，`WECHAT_TYPESET_USE_MCP=1` 可切回）；发布就绪卡升级为三步入位 + 笔记卡带封面缩略/话题聚合。
-- **U4 生图画布（后端 v1 ✅ · UI 待做）**：ComfyUI 式「项目 × 版本 × 分支」——`wf_image_projects` 表（迁移 0006）+ `ImageCanvasService` + `/api/workflows/ai-imaging/canvas`（root/branch/patch/delete/list，分支自动 B1/B2 编号、树状回溯、叶子保护删除）；下一步把 /workflows/ai-imaging 画布升级为「版本时间线 + 分支树 + 内置提示词速选 + 基于上版本重新生成」。
+- **U4 生图画布（✅ v1）**：ComfyUI 式「项目 × 版本 × 分支」——`wf_image_projects` 表（迁移 0006）+ `ImageCanvasService` + `/api/workflows/ai-imaging/canvas`（root/branch/patch/delete/list，分支自动 B1/B2 编号、树状回溯、叶子保护删除）；`/workflows/ai-imaging` 已升级为项目式版本画布：创作项目列表 + 版本树（主线/分支）+ 大图预览 + 提示词编辑/速选 chips + 「基于此版本再生成（新分支）」/保存/删除。待办：图生图/局部重绘、多图 count、发布到上架工作流。
 
 ---
 
