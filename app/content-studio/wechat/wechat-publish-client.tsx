@@ -591,7 +591,7 @@ export function WechatPublishClient({ accounts: initAccounts, jobs: initJobs, th
             <div className="rounded-md border border-warning/20 bg-warning/10 p-3 text-sm text-warning">
               <div className="font-medium">公众号账号表未就绪</div>
               <div className="mt-0.5 text-xs opacity-90">
-                请在 Supabase SQL Editor 执行 <code className="rounded bg-warning/15 px-1">supabase/migrations/00011_wechat_e2e.sql</code>
+                请在数据库执行迁移（<code className="rounded bg-warning/15 px-1">bun run scripts/db-migrate.ts</code>，迁移源 lib/server/db/migrations）
                 （创建 wf_wechat_accounts / wf_wechat_publish_jobs 表）后刷新。错误：{accountsState.error}
               </div>
             </div>
@@ -653,7 +653,7 @@ export function WechatPublishClient({ accounts: initAccounts, jobs: initJobs, th
               <Card>
                 <CardHeader>
                   <CardTitle className="text-sm">② 准备排版</CardTitle>
-                  <CardDescription>选择内置主题，点击开始调用 AI 排版（flowmind content_typeset）。</CardDescription>
+                  <CardDescription>选择内置主题，点击开始排版（自托管引擎 · 公众号内联样式，无需外部依赖）。</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">

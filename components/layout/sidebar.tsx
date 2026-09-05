@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { usePathname } from "next/navigation";
@@ -32,8 +32,7 @@ function dotToStatus(dot?: string) {
     case "running": return "success" as const;
     case "warning": return "warning" as const;
     case "error": return "danger" as const;
-    case "idle": return "idle" as const;
-    default: return undefined;
+    default: return undefined; // idle 不渲染：避免满屏灰点噪音（仅运行中/预警/错误有语义）
   }
 }
 
@@ -137,13 +136,26 @@ export function Sidebar() {
     return items;
   }, [navGroups]);
 
-  // 归类：工作台（核心）vs B端运营（独立分组，展开态）vs 工作流（折叠）
-  const workspaceHrefs = new Set(["/journeys", "/dashboard", "/agents", "/memory", "/evolution", "/tasks", "/risk"]);
-  // B端运营：独立显眼分组，覆盖情报/关键词趋势/一键上架/生图 Skill 四入口
-  const b2bHrefs = new Set(["/b2b/intel", "/b2b/keyword-trends", "/b2b/listing", "/b2b/image-skills"]);
-  const workspaceItems = allItems.filter((i) => workspaceHrefs.has(i.href));
-  const b2bItems = allItems.filter((i) => b2bHrefs.has(i.href));
-  const workflowItems = allItems.filter((i) => !workspaceHrefs.has(i.href) && !b2bHrefs.has(i.href) && i.href !== "/settings");
+  // 导航分桶（产品语义；标号/图标/状态点仍来自注册表，这里只定义归属）
+  const BUCKETS: Array<{ key: string; label: string; hrefs: Set<string>; defaultCollapsed?: boolean }> = [
+    { key: "overview", label: "概览指挥", hrefs: new Set(["/dashboard", "/profile", "/journeys", "/skills"]) },
+    { key: "insight", label: "市场洞察", hrefs: new Set(["/b2b/intel", "/b2b/keyword-trends"]) },
+    { key: "content", label: "内容与发布", hrefs: new Set(["/content-studio", "/content-studio/wechat", "/creations"]) },
+    { key: "listing", label: "商品上架", hrefs: new Set(["/b2b/listing", "/b2b/image-skills"]) },
+    {
+      key: "workflows",
+      label: "AI 工作流",
+      hrefs: new Set([
+        "/workflows/product-research", "/workflows/ai-imaging", "/workflows/ai-advertising",
+        "/workflows/ai-listing", "/workflows/inventory", "/workflows/competitor-ads",
+        "/workflows/video-localization",
+      ]),
+      defaultCollapsed: true,
+    },
+    { key: "system", label: "系统与运营", hrefs: new Set(["/settings", "/agents", "/memory", "/evolution", "/tasks", "/risk"]) },
+  ];
+
+  // 动态页面（/p/*）单独一组，不混进业务分桶
   const dynamicItems = (dynamicPages ?? []).map((p) => ({
     href: `/p/${p.id}`, label: p.title, icon: Sparkles, dot: undefined as string | undefined,
   }));
@@ -174,37 +186,36 @@ export function Sidebar() {
 
       <ScrollArea className="flex-1 scrollbar-thin">
         <nav className="flex flex-col gap-3 px-2 py-3">
-          {/* 工作台：核心页面 */}
-          <NavGroup label="工作台" collapsedSidebar={collapsed}>
-            {workspaceItems.map((it) => (
-              <NavLink key={it.href} href={it.href} label={it.label} icon={it.icon} dot={it.dot}
-                collapsed={collapsed} pathname={pathname} />
-            ))}
-          </NavGroup>
+          {/* 产品语义分桶（注册表数据驱动） */}
+          {BUCKETS.map((bucket) => {
+            const items = allItems.filter((i) => bucket.hrefs.has(i.href));
+            if (items.length === 0) return null;
+            return (
+              <NavGroup key={bucket.key} label={bucket.label} collapsedSidebar={collapsed} defaultCollapsed={bucket.defaultCollapsed}>
+                {items.map((it) => (
+                  <NavLink key={it.href} href={it.href} label={it.label} icon={it.icon} dot={it.dot}
+                    collapsed={collapsed} pathname={pathname} />
+                ))}
+                {bucket.key === "workflows" && !collapsed && (
+                  <p className="flex items-center gap-1.5 px-2.5 pt-0.5 text-[10px] text-muted-foreground/50" title="状态点图例">
+                    <StatusDot status="success" size="sm" /><span>运行中</span>
+                    <StatusDot status="warning" size="sm" /><span>预警</span>
+                    <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-muted-foreground/40" /><span>待命</span>
+                  </p>
+                )}
+              </NavGroup>
+            );
+          })}
 
-          {/* B端运营：跨境 B2B 运营台，独立展开分组 */}
-          <NavGroup label="B端运营" collapsedSidebar={collapsed}>
-            {b2bItems.map((it) => (
-              <NavLink key={it.href} href={it.href} label={it.label} icon={it.icon} dot={it.dot}
-                collapsed={collapsed} pathname={pathname} />
-            ))}
-          </NavGroup>
-
-          {/* 工作流：原子能力（默认折叠） */}
-          <NavGroup label="工作流" collapsedSidebar={collapsed} defaultCollapsed>
-            {[...workflowItems, ...dynamicItems].map((it) => (
-              <NavLink key={it.href} href={it.href} label={it.label} icon={it.icon} dot={it.dot}
-                collapsed={collapsed} pathname={pathname} />
-            ))}
-          </NavGroup>
-
-          {/* 设置 — 单独放在底部区 */}
-          <div className="mt-auto border-t border-border/60 pt-3">
-            {allItems.filter(i => i.href === "/settings").map((it) => (
-              <NavLink key={it.href} href={it.href} label={it.label} icon={it.icon}
-                collapsed={collapsed} pathname={pathname} />
-            ))}
-          </div>
+          {/* AI 动态页面：Agent 生成的 /p/[slug]，默认折叠不打扰 */}
+          {dynamicItems.length > 0 && (
+            <NavGroup label="AI 动态页面" collapsedSidebar={collapsed} defaultCollapsed>
+              {dynamicItems.map((it) => (
+                <NavLink key={it.href} href={it.href} label={it.label} icon={it.icon}
+                  collapsed={collapsed} pathname={pathname} />
+              ))}
+            </NavGroup>
+          )}
         </nav>
       </ScrollArea>
 

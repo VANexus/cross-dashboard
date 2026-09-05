@@ -8,6 +8,7 @@
  * 绝不落前端状态、绝不随列表返回。
  */
 import { ContentMCPClient, ContentMCPError } from "@/lib/mcp/client";
+import { selfhostTypeset } from "@/lib/server/wechat-typeset";
 import {
   createWechatAccount, createWechatJob, deleteWechatAccount, deleteWechatJob,
   getWechatAccountSecret, getWechatJob, listWechatAccounts, listWechatJobs,
@@ -18,12 +19,8 @@ import type {
   WechatPublishSubmitResult, WechatTypesetResult, WechatTypesetTheme,
 } from "@/lib/shared/types";
 
-/** 内置排版主题（与 rak-flowmind content_typeset 的 THEME_PRESETS 对齐） */
-export const WECHAT_THEMES: WechatTypesetTheme[] = [
-  { id: "default", label: "经典", primary: "#07C160" },
-  { id: "grace", label: "优雅", primary: "#9C6ADE" },
-  { id: "simple", label: "简约", primary: "#1F6FEB" },
-];
+/** 内置排版主题（自托管引擎与 rak-flowmind content_typeset 的 THEME_PRESETS 对齐） */
+export { WECHAT_TYPESET_THEMES as WECHAT_THEMES } from "@/lib/server/wechat-typeset";
 
 export class WechatService {
   private mcp = new ContentMCPClient();
@@ -72,19 +69,23 @@ export class WechatService {
     });
   }
 
-  // ── 排版 ──
+  // ── 排版（自托管引擎优先，零 MCP 依赖；WECHAT_TYPESET_USE_MCP=1 可切回 flowmind 技能） ──
 
   getThemes(): WechatTypesetTheme[] {
-    return WECHAT_THEMES;
+    return WECHAT_TYPESET_THEMES;
   }
 
   async typeset(input: { markdown: string; theme?: string; primaryColor?: string; fontSize?: string }): Promise<WechatTypesetResult> {
-    return await this.mcp.call<WechatTypesetResult>("content_typeset", {
-      markdown: input.markdown,
-      theme: input.theme ?? "default",
-      primary_color: input.primaryColor,
-      font_size: input.fontSize,
-    });
+    if (process.env.WECHAT_TYPESET_USE_MCP === "1") {
+      return await this.mcp.call<WechatTypesetResult>("content_typeset", {
+        markdown: input.markdown,
+        theme: input.theme ?? "default",
+        primary_color: input.primaryColor,
+        font_size: input.fontSize,
+      });
+    }
+    // 自托管：进程内确定性转换（公众号内联样式 HTML），不依赖 flowmind、无失败路径
+    return selfhostTypeset(input.markdown, { theme: input.theme });
   }
 
   // ── 发布任务 ──

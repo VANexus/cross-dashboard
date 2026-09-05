@@ -13,6 +13,6 @@ export const contentWorkspace: WorkspaceManifest = {
   entries: [
     { label: "内容创作中心", href: "/content-studio", icon: PenLine },
     { label: "公众号端到端发布", href: "/content-studio/wechat", icon: Send },
-    { label: "统一成果库", href: "/creations", icon: LayoutGrid },
+    { label: "成果库", href: "/creations", icon: LayoutGrid },
   ],
 };

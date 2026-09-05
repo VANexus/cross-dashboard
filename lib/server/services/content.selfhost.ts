@@ -56,12 +56,12 @@ const HOT_TOPIC_ENDPOINTS: Record<string, string> = {
   wechat: "toutiao",
   douyin: "douyin",
 };
-/** 榜型 → DailyHotApi 端点。 */
+/** 榜型 → DailyHotApi 端点（inspiration 用知乎热榜：内容型灵感更贴合创作选题，baidu 榜量过少且多被过滤）。 */
 const HOT_BOARD_ENDPOINTS: Record<string, string> = {
   general: "thepaper",
   vertical: "douyin",
   topic: "toutiao",
-  inspiration: "baidu",
+  inspiration: "zhihu",
 };
 
 function parseHeat(raw: unknown): number {

@@ -14,10 +14,10 @@ export const growthWorkspace: WorkspaceManifest = {
   entries: [
     { label: "能力中心", href: "/skills", icon: Sparkles },
     { label: "选品工作流", href: "/workflows/product-research", icon: Radar, dot: "running" },
-    { label: "AI 作图", href: "/workflows/ai-imaging", icon: Image, dot: "idle" },
+    { label: "AI 作图", href: "/workflows/ai-imaging", icon: Image },
     { label: "AI 广告", href: "/workflows/ai-advertising", icon: BarChart3, dot: "running" },
     { label: "库销比", href: "/workflows/inventory", icon: Boxes, dot: "warning" },
-    { label: "竞品广告分析", href: "/workflows/competitor-ads", icon: Target, dot: "idle" },
+    { label: "竞品广告分析", href: "/workflows/competitor-ads", icon: Target },
     { label: "视频本地化", href: "/workflows/video-localization", icon: Globe },
   ],
 };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
 import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Palette, Loader2, XCircle, ScanSearch, Save, Wand2, Images, Sparkles, AlertTriangle, ArrowUpRight,
+  Palette, Loader2, XCircle, ScanSearch, Save, Wand2, Images, Sparkles, AlertTriangle, ArrowUpRight, ImageUp,
 } from "lucide-react";
 import { B2BNav } from "../b2b-nav";
 import { JourneyBar } from "@/components/journey/journey-bar";
@@ -47,9 +47,37 @@ export function B2BImageSkillsClient({ initialSkills }: { initialSkills: ImageSk
     }
   }, []);
 
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  /** 上传本地图片到集群 MinIO，得到 7 天预签名 URL（URL 仅作为素材源，用户直接给图片） */
+  const uploadCover = async (file: File) => {
+    if (!/^image\/(jpeg|png|webp|avif|gif)$/.test(file.type)) {
+      setError("仅支持 JPG/PNG/WEBP/AVIF/GIF 图片");
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      setError("图片需小于 20MB");
+      return;
+    }
+    setBusy("upload");
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/b2b/image-skills/upload", { method: "POST", body: fd });
+      const j = (await res.json().catch(() => null)) as { success?: boolean; data?: { url: string }; error?: string };
+      if (!res.ok || !j?.success || !j.data?.url) throw new Error(j?.error ?? "上传失败");
+      setCoverUrl(j.data.url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "上传失败");
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const handleReverse = () => {
     if (!coverUrl.trim()) {
-      setError("请先粘贴效果好的封面图 URL");
+      setError("请先上传封面图片，或粘贴图片链接");
       return;
     }
     void run("reverse", async () => {
@@ -198,25 +226,59 @@ export function B2BImageSkillsClient({ initialSkills }: { initialSkills: ImageSk
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <ScanSearch className="h-4 w-4 text-primary" /> 上传 ROI 好的封面 · 反推提示词 · 固化成 Skill
           </CardTitle>
-          <CardDescription>粘贴过往效果好的风格封面图 URL，AI 反推提示词后入库，形成团队生图 Skill 库</CardDescription>
+          <CardDescription>上传本地爆款风格封面图（或粘贴链接），AI 反推提示词后入库，形成团队生图 Skill 库</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Input
-              placeholder="封面图 URL，如 https://…（爆款风格封面）"
-              value={coverUrl}
-              onChange={(e) => setCoverUrl(e.target.value)}
-            />
-            <Input
-              className="sm:w-48"
-              placeholder="补充说明（可选）"
-              value={hint}
-              onChange={(e) => setHint(e.target.value)}
-            />
-            <Button size="sm" variant="outline" onClick={handleReverse} disabled={busy !== null} className="shrink-0">
-              {busy === "reverse" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanSearch className="h-4 w-4" />}
-              反推提示词
-            </Button>
+          <div className="space-y-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0 gap-2"
+                onClick={() => fileRef.current?.click()}
+                disabled={busy !== null}
+              >
+                {busy === "upload" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageUp className="h-4 w-4" />}
+                {coverUrl ? "更换图片" : "上传封面图片"}
+              </Button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void uploadCover(f);
+                  e.target.value = "";
+                }}
+              />
+              <Input
+                className="flex-1"
+                placeholder="或粘贴图片链接（https://…）"
+                value={coverUrl}
+                onChange={(e) => setCoverUrl(e.target.value)}
+              />
+              <Input
+                className="sm:w-48"
+                placeholder="补充说明（可选）"
+                value={hint}
+                onChange={(e) => setHint(e.target.value)}
+              />
+              <Button size="sm" variant="outline" onClick={handleReverse} disabled={busy !== null} className="shrink-0">
+                {busy === "reverse" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanSearch className="h-4 w-4" />}
+                反推提示词
+              </Button>
+            </div>
+
+            {/* 即时预览：上传/粘贴后立即可见 */}
+            {coverUrl.trim() && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={coverUrl.trim()}
+                alt="封面"
+                className="h-28 max-w-40 rounded-lg border border-border object-cover"
+              />
+            )}
           </div>
 
           {reversed && (

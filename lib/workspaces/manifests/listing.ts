@@ -13,6 +13,7 @@ export const listingWorkspace: WorkspaceManifest = {
   entries: [
     { label: "一键上架", href: "/b2b/listing", icon: PackagePlus },
     { label: "生图 Skill 库", href: "/b2b/image-skills", icon: Image },
-    { label: "AI 上架工作流", href: "/workflows/ai-listing", icon: PackagePlus, dot: "idle" },
+    // 工作流目录已统一收纳 /workflows/*，此处隐藏避免双入口（命令面板仍可达）
+    { label: "AI 上架工作流", href: "/workflows/ai-listing", icon: PackagePlus, dot: "running", hidden: true },
   ],
 };

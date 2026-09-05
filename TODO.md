@@ -1,257 +1,72 @@
-# TODO.md — FlowMind 未完成功能清单
+# TODO.md — FlowMind 活路线图
 
-> 每个条目标注了**需要你提供什么**才能完成实现。
-
----
-
-## 🔴 P0 — 纯桩实现（返回假数据，用户误以为成功）
-
-### 1. `publishListing()` — 商品发布是假的
-
-**文件**: `lib/services/workflow.service.ts:247-258`
-**现状**: 返回 `{ success: true, listingId: "lst-{timestamp}" }`，什么都没做。
-**需要你提供**:
-- 发布目标平台是什么？（Amazon SP-API？Shopify？自建站？）
-- 是否需要对接真实的 Marketplace API？还是先做"草稿保存到数据库"的中间态？
-- 如果对接 Amazon SP-API，需要提供 SP-API 的 credentials 存储方式（环境变量 or 数据库）
+> 最后一次重写：2026-09-05（对齐「阿里国际站铺货主线 + 对标 Supabase 的 AI-Native SaaS」方向）。
+> 上一版 19 条的历史条目已在文末「已消化」节归档，不再逐一维护。
 
 ---
 
-### 2. `exportAdData()` — 广告数据导出是假的
+## U · 产品体验统一（2026-09-05 启动 · 治理「重复造轮子/离散/不连贯」）
 
-**文件**: `lib/services/workflow.service.ts:142-144`
-**现状**: 返回 `{ url: "/exports/ad-data.csv", format: "csv" }`，从未生成文件。
-**需要你提供**:
-- 导出格式：CSV？Excel？JSON？
-- 导出范围：全部关键词？还是按筛选条件？
-- 文件存储位置：本地 `./data/exports/`？还是需要上传到 OSS/S3？
-- 是否需要异步生成（大文件场景）？
+> 用户反馈主线：多个子系统各造一套卡片/导航/流程，互不衔接。本次统一 = **单一数据源 + 复用组件 + 跨页快速衔接**。
 
----
-
-### 3. `createRestockOrder()` — 补货订单是假的
-
-**文件**: `lib/services/workflow.service.ts:316-326`
-**现状**: 返回 `{ orderId: "PO-{timestamp}", status: "created" }`，无持久化。
-**需要你提供**:
-- 订单存储：是否需要新建 `restock_orders` 表？
-- 对接系统：是否需要对接 ERP/供应链系统？还是先做本地记录？
-- 订单状态流转：`created → approved → shipped → received`？需要哪些状态？
+- **U1 导航统一（✅）**：侧栏从硬编码三桶改为产品语义分桶（概览指挥/市场洞察/内容与发布/商品上架/AI 工作流/系统与运营/AI 动态页面）；`成果库` 单入口（去掉 growth 里同 URL 重复项）；AI 上架工作流隐藏只留命令面板；idle 状态点不再渲染 + 图例。
+- **U2 洞察与工具（✅）**：
+  - 灵感热榜修复：inspiration 榜从 baidu（量太少）改映射 **zhihu**（content.selfhost.ts）
+  - 每日卡片产品化：去 pg_cron/TikHub 常驻术语 →「每日自动更新（08:00）+ 立即运行 + 自动定时设置入口」
+  - 封面反推：URL 输入 → **上传图片（MinIO 复用 upload 路由，20MB）为主 + 粘贴链接为辅 + 即时预览**
+  - 情报中心：头部「洞察→行动」衔接条，关键词一键带往 一键上架/关键词趋势/内容工坊
+- **U3 内容统一主线（进行中）**：小红书/公众号/情报中心贯通为「灵感→选题→AI 草稿→手工修→排版→发布→成果库」；`content_typeset` 已迁**自托管引擎**（lib/server/wechat-typeset.ts，确定性内联样式转换，默认零 MCP 依赖，`WECHAT_TYPESET_USE_MCP=1` 可切回）；发布就绪卡升级为三步入位 + 笔记卡带封面缩略/话题聚合。
+- **U4 生图画布（后端 v1 ✅ · UI 待做）**：ComfyUI 式「项目 × 版本 × 分支」——`wf_image_projects` 表（迁移 0006）+ `ImageCanvasService` + `/api/workflows/ai-imaging/canvas`（root/branch/patch/delete/list，分支自动 B1/B2 编号、树状回溯、叶子保护删除）；下一步把 /workflows/ai-imaging 画布升级为「版本时间线 + 分支树 + 内置提示词速选 + 基于上版本重新生成」。
 
 ---
 
-### 4. Dashboard 系统指标 — 全部硬编码
+## 🎯 北极星
 
-**文件**: `lib/services/dashboard.service.ts:37-48`
-**现状**: `cpu: 42, memory: 68, disk: 55` 等固定值，永不变化。
-**需要你提供**:
-- 数据来源选项：
-  - A) 使用 Node.js `os` 模块读取真实 CPU/内存（已可行，无需额外输入）
-  - B) 对接 Prometheus/Grafana 等监控系统（需要 API 地址和认证方式）
-  - C) 保持模拟但让它"动起来"（随机波动，纯展示用途）
-- `activeConnections` 和 `taskQueueLength`：是否从数据库实时统计？
+对标 **Supabase 形态的 AI 原生 SaaS** 平台；核心智能编排能力目标**超越阿里国际站 Accio**（趋势→选品→Listing→生图→发布→监控的全链路 AI 自主闭环 + 记忆自进化 + 人在环审批）。
+
+- **当前策略**：AI 能力先行（Web Agent 对话编排 + 生成式 UI + 记忆系统已就绪），多租户/计费后置（**等用户模型文档**，届时启用 00013_saas_groundwork 的归属列）。
+- **阿里国际站**：凭据暂未到位（ALIBABA_APP_KEY/SECRET/SESSION，工具已就绪）；**现在先把链路备到位，key 一到即通电**。
 
 ---
 
-### 5. Dashboard 业务指标 — 全部虚构
+## ✅ 已消化（上一版 19 条的去向）
 
-**文件**: `lib/services/dashboard.service.ts:50-82`
-**现状**: `revenue: 285600, profit: 68544, adSpend: 12580` 等完全虚构。
-**需要你提供**:
-- 数据来源：
-  - A) 从 `wf_inventory` + `wf_ad_keywords` 表计算（已有数据可复用）
-  - B) 对接 Amazon SP-API 的 Finance/Advertising 端点
-  - C) 新建 `business_metrics` 表，手动或定时写入
-- `costBreakdown`（采购/物流/广告/佣金）：是否有真实数据源？还是需要新建录入界面？
-
----
-
-### 6. Dashboard 趋势数据 — `Math.random()` 生成
-
-**文件**: `lib/services/dashboard.service.ts:99-105`
-**现状**: `sales: [198000, 312000, ...]` 每次刷新都变。
-**需要你提供**:
-- 是否需要新建 `daily_metrics` 表存储每日汇总？
-- 趋势周期：7天？30天？90天？
-- 指标来源：从 tasks 表统计完成率趋势？从 wf_ad_keywords 统计广告趋势？
+| 原条目 | 结论 | 归宿 |
+|---|---|---|
+| #8/9/10 RAK 冲突/共识/DAG | 死代码（RAK 引擎已归档） | 不再投入，保留库表仅作历史 |
+| #15 生图 | 已实现 | `AI_IMAGE_API_*` 自举（SiliconFlow Kolors），image-skills 在用 |
+| #19 运行记录表 | 已实现 | `wf_workflow_runs` 已建，run_workflow 落库 |
+| #7 工作流状态硬编码 | 已实现 | wf_workflow_runs + workflow_statuses 联动 |
+| #1 商品发布「假」 | **已迁移为真实链路** | 见 P0-0；旧 `workflow.service.publishListing` 桩（Amazon 语境）待删 |
+| #2/#16 广告导出 | 仍有效 | 见 P1-5 |
+| #3/#4/#5/#6/#11/#12/#13/#14/#17/#18 | 仍有效 | 见 P1 |
 
 ---
 
-### 7. 工作流状态 — 完全硬编码
+## P0 · 阿里国际站铺货主线（key 未到，先备好链路）
 
-**文件**: `lib/repositories/workflow.repository.ts:267-276`
-**现状**: 返回固定的 6 个工作流状态，`lastRun` 是静态日期。
-**需要你提供**:
-- 是否需要新建 `workflow_runs` 表来记录每次执行？
-  ```
-  workflow_runs: id, workflow_id, status, started_at, completed_at, result
-  ```
-- 状态如何更新：API 调用时自动记录？还是需要单独的"运行记录"机制？
+- **P0-0 发布引擎（✅ 已完成，等 key）**：`B2BService.publishListing` → TOP 协议 HMAC-MD5 直连 `alibaba.icbu.product.add`（b2b.service.ts）；草稿态管理（draft→uploading→uploaded/failed，`wf_b2b_listings`），POST `/api/b2b/listing/publish` 已暴露。
+- **P0-1 发布接入 Agent 工具链（✅ 2026-09-05）**：只读 `b2b_listing_intel` 工具进 tool-registry（任意页可看铺货全局）；旧 Amazon 语境 `workflow.service.publishListing` 桩已删、旧路由改 410；页内 L2 `publishListingToAlibaba` 动作（既有）衔接。
+- **P0-2 铺货全链路流水线（✅ 2026-09-05，草稿态）**：`launch_listing_pipeline` 工具（趋势→RAG 选品→AI 推荐→批量 Listing 草稿+主图落库，`limit≤6`）+ HTTP `POST /api/b2b/listing/pipeline` + `/b2b/listing` 页「批量铺货流水线」按钮。
+- **P0-3 发布状态回查与管理（✅ 2026-09-05）**：`GET /api/b2b/listing/status-overview`（草稿计数 + 已上传货号对照 + 商品池规模，`?refresh=1` 阿里在线回查）。
 
----
+## P1 · 数据真实化（S3/导出等依赖已备）
 
-## 🟠 P1 — 部分实现（架构完整但核心逻辑是模拟）
+- **P1-5 广告导出（✅ 2026-09-05）**：POST 生成真实 CSV 落 `data/exports/`，`/export/download?file=` 安全下载（防穿越）；xlsx 暂降级 csv。
+- **P1-6 补货订单持久化（✅ 已实现）**：`wf_restock_orders` + `insertRestockOrder`。
+- **P1-7 Dashboard（✅ 已重构, 2026-09-05）**：数据层 os/PG 全真实（stats/system/business/alerts/trends/SOP run/overview 均 SQL 聚合，无假数据）；沉浸式对话画布 + 顶部常驻「系统真相总览」条（服务健康 PG/Redis/MCP/阿里/模型 + 用量六项 + 铺货漏斗）。
+- **P1-8 真实化**：进化趋势按月 GROUP ✅、记忆用量（entries 统计+7日趋势）✅、竞品广告使用真实 `recentAnalyses` + `/api/b2b/ad-intel` ✅。**风控维度：❌ 废案（2026-09-05 拍板，不再维护假健康分）。**
+- **P1-9 详情页 + 清理**：待评估（risk/memory/evolution 列表够用时可不做）；`dashboard-client.tsx` 已不存在（dashboard 已重构）。
 
-### 8. RAK 冲突解决 — `resolveByTimestamp` 和 `resolveByWeightedVote` 都选第一个 agent
+## P2 · SaaS 化（待用户模型文档）
 
-**文件**: `lib/rak/conflict.ts:62-95`
-**现状**: 两个策略都返回 `agents[0]`，注释写着"In a real system..."。
-**需要你提供**:
-- `resolveByTimestamp`: 每个 agent 结果是否需要带时间戳？数据结构怎么设计？
-- `resolveByWeightedVote`: 权重来源是什么？
-  - A) agent 的 `success_rate` 字段（已有）
-  - B) 任务相关的历史表现
-  - C) 手动配置的优先级权重
+- **P2-10 多租户**：按用户模型文档确定 owner/org/workspace 模型 → 启用归属列 + RLS/行级隔离（现有数据已有 owner 预留列）。
+- **P2-11 计费/配额/用量**：对标 Supabase 用量页的计量仪表盘，把 AI 调用/生图/趋势/存储变成可定价单元（OTel 已接入，可支撑用量统计）。
+- **P2-12 AI 卖点深化**：Web Agent 编排能力扩展、记忆自进化闭环打磨、生成式 UI 组件库扩充、L0/L1/L2 人在环审批体系完善。
 
 ---
 
-### 9. RAK 共识投票 — `tallyVotes()` 返回全零
+## 维护约定
 
-**文件**: `lib/rak/consensus.ts:31-51`
-**现状**: 始终返回 `{ accept: 0, reject: 0, abstain: 0, total: 0, passed: false }`。
-**需要你提供**:
-- 投票数据已存在 `rak_consensus_log.voters` JSON 字段中，只需读取并计数。这是一个**纯代码修复**，不需要额外数据。
-- 但需要确认：`passed` 的判定逻辑是 `accept > total * threshold` 对吗？
-
----
-
-### 10. RAK 任务执行 — 模拟而非真实调度
-
-**文件**: `lib/rak/engine.ts:53-73`
-**现状**: 循环遍历 DAG 节点直接标记 `completed`，不实际调度 agent。
-**需要你提供**:
-- 真实调度方式：
-  - A) 通过 `coordinator.sendMessage()` 发送任务给 agent，等待 agent 回调完成
-  - B) 调用 AI provider 执行节点任务（类似 workflow 的做法）
-  - C) 保持模拟但增加延迟和随机失败，让演示更真实
-- Agent 是"真实进程"还是"逻辑概念"？（当前 agents 表中的是数据库记录，没有对应的运行时进程）
-
----
-
-### 11. 风控健康维度 — 大部分硬编码
-
-**文件**: `lib/repositories/risk.repository.ts:123-138`
-**现状**: 6 个维度中只有"账户安全"基于真实数据，其余 5 个是静态分数。5 个指标的趋势数组是虚构的。
-**需要你提供**:
-- 各维度的数据来源：
-  - "数据合规" → 是否有合规检查表或审计记录？
-  - "知识产权" → 是否需要对接商标/专利 API？
-  - "广告合规" → 从 `wf_ad_keywords` 的 tag 统计？
-  - "产品安全" → 从 `risk_events` 的 `source` 字段分类？
-  - "供应链" → 从 `wf_inventory` 的 `ship_days` 统计？
-- 指标趋势：是否需要新建 `risk_metrics_daily` 表记录每日 ODR/退货率等？
-
----
-
-### 12. 进化趋势 — `Math.random()` 生成
-
-**文件**: `lib/repositories/evolution.repository.ts:105-121`
-**现状**: 月度成功率在真实平均值 ±10% 范围内随机波动。
-**需要你提供**:
-- 是否需要按月统计 `evolution_records` 的真实成功率？
-  - 已有 `completed_at` 字段，可按月 GROUP BY
-- 如果记录太少（当前只有 4 条），月度统计无意义，是否需要增加 seed 数据？
-
----
-
-### 13. Memory 使用统计 — `workflows` 和 `trend` 硬编码
-
-**文件**: `lib/repositories/memory.repository.ts:108-123`
-**现状**: `workflows: ["选品", "广告", "Listing"]` 固定，`trend` 是虚构数组。
-**需要你提供**:
-- `workflows`：是否需要追踪哪个 workflow 引用了哪条 memory？
-  - 如果是，需要新建 `memory_workflow_refs` 关联表
-  - 如果否，可以删除这个字段或标记为"N/A"
-- `trend`：是否需要记录 memory 的使用次数变化？需要使用日志表？
-
----
-
-### 14. 竞品广告定向数据 — 空数组
-
-**文件**: `app/workflows/competitor-ads/islands/competitor-ads-island.tsx:20`
-**现状**: `targetingData={[]}`，UI 中定向数据区块永远为空。
-**需要你提供**:
-- `targetingData` 的数据结构是什么？（当前 types.ts 中没有定义）
-- 数据来源：从 `wf_competitor_keywords` 推算？还是需要新的数据采集？
-
----
-
-## 🟡 P2 — 功能缺失 / Bug
-
-### 15. 图片生成 — 非 DALL-E 模型不支持
-
-**文件**: `lib/image-gen/generator.ts:106-114`
-**现状**: `generateGeneric()` 对 Stable Diffusion/Midjourney 直接抛错。
-**需要你提供**:
-- 是否需要支持其他模型？如果需要：
-  - Stable Diffusion：自建 API 还是用 Replicate/RunPod？
-  - Midjourney：是否有非官方 API？
-  - 其他：FLUX、Ideogram 等？
-- 如果暂时不需要，可以改为返回友好错误提示而非抛出异常
-
----
-
-### 16. API 方法不匹配 — export 路由 405 错误
-
-**文件**: `hooks/use-ai-advertising.ts` vs `app/api/workflows/ai-advertising/export/route.ts`
-**现状**: Hook 用 `apiPost` 调用 export，但路由只定义了 `GET`。
-**需要你提供**:
-- 这是个 bug，修复方向：
-  - A) 把路由改为 `POST`（推荐，因为需要传 `format` 参数）
-  - B) 把 hook 改为 `apiGet`（但无法传 body）
-
----
-
-## 🔵 P3 — 增强项
-
-### 17. 详情页缺失
-
-`/risk`、`/memory`、`/evolution` 有列表页但无 `[id]` 详情页。
-**需要你提供**:
-- 是否需要详情页？还是当前的模态框/行内展开已够用？
-- 如果需要，详情页要展示哪些额外信息？（列表页已有的不需要重复）
-
----
-
-### 18. 孤立文件清理
-
-`app/dashboard/dashboard-client.tsx`（274 行）未被任何文件导入。
-**需要你提供**:
-- 确认可以删除？（已完全被 5 个 island 组件取代）
-
----
-
-### 19. 工作流运行记录表
-
-当前无表追踪工作流执行历史，导致 `getWorkflowStatuses()` 只能硬编码。
-**需要你提供**:
-- 是否需要新建 `workflow_runs` 表？
-- schema 提议：
-  ```sql
-  CREATE TABLE workflow_runs (
-    id TEXT PRIMARY KEY,
-    workflow_id TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'running',
-    started_at TEXT NOT NULL DEFAULT (datetime('now')),
-    completed_at TEXT,
-    result TEXT,
-    error TEXT
-  );
-  ```
-
----
-
-## 📊 需要你决策的清单
-
-| # | 问题 | 影响范围 |
-|---|------|----------|
-| 1 | publishListing 对接什么平台？ | 商品发布 workflow |
-| 2 | exportAdData 导出到哪里、什么格式？ | 广告 workflow |
-| 3 | createRestockOrder 需要持久化吗？新建表？ | 库存 workflow |
-| 4 | Dashboard 指标用真实数据还是"会动的模拟"？ | 整个 Dashboard |
-| 5 | RAK engine 的 agent 是逻辑概念还是真实进程？ | 整个 RAK 引擎 |
-| 6 | 风控维度的数据来源是什么？ | 风控健康度 |
-| 7 | workflow_runs 表是否需要？ | 工作流状态 |
-| 8 | 图片生成是否需要支持非 DALL-E 模型？ | AI 制图 |
-| 9 | export 路由改为 POST 还是 hook 改为 GET？ | 广告导出 |
-| 10 | 详情页是否需要？ | risk/memory/evolution |
+- 本文件是「活文档」：条目完成即移到「已消化」并标注归宿文件/路由。
+- 新需求按 P0→P1→P2 排序插入；引用代码路径一律以当前 `src/kernel` / `lib/server/**` 为准（旧 `lib/rak`、`lib/services` 等路径均已迁移，勿按旧文定位）。

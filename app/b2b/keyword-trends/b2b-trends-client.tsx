@@ -28,10 +28,10 @@ import type { DailyRefreshResult, KeywordTrendsResult, LongtailKeyword, TrendPla
 
 const Sparkline = dynamic(() => import("@/components/ui/sparkline").then((m) => ({ default: m.Sparkline })), { ssr: false });
 
-const PLATFORMS: { id: TrendPlatform; label: string; hint: string }[] = [
-  { id: "tiktok", label: "TikTok", hint: "Creative Center 行业热词（TikHub API，免登录全量榜单）" },
-  { id: "instagram", label: "Instagram", hint: "话题搜索（TikHub API，输入关键词出真实话题榜，免登录）" },
-  { id: "alibaba", label: "阿里国际站", hint: "TOP 热销商品词频统计（需完成授权）" },
+const PLATFORMS: { id: TrendPlatform; label: string; hint: string; sourceTip: string }[] = [
+  { id: "tiktok", label: "TikTok", hint: "TikTok 搜索热词 · 官方创作灵感", sourceTip: "数据经 TikHub 服务端代抓 TikTok 官方 Creative Center 榜单，无需登录" },
+  { id: "instagram", label: "Instagram", hint: "话题热度 · 按关键词搜索", sourceTip: "Instagram 无匿名全站榜单，按关键词搜索真实话题热度（TikHub 代抓）" },
+  { id: "alibaba", label: "阿里国际站", hint: "TOP 热销商品词频", sourceTip: "基于阿里国际站 TOP 热销数据的词频统计，需完成授权" },
 ];
 
 const PLATFORM_LABEL: Record<TrendPlatform, string> = {
@@ -65,7 +65,7 @@ export function B2BTrendsClient({ initialTrends }: { initialTrends: KeywordTrend
   const [lastRun, setLastRun] = useState<DailyRefreshResult | null>(null);
 
   const { data: live, loading } = useKeywordTrends(platform);
-  const { data: settings, refetch: refetchSettings } = useB2BSettings();
+  const { data: settings } = useB2BSettings();
   const trends: KeywordTrendsResult | null = override?.platform === platform ? override : live;
 
   const run = useCallback(async (key: string, fn: () => Promise<void>) => {
@@ -261,7 +261,10 @@ export function B2BTrendsClient({ initialTrends }: { initialTrends: KeywordTrend
                 {p.label}
               </button>
             ))}
-            <span className="ml-auto text-xs text-muted-foreground">
+            <span
+              className="ml-auto text-xs text-muted-foreground"
+              title={PLATFORMS.find((p) => p.id === platform)?.sourceTip}
+            >
               {PLATFORMS.find((p) => p.id === platform)?.hint}
             </span>
             {platform === "instagram" && (
@@ -288,34 +291,40 @@ export function B2BTrendsClient({ initialTrends }: { initialTrends: KeywordTrend
         </CardContent>
       </Card>
 
-      {/* 每日推送与定时更新 */}
+      {/* 每日自动更新（自动化调度：无内部术语，产品化文案） */}
       <Card className="mb-4">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Send className="h-4 w-4 text-primary" /> 每日推送与定时更新
+            <CalendarClock className="h-4 w-4 text-primary" /> 每日自动更新
           </CardTitle>
           <CardDescription>
-            每日 08:00（pg_cron）自动抓取三平台榜单 + 长尾词并推送；本地开发环境无法回调时用「触发每日任务」手动执行
+            每天 08:00 自动抓取三平台趋势与长尾词，并按渠道设置推送结果
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-3">
               <Button size="sm" onClick={handleDaily} disabled={busy !== null}>
-                {busy === "daily" ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarClock className="h-4 w-4" />}
-                触发每日任务
+                {busy === "daily" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                立即运行一次
               </Button>
               {lastRun && (
                 <span className="text-xs text-muted-foreground">
                   上次执行 {lastRun.date}
                   {lastRun.platforms &&
-                    ` · ${Object.entries(lastRun.platforms).map(([p, v]) => `${p} ${v.degraded ? "降级" : `${v.count} 词`}`).join(" / ")}`}
+                    ` · ${Object.entries(lastRun.platforms).map(([p, v]) => `${p} ${v.degraded ? "未完成" : `${v.count} 词`}`).join(" / ")}`}
                 </span>
               )}
               {settings?.b2bDailyRefreshUrl ? (
-                <Badge variant="secondary" className="ml-auto text-caption">pg_cron 已配置回调</Badge>
+                <Badge variant="secondary" className="ml-auto text-caption">自动定时已开启</Badge>
               ) : (
-                <Badge variant="outline" className="ml-auto text-caption">未配置 pg_cron 回调（仅手动）</Badge>
+                <Link
+                  href="/settings/b2b"
+                  className="ml-auto inline-flex items-center gap-1 text-caption text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  未开自动定时 · 去设置开启
+                  <ArrowUpRight className="h-3 w-3" />
+                </Link>
               )}
             </div>
             {pushMsg && (

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { PageHeader } from "@/components/ui/page-header";
 import { useCallback, useEffect, useState } from "react";
@@ -14,7 +14,7 @@ import type {
 } from "@/lib/shared/types";
 import {
   Satellite, Flame, Megaphone, ShoppingBag, PlayCircle, Music, Users, AtSign,
-  Loader2, Search, Star, AlertTriangle,
+  Loader2, Search, Star, AlertTriangle, Sparkles,
 } from "lucide-react";
 
 const Sparkline = dynamic(() => import("@/components/ui/sparkline").then((m) => ({ default: m.Sparkline })), { ssr: false });
@@ -133,9 +133,25 @@ export function IntelCenterClient() {
     <PageTransition className="space-y-4">
       <PageHeader
         title="跨境情报中心"
-        description="TikHub 实时数据 — 热词 / 广告 / 选品 / 爆款视频 / 音乐 / 达人 / AtSign 一站检索"
+        description="热词 / 广告 / 选品 / 爆款视频 / 音乐 / 达人一站检索，洞察直达后续动作"
         icon={<Satellite className="h-6 w-6 text-primary" />}
       />
+
+      {/* 洞察 → 行动：当前关键词一键衔接到后续环节（跨页复用，不做第二套表单） */}
+      {kw.trim() && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card/50 px-3 py-2">
+          <span className="text-caption text-muted-foreground">以「{kw.trim()}」继续 →</span>
+          <a className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline" href={`/b2b/listing?keyword=${encodeURIComponent(kw.trim())}`}>
+            <ShoppingBag className="h-3.5 w-3.5" />一键上架
+          </a>
+          <a className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" href={`/b2b/keyword-trends?word=${encodeURIComponent(kw.trim())}`}>
+            <Flame className="h-3.5 w-3.5" />关键词趋势
+          </a>
+          <a className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" href={`/content-studio?topic=${encodeURIComponent(kw.trim())}`}>
+            <Sparkles className="h-3.5 w-3.5" />内容工坊写一篇
+          </a>
+        </div>
+      )}
 
       <div className="flex gap-1.5 flex-wrap">
         {TABS.map((t) => (

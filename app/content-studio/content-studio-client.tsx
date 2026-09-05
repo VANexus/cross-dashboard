@@ -756,12 +756,34 @@ function ContentStudioInner({ platforms, works: initialWorks }: ContentStudioCli
               <CardContent className="space-y-4">
                 {currentDraft ? (
                   <div className="rounded-xl border p-4">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="secondary">{PLATFORM_LABEL[currentDraft.platform] ?? currentDraft.platform}</Badge>
-                      <span className="text-sm font-medium">{currentDraft.title}</span>
-                      <span className="text-xs text-muted-foreground">{currentDraft.body.length} 字</span>
+                    <div className="flex items-start gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="secondary">{PLATFORM_LABEL[currentDraft.platform] ?? currentDraft.platform}</Badge>
+                          <span className="text-sm font-medium">{currentDraft.title}</span>
+                          <span className="text-xs text-muted-foreground">{currentDraft.body.length} 字 · {currentDraft.tags.length} 个话题</span>
+                        </div>
+                        <p className="mt-2 line-clamp-3 text-xs leading-5 text-muted-foreground">{currentDraft.body}</p>
+                        {currentDraft.tags.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {currentDraft.tags.map((t) => (
+                              <span key={t} className="rounded-full bg-primary/8 px-2 py-0.5 text-[10px] text-primary">#{t}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {images && images.images.length > 0 && (
+                        <div className="relative h-24 w-20 shrink-0 overflow-hidden rounded-lg border bg-muted">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={images.images[0].url} alt="封面" className="h-full w-full object-cover" />
+                          {images.images.length > 1 && (
+                            <span className="absolute bottom-1 right-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
+                              +{images.images.length - 1}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{currentDraft.body}</p>
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">还没有草稿——回创作步生成文案后，可在这里直接进入发布工作台。</p>
@@ -778,14 +800,22 @@ function ContentStudioInner({ platforms, works: initialWorks }: ContentStudioCli
                     </span>
                   </div>
                 ) : platform === "xhs" || currentDraft?.platform === "xhs" ? (
-                  /* xhs 发布就绪卡：一键复制 + 配图打包下载（真实能力边界内最完整的发布闭环） */
+                  /* xhs 发布就绪卡：三步入位（复制 → 打开 App → 粘贴发布），配图一键打包 */
                   <div className="space-y-3 rounded-xl border border-success/20 bg-success/5 p-4">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-success" />
-                      <span className="text-sm font-medium">发布就绪卡</span>
-                      <span className="text-xs text-muted-foreground">
-                        小红书暂无站内发布通道，一键复制后到小红书 App 粘贴发布
-                      </span>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-success" />
+                        <span className="text-sm font-medium">发布就绪</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">小红书暂无站内发布通道 · 粘贴即达</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-tiny text-muted-foreground">
+                      {["复制笔记", "打开小红书 App", "粘贴发布"].map((s, i) => (
+                        <span key={s} className="flex items-center gap-1.5">
+                          {i > 0 && <ArrowRight className="h-3 w-3 text-success/60" />}
+                          <span className="rounded-md border border-success/20 bg-success/10 px-1.5 py-0.5">{i + 1}. {s}</span>
+                        </span>
+                      ))}
                     </div>
                     {currentDraft && (
                       <div className="space-y-3">
@@ -803,7 +833,7 @@ function ContentStudioInner({ platforms, works: initialWorks }: ContentStudioCli
                             </Button>
                           )}
                         </div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="rounded-lg border bg-background/70 px-3 py-2 text-xs text-muted-foreground">
                           <span className="font-medium text-foreground">{currentDraft.title}</span>
                           <span> · {currentDraft.body.length} 字 · {currentDraft.tags.length} 个话题</span>
                           {currentDraft.tags.length > 0 && (
