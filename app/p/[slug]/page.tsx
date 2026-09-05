@@ -9,6 +9,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { getKernel } from "@/src/kernel";
+import { UISettingsService } from "@/lib/server/services/ui-settings.service";
 import { PageSpecRenderer } from "./page-spec-renderer";
 
 // cacheComponents 开启时不能用 `export const dynamic`，改用 connection() 把本路由标记为动态渲染
@@ -50,5 +51,15 @@ async function PageSpecLoader({ params }: Params) {
   const { slug } = await params;
   const row = await loadSpec(slug);
   if (!row) notFound();
-  return <PageSpecRenderer title={row.title} spec={row.spec} updatedAt={row.updated_at} />;
+  // 编辑器开关（设置页可配）：默认纯只读展示，Agent 上下文感知增量不受影响
+  const ui = await new UISettingsService().getSettings();
+  return (
+    <PageSpecRenderer
+      title={row.title}
+      spec={row.spec}
+      updatedAt={row.updated_at}
+      slug={slug}
+      editorEnabled={ui.pageEditorEnabled}
+    />
+  );
 }

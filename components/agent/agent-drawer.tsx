@@ -204,6 +204,12 @@ export function AgentDrawer() {
   const setSurface = usePresence((s) => s.setSurface);
   const pathname = usePathname();
 
+  // 全局动作闭包需要感知当前路由（避免把 pathname 加进注册 effect 依赖导致重复注册）
+  const pathnameRef = useRef(pathname);
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
+
   // dashboard 沉浸式页禁用三面一体面板：main 即沉浸式对话画布，入口仅灵动岛 dock。
   // （渲染提前 return 必须在所有 hooks 之后，这里仅作渲染短路）
   const dashboardImmersive = pathname === '/dashboard';
@@ -396,7 +402,23 @@ export function AgentDrawer() {
         if (cancelled) return;
         kernel.actions.registerGlobalActions(
           createGlobalActions({
-            onNavigate: (route) => router.push(route),
+            onNavigate: (route) => {
+              // AI 自动跳页时确保对话侧栏保持可见，避免对着话突然没了聊天框：
+              // - 常规页：先展开侧栏再跳转（SPA 状态不丢）；
+              // - 从 /dashboard 沉浸式页离开：抽屉在沉浸页被强制 dock，待路由生效后再展开，避免在沉浸页上闪出面板。
+              const s = usePresence.getState();
+              const leavingImmersive = pathnameRef.current === '/dashboard';
+              if (leavingImmersive) {
+                router.push(route);
+                window.setTimeout(() => {
+                  const st = usePresence.getState();
+                  if (!st.drawerOpen && !st.stageOpen && window.location.pathname !== '/dashboard') st.setSurface('sidebar');
+                }, 300);
+              } else {
+                if (!s.drawerOpen && !s.stageOpen) s.setSurface('sidebar');
+                router.push(route);
+              }
+            },
             onRefresh: () => router.refresh(),
           }),
         );

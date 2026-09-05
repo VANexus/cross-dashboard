@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { Server, Bell, Shield, Brain, Save, Check } from "lucide-react";
+import { Server, Bell, Shield, Brain, Save, Check, Layout } from "lucide-react";
 
 interface AIConfig {
   provider: string;
@@ -30,6 +30,9 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
+  /** 动态页面编辑器开关（默认关 = /p/ 页纯只读；AI 上下文增量不受影响） */
+  const [pageEditor, setPageEditor] = useState(false);
+  const [pageEditorLoaded, setPageEditorLoaded] = useState(false);
 
   useEffect(() => {
     fetch("/api/ai/config")
@@ -40,7 +43,32 @@ export default function SettingsPage() {
         }
       })
       .catch(() => {});
+    fetch("/api/settings/ui")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          setPageEditor(Boolean(d.data.pageEditorEnabled));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setPageEditorLoaded(true));
   }, []);
+
+  const toggleEditor = useCallback(async (value: boolean) => {
+    const prev = pageEditor;
+    setPageEditor(value);
+    try {
+      const res = await fetch("/api/settings/ui", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pageEditorEnabled: value }),
+      });
+      const d = await res.json();
+      if (!d.success) setPageEditor(prev);
+    } catch {
+      setPageEditor(prev);
+    }
+  }, [pageEditor]);
 
   const handleSave = useCallback(async () => {
     if (!config) return;
@@ -176,6 +204,29 @@ export default function SettingsPage() {
           ) : (
             <div className="text-sm text-muted-foreground">加载中...</div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* 动态页面设置 */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Layout className="h-5 w-5 text-primary" />
+            <CardTitle className="text-sm">动态页面</CardTitle>
+          </div>
+          <CardDescription>AI 动态页面（/p/…）的展示与编排行为</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <span className="text-sm font-medium">页面编辑器</span>
+              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                默认关闭 = 纯只读展示（推荐）。开启后组件上会显示工具条 / 序号角标 / 就地 JSON 编辑，供高阶团队微调。
+                AI 的「页面即上下文」增量与全页统一编排不依赖此开关，始终可对话驱动。
+              </p>
+            </div>
+            <Switch checked={pageEditor} disabled={!pageEditorLoaded} onCheckedChange={(v) => void toggleEditor(v)} />
+          </div>
         </CardContent>
       </Card>
 

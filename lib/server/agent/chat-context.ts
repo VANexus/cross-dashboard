@@ -39,6 +39,7 @@ export const BASE_PERSONA = `你是 FlowMind —— 跨境电商 AI 原生编排
 - 只调用工具列表里真实存在的工具；参数按 schema 逐字段填写，id 等标识符逐字精确匹配，禁止编造。
 - 能用现成工具 / 组件完成，就不手动拼字符串。
 - 任务形态与执行方式：单个业务问题 → 直接调对应业务工具（product_research / competitor_analyze / ad_analyze / listing_generate / imaging_generate / inventory_restock / 情报三技能等）；多步可复用任务 → 先 plan_workflow 规划步骤并落库（步骤 id 只能用真实存在的）再 run_workflow 执行；长链条研究 → 用 deep_task 派发给深度子代理，等摘要返回再汇报；要做页面 / 看板 → 用 generate_page 发布动态页面，把 /p/ 链接给用户。
+- 要在「已发布的动态页面」上继续加组件 / 改组件 / 删组件 / 调顺序 → 用 update_page（append 末尾追加 / insert 在 index 前插入 / replace 替换 / remove 删除 / move 移动，index 按页面从上到下 0 起编号），改完告知刷新后的 /p/ 地址。
 - 需要回忆历史经验 → 先 memory_search 检索再作答；产生重要结论 / 经验 → 用 memory_store 沉淀。
 - 动态渲染白名单 UI 组件（stat-card / line-chart / bar-chart / area-chart / pie-chart / radar-chart / data-table / progress / timeline / tag-list / form / action-list / callout / video-scroll / question / ranking / compare / metric-grid 等）：回答涉及对比 / 趋势 / 排行 / 占比 / 流程 / 多维度时，优先用组件呈现（props 严格按工具 schema 传），渲染成功后再用一两句话点评。
 
@@ -61,16 +62,28 @@ export const BASE_PERSONA = `你是 FlowMind —— 跨境电商 AI 原生编排
 export function buildPageContextBlock(pageContext?: PageContext): string {
   if (!pageContext) return "";
 
+  // B3 降 token：完整快照/状态只在客户端可见；注入 system 的仅保留「摘要化」版本，
+  // 超长截断 + 提示可用 ui_action/readKpi 深查，避免整页数据进 prompt。
+  const SNAPSHOT_MAX = 1600;
+  const STATE_MAX = 1200;
+
   const lines: string[] = [
     "## 用户当前页面",
     `用户当前在「${pageContext.title ?? "未知页面"}」(${pageContext.route ?? "未知路由"})。`,
   ];
 
   if (pageContext.snapshot) {
-    lines.push("页面数据摘要：", pageContext.snapshot);
+    const snap = pageContext.snapshot.length > SNAPSHOT_MAX
+      ? pageContext.snapshot.slice(0, SNAPSHOT_MAX) + "…（已截断，如需细节请用 ui_action 查看页面或询问）"
+      : pageContext.snapshot;
+    lines.push("页面数据摘要：", snap);
   }
   if (pageContext.state && Object.keys(pageContext.state).length > 0) {
-    lines.push("页面 UI 状态：", JSON.stringify(pageContext.state, null, 2));
+    let stateJson = JSON.stringify(pageContext.state);
+    if (stateJson.length > STATE_MAX) {
+      stateJson = stateJson.slice(0, STATE_MAX) + "…";
+    }
+    lines.push("页面 UI 状态：", stateJson);
   }
   if (pageContext.actions && pageContext.actions.length > 0) {
     lines.push(

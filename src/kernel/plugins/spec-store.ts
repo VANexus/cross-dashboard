@@ -138,4 +138,55 @@ export class SpecStoreService extends Service {
       throw new Error(`页面 spec 列表失败：${(e as Error).message}`)
     }
   }
+
+  /**
+   * M5 增量：对已发布动态页面的组件树做 append / replace / remove，
+   * 读 → 校验 → 写回（/p/[slug] RSC 渲染即时反映新组件）。
+   */
+  async updatePageSpec(
+    id: string,
+    patch: {
+      op: 'append' | 'insert' | 'replace' | 'remove' | 'move'
+      component?: PageSpec['components'][number]
+      index?: number
+      /** move 目标位置（0 起） */
+      to?: number
+    },
+  ): Promise<{ ok: boolean; id: string; componentCount: number; operation: string }> {
+    const row = await this.getPageSpec(id)
+    if (!row) throw new Error(`页面 ${id} 不存在，请先用 generate_page 创建`)
+    const components = [...((row.spec?.components as PageSpec['components']) ?? [])]
+
+    if (patch.op === 'append') {
+      if (!patch.component) throw new Error('append 需要提供 component（新增组件实例）')
+      components.push(patch.component)
+    } else if (patch.op === 'insert') {
+      if (!patch.component || typeof patch.index !== 'number') throw new Error('insert 需要 component 与 index')
+      if (patch.index < 0 || patch.index > components.length) throw new Error(`insert 位置 ${patch.index} 越界（共 ${components.length} 个）`)
+      components.splice(patch.index, 0, patch.component)
+    } else if (patch.op === 'replace') {
+      if (!patch.component || typeof patch.index !== 'number') throw new Error('replace 需要 index 与 component')
+      if (patch.index < 0 || patch.index >= components.length) throw new Error(`index ${patch.index} 越界（共 ${components.length} 个）`)
+      components[patch.index] = patch.component
+    } else if (patch.op === 'remove') {
+      if (typeof patch.index !== 'number') throw new Error('remove 需要 index')
+      if (patch.index < 0 || patch.index >= components.length) throw new Error(`index ${patch.index} 越界（共 ${components.length} 个）`)
+      components.splice(patch.index, 1)
+    } else if (patch.op === 'move') {
+      if (typeof patch.index !== 'number' || typeof patch.to !== 'number') throw new Error('move 需要 index 与 to')
+      if (patch.index < 0 || patch.index >= components.length || patch.to < 0 || patch.to >= components.length) {
+        throw new Error(`move 越界（index=${patch.index} to=${patch.to}，共 ${components.length} 个）`)
+      }
+      const [item] = components.splice(patch.index, 1)
+      components.splice(patch.to, 0, item)
+    } else {
+      throw new Error(`未知操作：${String(patch.op)}`)
+    }
+    if (components.length === 0) throw new Error('页面至少保留一个组件；清空请用 generate_page 重建')
+
+    const spec: PageSpec = { components }
+    pageSpecSchema.parse(spec) // 形状门
+    await this.savePageSpec(id, row.title, spec)
+    return { ok: true, id, componentCount: components.length, operation: patch.op }
+  }
 }

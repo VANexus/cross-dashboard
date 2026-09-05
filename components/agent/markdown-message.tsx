@@ -15,9 +15,52 @@
 // - 历史/完整消息 → streaming=false 走 <Markdown content>（最轻量，零流式开销）。
 // - 两条路径都经 React.memo 包裹：text 未变时整棵子树跳过，历史消息不再随每次 token 重渲染。
 import React, { memo } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { Markdown, StreamingMarkdown } from '@deltakit/markdown';
 import type { ComponentOverrides } from '@deltakit/markdown';
+import { usePresence } from '@/stores/agent-presence';
 import { cn } from '@/lib/utils';
+
+/**
+ * 站内链接：在当前标签页跳转（不新开），并保证 Agent 对话侧栏可见——
+ * Agent 回复里给出的 /p/、/journeys 等链接被点击时，聊天框不会"突然消失"。
+ * 从 /dashboard 沉浸式页点击时：抽屉在该页被强制 dock，待路由生效后再展开，避免沉浸页上闪出面板。
+ */
+function InternalLink({ href, children }: { href?: string; children?: React.ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  if (!href) return <span className="text-primary">{children}</span>;
+  const internal = href.startsWith('/') && !href.startsWith('//');
+  if (!internal) {
+    return (
+      <a href={href} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2">
+        {children}
+      </a>
+    );
+  }
+  const openAsideAfterNav = () => {
+    window.setTimeout(() => {
+      const st = usePresence.getState();
+      if (!st.drawerOpen && !st.stageOpen && window.location.pathname !== '/dashboard') st.setSurface('sidebar');
+    }, 300);
+  };
+  return (
+    <a
+      href={href}
+      className="text-primary underline underline-offset-2"
+      onClick={(e) => {
+        const st = usePresence.getState();
+        if (pathname !== '/dashboard' && !st.drawerOpen && !st.stageOpen) st.setSurface('sidebar');
+        else if (pathname === '/dashboard') openAsideAfterNav();
+        e.preventDefault();
+        router.push(href);
+        if (pathname !== '/dashboard') openAsideAfterNav();
+      }}
+    >
+      {children}
+    </a>
+  );
+}
 
 /** 模块级常量：模块级引用保证组件在 content 不变时可 bail-out（内联对象会破坏记忆化）。 */
 const DELTAKIT_COMPONENTS: ComponentOverrides = {
@@ -49,11 +92,7 @@ const DELTAKIT_COMPONENTS: ComponentOverrides = {
     </blockquote>
   ),
   hr: () => <hr className="my-2 border-border" />,
-  a: ({ href, children }) => (
-    <a href={href} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2">
-      {children}
-    </a>
-  ),
+  a: ({ href, children }) => <InternalLink href={href}>{children}</InternalLink>,
   code: ({ language: _language, children, inline }) =>
     inline ? (
       <code className="rounded bg-muted/80 px-1 py-0.5 font-mono text-[11px] text-primary">{children}</code>

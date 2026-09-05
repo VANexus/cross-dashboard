@@ -30,7 +30,7 @@ import { AIConfigError } from "@/lib/server/ai";
 import { prisma } from "@/lib/server/db";
 import { getKernel } from "@/src/kernel";
 import { publish, WORKFLOW_TOPIC } from "@/lib/server/mastra/event-bus";
-import { workflowSpecSchema } from "@/src/kernel/plugins/spec-store";
+import { workflowSpecSchema, pageSpecComponentSchema } from "@/src/kernel/plugins/spec-store";
 import { topoSortSpecSteps } from "@/src/kernel/plugins/mastra-engine";
 import { MemoryService } from "@/lib/server/services/memory.service";
 import { ConversationService } from "@/lib/server/services/conversation.service";
@@ -40,6 +40,14 @@ import {
   extractLastUserText,
   type PageContext,
 } from "@/lib/server/agent/chat-context";
+import {
+  shouldCompact,
+  hasEarlyContent,
+  peekCompactSummary,
+  rememberCompact,
+  buildCompactSummary,
+  compactNote,
+} from "@/lib/server/agent/chat-compact";
 import {
   generateAgentFromPrompt,
   persistGeneratedAgent,
@@ -103,8 +111,9 @@ const COMPONENT_IDS = [
   "compose",
 ] as const;
 
+// B2 瘦身：只给高频组件的完整形状；低频组件给一行简写，减少每轮常驻 prompt 的 schema token。
 const COMPONENT_SHAPES =
-  "stat-card{title,value,delta?,hint?}；line-chart/bar-chart/area-chart{title?,data:[{label,value}],seriesName?}；pie-chart{title?,data:[{label,value}],seriesName?}；radar-chart{title?,data:[{label,value}]}；data-table{title?,columns:[string],rows:[[cell]]}；progress{label?,value:0-100,display?}；timeline{title?,items:[{time?,title,description?}]}；tag-list{title?,tags:[string],tone?}；form{title?,submitLabel?,fields:[{name,label,type?,placeholder?,options?}]}；action-list{title?,items:[{label,description?,actionId?,params?}]}；callout{tone:info|success|warning|danger,title?,text}；video-scroll{title?,videos:[{title?,cover,url,durationS?,brand?,badge?}]}（竞品广告素材横向滑动视频墙）；question{title?,text,options:[{label,value?,hint?}],multiple?,submitLabel?}（向人类提问并回传答案）；ranking{title?,unit?,items:[{rank?,label,value,delta?,hint?}]}；compare{title?,left,right,rows:[{label,left,right,winner?}]}；metric-grid{title?,metrics:[{label,value,delta?,tone?}]}；html{title?,html:受控HTML片段}（markdown 表达不了的自由富布局，渲染前 DOMPurify 消毒；只输出纯展示 HTML，禁止 script/iframe/on* 事件/style url()/javascript: 链接）；html-app{title?,html:完整HTML片段(含style/script),height?,data?}（AHTML 自由完整页面：任意未预设 UI、CSS 动画、内联 JS 交互、看板/卡片墙，沙箱 iframe 安全渲染；读 window.__AHTML__.data 拿上下文，window.parent.postMessage 回传事件）；compose{title?,layout:grid|stack|tabs|columns,cols?,data?,cells:[{title?,component,props?,span?}]}（组装式布局容器：用现成白名单组件快速拼装成看板/概览；props 值可含 ${data.字段} 从 data 绑定）";
+  "高频完整形状：stat-card{title,value,delta?,hint?}；line-chart/bar-chart/area-chart{title?,data:[{label,value}],seriesName?}；data-table{title?,columns:[string],rows:[[cell]]}；timeline{title?,items:[{time?,title,description?}]}；callout{tone:info|success|warning|danger,title?,text}；compare{title?,left,right,rows:[{label,left,right,winner?}]}；ranking{title?,unit?,items:[{rank?,label,value,delta?,hint?}]}；metric-grid{title?,metrics:[{label,value,delta?,tone?}]}。低频简写：pie-chart/radar-chart/progress/tag-list/form/action-list/question/video-scroll 均为「title?+自有数据字段」（形状见组件白名单 zod）；html{title?,html:受控HTML}（渲染前 DOMPurify 消毒，禁 script/iframe/on*事件/javascript:链接）；html-app{title?,html:完整HTML片段(含style/script),height?,data?}（AHTML 自由页面，沙箱 iframe 安全渲染，window.__AHTML__.data 取上下文，window.parent.postMessage 回传事件）；compose{title?,layout:grid|stack|tabs|columns,cols?,data?,cells:[{title?,component,props?,span?}]}（组装式布局，props 值可含 ${data.字段}）";
 
 const renderComponentTool = tool({
   description:
@@ -174,6 +183,8 @@ export const POST = withDb(async (request: NextRequest) => {
     execute: async ({ task }) => {
       const kernel = await getKernel();
       const summary = await kernel.pi.spawn(task, {
+        // D1 可取消：客户端断开连接/用户 stop() → request.signal abort → pi 会话中断
+        signal: request.signal,
         onEvent: (ev) => {
           if (ev.type === 'delta') return; // 增量文本太频繁，跳过
           const brief = ev.text.replace(/\s+/g, ' ').trim().slice(0, 80);
@@ -188,6 +199,28 @@ export const POST = withDb(async (request: NextRequest) => {
         },
       });
       return { summary };
+    },
+  });
+
+  // M5 增量：update_page —— 在已发布动态页面上追加/插入/替换/删除/移动组件（RSC 渲染即时反映）
+  const updatePageTool = tool({
+    description: `在已发布的 AI 动态页面（/p/<slug>，generate_page 生成）上增量修改组件树：append 追加到末尾、insert 在指定 index 之前插入、replace 按 index 替换、remove 按 index 删除、move 把 index 移到 to。适合用户说「在刚才那个页面/这个页面上再加一个xx图表/改成xx/把xx放前面」时。组件白名单：${COMPONENT_IDS.join('、')}；component.props 形状同 generate_page/render_component（${COMPONENT_SHAPES}）；index 以 0 开始（可直接取现页面从上到下顺序）。`,
+    inputSchema: z.object({
+      id: z.string().regex(/^[a-z0-9][a-z0-9-]{1,62}$/, "slug 只能是小写字母/数字/连字符").describe("已发布页面 slug（/p/ 路由名）"),
+      op: z.enum(["append", "insert", "replace", "remove", "move"]).describe("操作：append 追加 / insert 在 index 前插入 / replace 按索引替换 / remove 按索引删除 / move 移动"),
+      component: pageSpecComponentSchema.optional().describe("append/insert/replace 时必填的新组件实例"),
+      index: z.number().int().min(0).optional().describe("insert/replace/remove/move 时目标组件索引（0 起）"),
+      to: z.number().int().min(0).optional().describe("move 时目标位置（0 起）"),
+    }),
+    execute: async ({ id, op, component, index, to }) => {
+      const r = await kernel.specs.updatePageSpec(id, { op: op as never, component: component as never, index, to });
+      return {
+        ok: r.ok,
+        url: `/p/${id}`,
+        operation: r.operation,
+        componentCount: r.componentCount,
+        message: `页面「/p/${id}」已完成 ${r.operation}，当前共 ${r.componentCount} 个组件；刷新页面可见。`,
+      };
     },
   });
 
@@ -406,6 +439,7 @@ export const POST = withDb(async (request: NextRequest) => {
     plan_workflow: planWorkflowTool,
     run_workflow: runWorkflowTool,
     generate_page: generatePageTool,
+    update_page: updatePageTool,
     memory_search: memorySearchTool,
     memory_store: memoryStoreTool,
     create_agent: createAgentTool,
@@ -431,7 +465,24 @@ export const POST = withDb(async (request: NextRequest) => {
     }),
   };
 
-  const system = (buildSystemPrompt(body.pageContext) + augment.block + "\n\n" + buildGenUISystem()).trim();
+  // ── B1 上下文压缩：超阈值时把早期消息折叠为摘要注入 system ──
+  // 原始历史仍完整保留在 conversations 库中；摘要一次生成、会话级缓存复用，
+  // 模型不可用时降级为截断，绝不阻断对话。
+  let historyNote = "";
+  if (shouldCompact(messages) && hasEarlyContent(messages)) {
+    historyNote = peekCompactSummary(conversationId) ?? "";
+    if (!historyNote) {
+      const summary = await buildCompactSummary(messages);
+      if (summary) {
+        rememberCompact(conversationId, messages, summary);
+        historyNote = summary;
+      }
+    }
+  }
+
+  const system = (
+    buildSystemPrompt(body.pageContext) + augment.block + "\n\n" + buildGenUISystem() + compactNote(historyNote)
+  ).trim();
 
   // 对话开始时把全局 presence 置 busy（球/顶栏/心跳同一数据源），结束时复位 idle
   publish(WORKFLOW_TOPIC, { type: 'state', state: 'busy', activity: 0.7 });
